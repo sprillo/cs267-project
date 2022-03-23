@@ -1,12 +1,14 @@
 """
 To test this, compare the single-site likelihood against what is obtained from
 FastTree. Then, we will change to co-evolution model, and see how much the
-likelihood improves!
+likelihood improves. To test the co-evolution computation, we compare it
+against FastTree ran with 1 site rate category only (i.e. no site rates)
+and a product rate matrix.
 """
 from typing import List
 
 
-def compute_log_likelihood(
+def compute_log_likelihoods(
     newick_tree_paths: List[str],
     msa_paths: List[str],
     site_rates_paths: List[str],
@@ -20,7 +22,7 @@ def compute_log_likelihood(
     num_processes: int,
 ) -> None:
     """
-    Compute log-likelihood under the given model.
+    Compute log-likelihoods under the given model.
 
     Given trees, MSAs, site rates, contact maps, and models for the evolution
     of contacting sites and non-contacting sites, the log-likelihood of each
