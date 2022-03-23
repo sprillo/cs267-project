@@ -2,7 +2,7 @@ from typing import List
 
 
 def count_co_transitions(
-    newick_tree_paths: List[str],
+    tree_paths: List[str],
     msa_paths: List[str],
     contact_map_paths: List[str],
     amino_acids: List[str],
@@ -35,7 +35,7 @@ def count_co_transitions(
         the contact is considered 'trivial' and ignored when counting.
 
     Args:
-        newick_tree_paths: Paths to the trees stored in newick format.
+        tree_paths: Paths to the trees stored in friendly format.
         msa_paths: Paths to the multiple sequence alignments in FASTA format.
         contact_map_paths: Paths to the contact maps stored as space-separated
             binary matrices.

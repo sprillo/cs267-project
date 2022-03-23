@@ -9,7 +9,7 @@ from typing import List
 
 
 def compute_log_likelihoods(
-    newick_tree_paths: List[str],
+    tree_paths: List[str],
     msa_paths: List[str],
     site_rates_paths: List[str],
     contact_map_paths: List[str],
@@ -39,7 +39,7 @@ def compute_log_likelihoods(
         can mutate at a time.
 
     Args:
-        newick_tree_paths: Paths to the trees stored in newick format.
+        tree_paths: Paths to the trees stored in friendly format.
         msa_paths: Paths to the multiple sequence alignments in FASTA format.
         site_rates_paths: Paths to the files containing the rates at which
             each site evolves, in the FastTree output format. Rates for sites

@@ -2,7 +2,7 @@ from typing import List
 
 
 def count_transitions(
-    newick_tree_paths: List[str],
+    tree_paths: List[str],
     msa_paths: List[str],
     site_rates_paths: List[str],
     amino_acids: List[str],
@@ -31,7 +31,7 @@ def count_transitions(
     - Branch lengths are adjusted by the site-specific rate when counting.
 
     Args:
-        newick_tree_paths: Paths to the trees stored in newick format.
+        tree_paths: Paths to the trees stored in friendly format.
         msa_paths: Paths to the multiple sequence alignments in FASTA format.
         site_rates_paths: Paths to the files containing the rates at which
             each site evolves, in the FastTree output format.
