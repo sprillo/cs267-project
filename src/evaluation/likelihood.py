@@ -27,6 +27,8 @@ def compute_log_likelihoods(
     Given trees, MSAs, site rates, contact maps, and models for the evolution
     of contacting sites and non-contacting sites, the log-likelihood of each
     tree is computed, at the resolution of single-sites and contacting pairs.
+    The model is given by the state distribution of the root node, and the rate
+    matrix which describes the evolution of states.
 
     Details:
     - For each position, it must be either in contact with exactly 1 other
