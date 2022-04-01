@@ -2,27 +2,30 @@ from typing import List
 
 
 def count_transitions(
-    tree_paths: List[str],
-    msa_paths: List[str],
-    site_rates_paths: List[str],
+    tree_dir: str,
+    msa_dir: str,
+    site_rates_dir: str,
+    families: List[str],
     amino_acids: List[str],
     quantization_points: List[float],
-    output_count_matrices_path: str,
+    edge_or_cherry: bool,
+    output_count_matrices_dir: str,
     num_processes: int,
-):
+) -> None:
     """
     Count the number of transitions.
 
-    For a given list of protein family trees, MSAs, and site rates, count
-    the number of transitions between amino acids at cherries of the trees.
+    For a tree, an MSA, and site rates, count the number of transitions
+    between amino acids at either edges of cherries of the trees. This
+    computation is aggregated over all the families.
 
     The computational complexity of this function is as follows. Let:
-    - t be the number of trees,
-    - n be the (average) number of sequences in each tree,
+    - f be the number of families,
+    - n be the (average) number of sequences in each family,
     - l be the (average) length of each protein,
     - b be the number of quantization points ('buckets'), and
     - s = len(amino_acids) be the number of amino acids ('states'),
-    Then the computational complexity is: O(t * (n * l + b * s^2)).
+    Then the computational complexity is: O(f * (n * l + b * s^2)).
 
     Details:
     - Branches whose lengths are smaller than the smallest quantization point,
@@ -31,14 +34,18 @@ def count_transitions(
     - Branch lengths are adjusted by the site-specific rate when counting.
 
     Args:
-        tree_paths: Paths to the trees stored in friendly format.
-        msa_paths: Paths to the multiple sequence alignments in FASTA format.
-        site_rates_paths: Paths to the files containing the rates at which
-            each site evolves, in the FastTree output format.
+        tree_dir: Directory to the trees stored in friendly format.
+        msa_dir: Directory to the multiple sequence alignments in FASTA format.
+        site_rates_dir: Directory to the files containing the rates at which
+            each site evolves.
+        families: The protein families for which to perform the computation.
         amino_acids: The list of (valid) amino acids.
         quantization_points: List of time values used to approximate branch
             lengths.
-        output_count_matrices_path: Path where to write the count matrices to.
+        edge_or_cherry: Whether to count transitions on edges (which are
+            unidirectional), or on cherries (which are bi-directional).
+        output_count_matrices_dir: Directory where to write the count matrices
+            to.
         num_processes: Number of processes used to parallelize computation.
     """
     pass

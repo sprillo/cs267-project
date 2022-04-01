@@ -9,16 +9,17 @@ from typing import List
 
 
 def compute_log_likelihoods(
-    tree_paths: List[str],
-    msa_paths: List[str],
-    site_rates_paths: List[str],
-    contact_map_paths: List[str],
+    tree_dir: str,
+    msa_dir: str,
+    site_rates_dir: str,
+    contact_map_dir: str,
+    families: List[str],
     amino_acids: List[str],
     pi_1_path: str,
     Q_1_path: str,
     pi_2_path: str,
     Q_2_path: str,
-    output_likelihood_paths: List[str],
+    output_likelihood_dir: str,
     num_processes: int,
 ) -> None:
     """
@@ -39,13 +40,13 @@ def compute_log_likelihoods(
         can mutate at a time.
 
     Args:
-        tree_paths: Paths to the trees stored in friendly format.
-        msa_paths: Paths to the multiple sequence alignments in FASTA format.
-        site_rates_paths: Paths to the files containing the rates at which
-            each site evolves, in the FastTree output format. Rates for sites
-            that co-evolve are ignored.
-        contact_map_paths: Paths to the contact maps stored as space-separated
-            binary matrices.
+        tree_dir: Directory to the trees stored in friendly format.
+        msa_dir: Directory to the multiple sequence alignments in FASTA format.
+        site_rates_dir: Directory to the files containing the rates at which
+            each site evolves. Rates for sites that co-evolve are ignored.
+        contact_map_dir: Directory to the contact maps stored as
+            space-separated binary matrices.
+        families: The protein families for which to perform the computation.
         amino_acids: The list of amino acids.
         pi_1_path: Path to an array of length len(amino_acids). It indicates,
             for sites that evolve independently (i.e. that are not in contact
@@ -59,7 +60,7 @@ def compute_log_likelihoods(
         Q_2_path: Path to an array of size (len(amino_acids) ** 2) x
             (len(amino_acids) ** 2), the rate matrix describing the evolution
             of sites that are in contact.
-        output_likelihood_paths: Paths where to write the log-likelihoods,
+        output_likelihood_dir: Directory where to write the log-likelihoods,
             with site-level resolution.
         num_processes: Number of processes used to parallelize computation.
     """
