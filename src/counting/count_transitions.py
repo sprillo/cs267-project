@@ -55,8 +55,8 @@ def count_transitions(
             to.
         num_processes: Number of processes used to parallelize computation.
     """
-    length = len(amino_acids)
-    count_matices = {q: pd.DataFrame(np.zeros(shape=(length, length)), index=amino_acids, columns=amino_acids) for q in quantization_points}
+    num_amino_acids = len(amino_acids)
+    count_matices = {q: pd.DataFrame(np.zeros(shape=(num_amino_acids, num_amino_acids)), index=amino_acids, columns=amino_acids) for q in quantization_points}
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
