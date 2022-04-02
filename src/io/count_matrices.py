@@ -12,14 +12,16 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
     num_matrices, s = lines[line_idx].strip().split(" ")
     if s != "matrices":
         raise Exception(
-            f"In file {count_matrices_path}, expected line '[num_matrices] matrices', but found: '{lines[line_idx]}'"
+            f"In file {count_matrices_path}, expected line '[num_matrices] "
+            f"matrices', but found: '{lines[line_idx]}'"
         )
     num_matrices = int(num_matrices)
     line_idx += 1
     num_states, s = lines[line_idx].strip().split(" ")
     if s != "states":
         raise Exception(
-            f"In file {count_matrices_path}, expected line '[num_states] states', but found: '{lines[line_idx]}'"
+            f"In file {count_matrices_path}, expected line '[num_states] "
+            f"states', but found: '{lines[line_idx]}'"
         )
     num_states = int(num_states)
     line_idx += 1
@@ -29,7 +31,9 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
         states = lines[line_idx].strip().split()
         if len(states) != num_states:
             raise Exception(
-                f"Error reading count matrices file: {count_matrices_path}\nExpected {num_states} states in line {line_idx}, but instead found {len(states)} states: {states}"
+                f"Error reading count matrices file: {count_matrices_path}\n"
+                f"Expected {num_states} states in line {line_idx}, but instead "
+                f"found {len(states)} states: {states}"
             )
         line_idx += 1
         num_states = len(states)

@@ -1,7 +1,6 @@
 import os
 import tempfile
 import unittest
-from filecmp import dircmp
 from typing import Dict
 
 import pandas as pd
@@ -20,22 +19,27 @@ def check_count_matrices_are_equal(
     qs_2 = sorted(list(count_matrices_2.keys()))
     if qs_1 != qs_2:
         raise Exception(
-            f"Quantization values are different:\nExpected: {qs_1}\nvs\nObtained: {qs_2}"
+            f"Quantization values are different:\nExpected: "
+            f"{qs_1}\nvs\nObtained: {qs_2}"
         )
     for q in qs_1:
         count_matrix_1 = count_matrices_1[q]
         count_matrix_2 = count_matrices_2[q]
         if list(count_matrix_1.columns) != list(count_matrix_2.columns):
             raise Exception(
-                f"Count matrix columns differ:\nExpected:\n{count_matrix_1.columns}\nvs\nObtained:\n{count_matrix_2.columns}"
+                f"Count matrix columns differ:\nExpected:\n"
+                f"{count_matrix_1.columns}\nvs\nObtained:\n"
+                f"{count_matrix_2.columns}"
             )
         if list(count_matrix_1.index) != list(count_matrix_2.index):
             raise Exception(
-                f"Count matrix indices differ:\nExpected:\n{count_matrix_1.index}\nvs\nObtained:\n{count_matrix_2.index}"
+                f"Count matrix indices differ:\nExpected:\n"
+                f"{count_matrix_1.index}\nvs\nObtained:\n{count_matrix_2.index}"
             )
         if not (count_matrix_1 == count_matrix_2).all().all():
             raise Exception(
-                f"Count matrix contents differ:\nExpected:\n{count_matrix_1}\nvs\nObtained:\n{count_matrix_2}"
+                f"Count matrix contents differ:\nExpected:\n{count_matrix_1}\n"
+                f"vs\nObtained:\n{count_matrix_2}"
             )
     return True
 
@@ -53,7 +57,6 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 msa_dir="./test_input_data/tiny/msa_dir",
                 site_rates_dir="./test_input_data/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
-                # families=["fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
                 edge_or_cherry="edge",
@@ -83,7 +86,6 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 msa_dir="./test_input_data/tiny/msa_dir",
                 site_rates_dir="./test_input_data/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
-                # families=["fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],
                 edge_or_cherry="cherry",
@@ -113,7 +115,6 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 msa_dir="./test_input_data/tiny/msa_dir",
                 contact_map_dir="./test_input_data/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
-                # families=["fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
                 edge_or_cherry="edge",
@@ -144,7 +145,6 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 msa_dir="./test_input_data/tiny/msa_dir",
                 contact_map_dir="./test_input_data/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
-                # families=["fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],
                 edge_or_cherry="cherry",

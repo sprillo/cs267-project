@@ -58,7 +58,8 @@ def read_tree(
         n = int(n)
     except Exception:
         raise Exception(
-            f"Tree file: {tree_path} should start with '[num_nodes] nodes'. It started with: '{lines[0]}'"
+            f"Tree file: {tree_path} should start with '[num_nodes] nodes'. "
+            f"It started with: '{lines[0]}'"
         )
     tree = Tree(n)
     for i in range(1, n + 1, 1):
@@ -71,7 +72,8 @@ def read_tree(
         m = int(m)
     except Exception:
         raise Exception(
-            f"Tree file: {tree_path} should have line '[num_edges] edges' at position {n + 1}, but it had line: '{lines[n + 1]}'"
+            f"Tree file: {tree_path} should have line '[num_edges] edges' at "
+            f"position {n + 1}, but it had line: '{lines[n + 1]}'"
         )
     for i in range(n + 2, n + 2 + m, 1):
         try:
@@ -79,11 +81,13 @@ def read_tree(
             length = float(length)
         except Exception:
             raise Exception(
-                f"Tree file: {tree_path} should have line '[u] [v] [length]' at position {i}, but it had line: '{lines[i]}'"
+                f"Tree file: {tree_path} should have line '[u] [v] [length]' at"
+                f" position {i}, but it had line: '{lines[i]}'"
             )
         if not tree.is_node(u) or not tree.is_node(v):
             raise Exception(
-                f"In Tree file {tree_path}: {u} and {v} should be nodes in the tree, but the nodes are: {tree.nodes()}"
+                f"In Tree file {tree_path}: {u} and {v} should be nodes in the"
+                f" tree, but the nodes are: {tree.nodes()}"
             )
         tree.add_edge(u, v, length)
     return tree

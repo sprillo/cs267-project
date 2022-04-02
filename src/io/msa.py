@@ -16,7 +16,8 @@ def read_msa(
     for i in range(msa_size):
         if not lines[2 * i].startswith(">"):
             raise Exception(
-                f"MSA at {msa_path}: at line {2 * i} expected '>[seq_name]' but found {lines[2 * i]}"
+                f"MSA at {msa_path}: at line {2 * i} expected '>[seq_name]' but"
+                f" found {lines[2 * i]}"
             )
         seq_name = lines[2 * i][1:]
         seq = lines[2 * i + 1]

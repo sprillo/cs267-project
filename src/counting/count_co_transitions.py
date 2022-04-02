@@ -52,7 +52,6 @@ def _map_func(args):
         ]
         for node in tree.nodes():
             node_seq = msa[node]
-            msa_length = len(node_seq)
             if edge_or_cherry == "edge":
                 # Extract all transitions on edges starting at 'node'
                 for (child, branch_length) in tree.children(node):
