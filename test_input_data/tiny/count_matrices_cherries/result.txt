@@ -1,3 +1,5 @@
+2 matrices
+4 states
 1.99
     I   L   S   T
 I   1   0   0   0

@@ -1,2 +1,5 @@
 flake8
 numpy
+pandas
+parameterized
+pytest

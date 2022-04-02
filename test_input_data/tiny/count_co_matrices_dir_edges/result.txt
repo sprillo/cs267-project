@@ -1,3 +1,5 @@
+2 matrices
+16 states
 1.99
     II  IL  IS  IT  LI  LL  LS  LT  SI  SL  SS  ST  TI  TL  TS  TT
 II  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
