@@ -15,7 +15,7 @@ def read_contact_map(
             f"Contact map file should start with line '[num_sites] sites', "
             f"but started with: {lines[0]} instead."
         )
-    res = np.zeros(shape=(num_sites, num_sites), dtype=np.int)
+    res = np.zeros(shape=(num_sites, num_sites), dtype=int)
     for i in range(num_sites):
         res[i, :] = np.array(list(map(int, lines[i + 1].split())))
     return res
