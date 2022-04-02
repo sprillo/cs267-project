@@ -77,5 +77,19 @@ def count_transitions(
                             if start_state in amino_acids and end_state in amino_acids:
                                 count_matices[q].loc[start_state, end_state] += 1
             elif edge_or_cherry == "cherry":
-                raise NotImplementedError
+                children = tree.children(node)
+                if len(children) == 2 and all([tree.is_leaf(child) for (child, _) in children]):
+                    (leaf_1, branch_length_1), (leaf_2, branch_length_2) = children[0], children[1]
+                    leaf_seq_1, leaf_seq_2 = msa[leaf_1], msa[leaf_2]
+                    for amino_acid_idx in range(msa_length):
+                        site_rate = site_rates[amino_acid_idx]
+                        branch_length_total = branch_length_1 + branch_length_2
+                        q = quantize(branch_length_total * site_rate, quantization_points)
+                        if q is not None:
+                            start_state = leaf_seq_1[amino_acid_idx]
+                            end_state = leaf_seq_2[amino_acid_idx]
+                            if start_state in amino_acids and end_state in amino_acids:
+                                count_matices[q].loc[start_state, end_state] += 0.5
+                                count_matices[q].loc[end_state, start_state] += 0.5
+
     write_count_matrices(count_matices, os.path.join(output_count_matrices_dir, "result.txt"))

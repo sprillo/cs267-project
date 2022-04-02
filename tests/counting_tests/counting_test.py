@@ -63,3 +63,27 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 expected_count_matrices,
                 count_matrices,
             )
+
+    @parameterized.expand([("multiprocess", 3), ("serial", 1)])
+    def test_count_transitions_cherries(self, name, num_processes):
+        with tempfile.TemporaryDirectory() as root_dir:
+            # root_dir = "test_output/"
+            outdir = os.path.join(root_dir, 'count_matrices_edges')
+            count_transitions(
+                tree_dir="./test_input_data/tiny/tree_dir",
+                msa_dir="./test_input_data/tiny/msa_dir",
+                site_rates_dir="./test_input_data/tiny/site_rates_dir",
+                families=["fam1", "fam2", "fam3"],
+                # families=["fam3"],
+                amino_acids=["I", "L", "S", "T"],
+                quantization_points=[1.99, 10.01],
+                edge_or_cherry="cherry",
+                output_count_matrices_dir=outdir,
+                num_processes=num_processes,
+            )
+            count_matrices = read_count_matrices(os.path.join(outdir, "result.txt"))
+            expected_count_matrices = read_count_matrices("test_input_data/tiny/count_matrices_cherries/result.txt")
+            check_count_matrices_are_equal(
+                expected_count_matrices,
+                count_matrices,
+            )
