@@ -3,9 +3,9 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-from src.io.contact_map import read_contact_map
 
-from src.io import read_tree, read_msa, read_site_rates, write_count_matrices
+from src.io import read_msa, read_site_rates, read_tree, write_count_matrices
+from src.io.contact_map import read_contact_map
 from src.utils import quantize
 
 
@@ -62,15 +62,30 @@ def count_co_transitions(
             to.
         num_processes: Number of processes used to parallelize computation.
     """
-    pairs_of_amino_acids = [aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids]
+    pairs_of_amino_acids = [
+        aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
+    ]
     num_amino_acids = len(amino_acids)
-    count_matices = {q: pd.DataFrame(np.zeros(shape=(num_amino_acids**2, num_amino_acids**2)), index=pairs_of_amino_acids, columns=pairs_of_amino_acids) for q in quantization_points}
+    count_matices = {
+        q: pd.DataFrame(
+            np.zeros(shape=(num_amino_acids**2, num_amino_acids**2)),
+            index=pairs_of_amino_acids,
+            columns=pairs_of_amino_acids,
+        )
+        for q in quantization_points
+    }
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
-        contact_map = read_contact_map(contact_map_path=os.path.join(contact_map_dir, family + ".txt"))
+        contact_map = read_contact_map(
+            contact_map_path=os.path.join(contact_map_dir, family + ".txt")
+        )
         contacting_pairs = list(zip(*np.where(contact_map == 1)))
-        contacting_pairs = [(i, j) for (i, j) in contacting_pairs if abs(i - j) >= minimum_distance_for_nontrivial_contact and i < j]
+        contacting_pairs = [
+            (i, j)
+            for (i, j) in contacting_pairs
+            if abs(i - j) >= minimum_distance_for_nontrivial_contact and i < j
+        ]
         for node in tree.nodes():
             node_seq = msa[node]
             msa_length = len(node_seq)
@@ -83,13 +98,27 @@ def count_co_transitions(
                         for (i, j) in contacting_pairs:
                             start_state = node_seq[i] + node_seq[j]
                             end_state = child_seq[i] + child_seq[j]
-                            if node_seq[i] in amino_acids and node_seq[j] in amino_acids and child_seq[i] in amino_acids and child_seq[j] in amino_acids:
-                                count_matices[q].loc[start_state, end_state] += 0.5
-                                count_matices[q].loc[start_state[::-1], end_state[::-1]] += 0.5
+                            if (
+                                node_seq[i] in amino_acids
+                                and node_seq[j] in amino_acids
+                                and child_seq[i] in amino_acids
+                                and child_seq[j] in amino_acids
+                            ):
+                                count_matices[q].loc[
+                                    start_state, end_state
+                                ] += 0.5
+                                count_matices[q].loc[
+                                    start_state[::-1], end_state[::-1]
+                                ] += 0.5
             elif edge_or_cherry == "cherry":
                 children = tree.children(node)
-                if len(children) == 2 and all([tree.is_leaf(child) for (child, _) in children]):
-                    (leaf_1, branch_length_1), (leaf_2, branch_length_2) = children[0], children[1]
+                if len(children) == 2 and all(
+                    [tree.is_leaf(child) for (child, _) in children]
+                ):
+                    (leaf_1, branch_length_1), (leaf_2, branch_length_2) = (
+                        children[0],
+                        children[1],
+                    )
                     leaf_seq_1, leaf_seq_2 = msa[leaf_1], msa[leaf_2]
                     branch_length_total = branch_length_1 + branch_length_2
                     q = quantize(branch_length_total, quantization_points)
@@ -98,10 +127,25 @@ def count_co_transitions(
                             # We accumulate the transitions in both directions
                             start_state = leaf_seq_1[i] + leaf_seq_1[j]
                             end_state = leaf_seq_2[i] + leaf_seq_2[j]
-                            if leaf_seq_1[i] in amino_acids and leaf_seq_1[j] in amino_acids and leaf_seq_2[i] in amino_acids and leaf_seq_2[j] in amino_acids:
-                                count_matices[q].loc[start_state, end_state] += 0.25
-                                count_matices[q].loc[start_state[::-1], end_state[::-1]] += 0.25
-                                count_matices[q].loc[end_state, start_state] += 0.25
-                                count_matices[q].loc[end_state[::-1], start_state[::-1]] += 0.25
+                            if (
+                                leaf_seq_1[i] in amino_acids
+                                and leaf_seq_1[j] in amino_acids
+                                and leaf_seq_2[i] in amino_acids
+                                and leaf_seq_2[j] in amino_acids
+                            ):
+                                count_matices[q].loc[
+                                    start_state, end_state
+                                ] += 0.25
+                                count_matices[q].loc[
+                                    start_state[::-1], end_state[::-1]
+                                ] += 0.25
+                                count_matices[q].loc[
+                                    end_state, start_state
+                                ] += 0.25
+                                count_matices[q].loc[
+                                    end_state[::-1], start_state[::-1]
+                                ] += 0.25
 
-    write_count_matrices(count_matices, os.path.join(output_count_matrices_dir, "result.txt"))
+    write_count_matrices(
+        count_matices, os.path.join(output_count_matrices_dir, "result.txt")
+    )

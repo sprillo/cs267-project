@@ -1,21 +1,26 @@
 import os
 from typing import Dict
+
 import numpy as np
 import pandas as pd
 
 
 def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
     res = {}
-    lines = open(count_matrices_path, "r").read().strip().split('\n')
+    lines = open(count_matrices_path, "r").read().strip().split("\n")
     line_idx = 0
     num_matrices, s = lines[line_idx].strip().split(" ")
     if s != "matrices":
-        raise Exception(f"In file {count_matrices_path}, expected line '[num_matrices] matrices', but found: '{lines[line_idx]}'")
+        raise Exception(
+            f"In file {count_matrices_path}, expected line '[num_matrices] matrices', but found: '{lines[line_idx]}'"
+        )
     num_matrices = int(num_matrices)
     line_idx += 1
     num_states, s = lines[line_idx].strip().split(" ")
     if s != "states":
-        raise Exception(f"In file {count_matrices_path}, expected line '[num_states] states', but found: '{lines[line_idx]}'")
+        raise Exception(
+            f"In file {count_matrices_path}, expected line '[num_states] states', but found: '{lines[line_idx]}'"
+        )
     num_states = int(num_states)
     line_idx += 1
     for _ in range(num_matrices):
@@ -23,7 +28,9 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
         line_idx += 1
         states = lines[line_idx].strip().split()
         if len(states) != num_states:
-            raise Exception(f"Error reading count matrices file: {count_matrices_path}\nExpected {num_states} states in line {line_idx}, but instead found {len(states)} states: {states}")
+            raise Exception(
+                f"Error reading count matrices file: {count_matrices_path}\nExpected {num_states} states in line {line_idx}, but instead found {len(states)} states: {states}"
+            )
         line_idx += 1
         num_states = len(states)
         count_matrix_lines = []
@@ -31,9 +38,13 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
         for line in range(num_states):
             row_state = lines[line_idx].strip().split()[0]
             row_states.append(row_state)
-            count_matrix_line = list(map(float, lines[line_idx].strip().split()[1:]))
+            count_matrix_line = list(
+                map(float, lines[line_idx].strip().split()[1:])
+            )
             if len(count_matrix_line) != num_states:
-                raise Exception(f"Could not read count matrices. Line: {count_matrix_line}")
+                raise Exception(
+                    f"Could not read count matrices. Line: {count_matrix_line}"
+                )
             line_idx += 1
             count_matrix_lines.append(count_matrix_line)
         count_matrix_array = np.array(count_matrix_lines)
@@ -46,18 +57,20 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
     return res
 
 
-def write_count_matrices(count_matrices: Dict[float, pd.DataFrame], count_matrices_path: str) -> None:
+def write_count_matrices(
+    count_matrices: Dict[float, pd.DataFrame], count_matrices_path: str
+) -> None:
     count_matrix_dir = os.path.dirname(count_matrices_path)
     if not os.path.exists(count_matrix_dir):
         os.makedirs(count_matrix_dir)
     num_matrices = len(count_matrices)
     num_states = len(next(iter(count_matrices.values())))
     with open(count_matrices_path, "a") as out_file:
-        out_file.write(
-            f"{num_matrices} matrices\n{num_states} states\n"
-        )
+        out_file.write(f"{num_matrices} matrices\n{num_states} states\n")
     for q in sorted(count_matrices.keys()):
         with open(count_matrices_path, "a") as out_file:
             out_file.write(f"{q}\n")
         count_matrix = count_matrices[q]
-        count_matrix.to_csv(count_matrices_path, mode='a', index=True, header=True, sep='\t')
+        count_matrix.to_csv(
+            count_matrices_path, mode="a", index=True, header=True, sep="\t"
+        )

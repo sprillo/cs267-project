@@ -4,7 +4,7 @@ from typing import List
 import numpy as np
 import pandas as pd
 
-from src.io import read_tree, read_msa, read_site_rates, write_count_matrices
+from src.io import read_msa, read_site_rates, read_tree, write_count_matrices
 from src.utils import quantize
 
 
@@ -56,11 +56,20 @@ def count_transitions(
         num_processes: Number of processes used to parallelize computation.
     """
     num_amino_acids = len(amino_acids)
-    count_matices = {q: pd.DataFrame(np.zeros(shape=(num_amino_acids, num_amino_acids)), index=amino_acids, columns=amino_acids) for q in quantization_points}
+    count_matices = {
+        q: pd.DataFrame(
+            np.zeros(shape=(num_amino_acids, num_amino_acids)),
+            index=amino_acids,
+            columns=amino_acids,
+        )
+        for q in quantization_points
+    }
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
-        site_rates = read_site_rates(site_rates_path=os.path.join(site_rates_dir, family + ".txt"))
+        site_rates = read_site_rates(
+            site_rates_path=os.path.join(site_rates_dir, family + ".txt")
+        )
         for node in tree.nodes():
             node_seq = msa[node]
             msa_length = len(node_seq)
@@ -70,26 +79,49 @@ def count_transitions(
                     child_seq = msa[child]
                     for amino_acid_idx in range(msa_length):
                         site_rate = site_rates[amino_acid_idx]
-                        q = quantize(branch_length * site_rate, quantization_points)
+                        q = quantize(
+                            branch_length * site_rate, quantization_points
+                        )
                         if q is not None:
                             start_state = node_seq[amino_acid_idx]
                             end_state = child_seq[amino_acid_idx]
-                            if start_state in amino_acids and end_state in amino_acids:
-                                count_matices[q].loc[start_state, end_state] += 1
+                            if (
+                                start_state in amino_acids
+                                and end_state in amino_acids
+                            ):
+                                count_matices[q].loc[
+                                    start_state, end_state
+                                ] += 1
             elif edge_or_cherry == "cherry":
                 children = tree.children(node)
-                if len(children) == 2 and all([tree.is_leaf(child) for (child, _) in children]):
-                    (leaf_1, branch_length_1), (leaf_2, branch_length_2) = children[0], children[1]
+                if len(children) == 2 and all(
+                    [tree.is_leaf(child) for (child, _) in children]
+                ):
+                    (leaf_1, branch_length_1), (leaf_2, branch_length_2) = (
+                        children[0],
+                        children[1],
+                    )
                     leaf_seq_1, leaf_seq_2 = msa[leaf_1], msa[leaf_2]
                     for amino_acid_idx in range(msa_length):
                         site_rate = site_rates[amino_acid_idx]
                         branch_length_total = branch_length_1 + branch_length_2
-                        q = quantize(branch_length_total * site_rate, quantization_points)
+                        q = quantize(
+                            branch_length_total * site_rate, quantization_points
+                        )
                         if q is not None:
                             start_state = leaf_seq_1[amino_acid_idx]
                             end_state = leaf_seq_2[amino_acid_idx]
-                            if start_state in amino_acids and end_state in amino_acids:
-                                count_matices[q].loc[start_state, end_state] += 0.5
-                                count_matices[q].loc[end_state, start_state] += 0.5
+                            if (
+                                start_state in amino_acids
+                                and end_state in amino_acids
+                            ):
+                                count_matices[q].loc[
+                                    start_state, end_state
+                                ] += 0.5
+                                count_matices[q].loc[
+                                    end_state, start_state
+                                ] += 0.5
 
-    write_count_matrices(count_matices, os.path.join(output_count_matrices_dir, "result.txt"))
+    write_count_matrices(
+        count_matices, os.path.join(output_count_matrices_dir, "result.txt")
+    )

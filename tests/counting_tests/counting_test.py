@@ -1,20 +1,20 @@
 import os
-import unittest
 import tempfile
+import unittest
 from filecmp import dircmp
-from parameterized import parameterized
-
-import pandas as pd
 from typing import Dict
 
-from src.counting.count_transitions import count_transitions
+import pandas as pd
+from parameterized import parameterized
+
 from src.counting.count_co_transitions import count_co_transitions
+from src.counting.count_transitions import count_transitions
 from src.io.count_matrices import read_count_matrices
 
 
 def check_count_matrices_are_equal(
     count_matrices_1: Dict[str, pd.DataFrame],
-    count_matrices_2: Dict[str, pd.DataFrame]
+    count_matrices_2: Dict[str, pd.DataFrame],
 ) -> None:
     qs_1 = sorted(list(count_matrices_1.keys()))
     qs_2 = sorted(list(count_matrices_2.keys()))
@@ -33,7 +33,7 @@ def check_count_matrices_are_equal(
             raise Exception(
                 f"Count matrix indices differ:\nExpected:\n{count_matrix_1.index}\nvs\nObtained:\n{count_matrix_2.index}"
             )
-        if not (count_matrix_1==count_matrix_2).all().all():
+        if not (count_matrix_1 == count_matrix_2).all().all():
             raise Exception(
                 f"Count matrix contents differ:\nExpected:\n{count_matrix_1}\nvs\nObtained:\n{count_matrix_2}"
             )
@@ -45,7 +45,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     def test_count_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
-            outdir = os.path.join(root_dir, 'count_matrices_dir_edges')
+            outdir = os.path.join(root_dir, "count_matrices_dir_edges")
             count_transitions(
                 tree_dir="./test_input_data/tiny/tree_dir",
                 msa_dir="./test_input_data/tiny/msa_dir",
@@ -58,8 +58,12 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 output_count_matrices_dir=outdir,
                 num_processes=num_processes,
             )
-            count_matrices = read_count_matrices(os.path.join(outdir, "result.txt"))
-            expected_count_matrices = read_count_matrices("test_input_data/tiny/count_matrices_dir_edges/result.txt")
+            count_matrices = read_count_matrices(
+                os.path.join(outdir, "result.txt")
+            )
+            expected_count_matrices = read_count_matrices(
+                "test_input_data/tiny/count_matrices_dir_edges/result.txt"
+            )
             check_count_matrices_are_equal(
                 expected_count_matrices,
                 count_matrices,
@@ -69,7 +73,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     def test_count_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
-            outdir = os.path.join(root_dir, 'count_matrices_dir_cherries')
+            outdir = os.path.join(root_dir, "count_matrices_dir_cherries")
             count_transitions(
                 tree_dir="./test_input_data/tiny/tree_dir",
                 msa_dir="./test_input_data/tiny/msa_dir",
@@ -82,8 +86,12 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 output_count_matrices_dir=outdir,
                 num_processes=num_processes,
             )
-            count_matrices = read_count_matrices(os.path.join(outdir, "result.txt"))
-            expected_count_matrices = read_count_matrices("test_input_data/tiny/count_matrices_dir_cherries/result.txt")
+            count_matrices = read_count_matrices(
+                os.path.join(outdir, "result.txt")
+            )
+            expected_count_matrices = read_count_matrices(
+                "test_input_data/tiny/count_matrices_dir_cherries/result.txt"
+            )
             check_count_matrices_are_equal(
                 expected_count_matrices,
                 count_matrices,
@@ -93,7 +101,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     def test_count_co_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
-            outdir = os.path.join(root_dir, 'count_co_matrices_dir_edges')
+            outdir = os.path.join(root_dir, "count_co_matrices_dir_edges")
             count_co_transitions(
                 tree_dir="./test_input_data/tiny/tree_dir",
                 msa_dir="./test_input_data/tiny/msa_dir",
@@ -107,8 +115,12 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 output_count_matrices_dir=outdir,
                 num_processes=num_processes,
             )
-            count_matrices = read_count_matrices(os.path.join(outdir, "result.txt"))
-            expected_count_matrices = read_count_matrices("test_input_data/tiny/count_co_matrices_dir_edges/result.txt")
+            count_matrices = read_count_matrices(
+                os.path.join(outdir, "result.txt")
+            )
+            expected_count_matrices = read_count_matrices(
+                "test_input_data/tiny/count_co_matrices_dir_edges/result.txt"
+            )
             check_count_matrices_are_equal(
                 expected_count_matrices,
                 count_matrices,
@@ -118,7 +130,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     def test_count_co_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
-            outdir = os.path.join(root_dir, 'count_co_matrices_dir_cherries')
+            outdir = os.path.join(root_dir, "count_co_matrices_dir_cherries")
             count_co_transitions(
                 tree_dir="./test_input_data/tiny/tree_dir",
                 msa_dir="./test_input_data/tiny/msa_dir",
@@ -132,8 +144,12 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 output_count_matrices_dir=outdir,
                 num_processes=num_processes,
             )
-            count_matrices = read_count_matrices(os.path.join(outdir, "result.txt"))
-            expected_count_matrices = read_count_matrices("test_input_data/tiny/count_co_matrices_dir_cherries/result.txt")
+            count_matrices = read_count_matrices(
+                os.path.join(outdir, "result.txt")
+            )
+            expected_count_matrices = read_count_matrices(
+                "test_input_data/tiny/count_co_matrices_dir_cherries/result.txt"
+            )
             check_count_matrices_are_equal(
                 expected_count_matrices,
                 count_matrices,

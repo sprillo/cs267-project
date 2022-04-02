@@ -50,14 +50,16 @@ class Tree:
 def read_tree(
     tree_path: str,
 ) -> Tree:
-    lines = open(tree_path, "r").read().split('\n')
+    lines = open(tree_path, "r").read().split("\n")
     try:
         n, s = lines[0].split(" ")
         if s != "nodes":
             raise Exception
         n = int(n)
     except Exception:
-        raise Exception(f"Tree file: {tree_path} should start with '[num_nodes] nodes'. It started with: '{lines[0]}'")
+        raise Exception(
+            f"Tree file: {tree_path} should start with '[num_nodes] nodes'. It started with: '{lines[0]}'"
+        )
     tree = Tree(n)
     for i in range(1, n + 1, 1):
         v = lines[i]
@@ -68,14 +70,20 @@ def read_tree(
             raise Exception
         m = int(m)
     except Exception:
-        raise Exception(f"Tree file: {tree_path} should have line '[num_edges] edges' at position {n + 1}, but it had line: '{lines[n + 1]}'")
+        raise Exception(
+            f"Tree file: {tree_path} should have line '[num_edges] edges' at position {n + 1}, but it had line: '{lines[n + 1]}'"
+        )
     for i in range(n + 2, n + 2 + m, 1):
         try:
             u, v, length = lines[i].split(" ")
             length = float(length)
         except Exception:
-            raise Exception(f"Tree file: {tree_path} should have line '[u] [v] [length]' at position {i}, but it had line: '{lines[i]}'")
+            raise Exception(
+                f"Tree file: {tree_path} should have line '[u] [v] [length]' at position {i}, but it had line: '{lines[i]}'"
+            )
         if not tree.is_node(u) or not tree.is_node(v):
-            raise Exception(f"In Tree file {tree_path}: {u} and {v} should be nodes in the tree, but the nodes are: {tree.nodes()}")
+            raise Exception(
+                f"In Tree file {tree_path}: {u} and {v} should be nodes in the tree, but the nodes are: {tree.nodes()}"
+            )
         tree.add_edge(u, v, length)
     return tree
