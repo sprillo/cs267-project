@@ -16,3 +16,14 @@ def quantize(
     ]
     argmin = np.argmin(relative_errors)
     return quantization_points[argmin]
+
+
+def get_process_args(
+    process_rank: int, num_processes: int, all_args: List
+) -> List:
+    process_args = [
+        all_args[i]
+        for i in range(len(all_args))
+        if i % num_processes == process_rank
+    ]
+    return process_args

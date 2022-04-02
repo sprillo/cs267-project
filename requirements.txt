@@ -3,3 +3,4 @@ numpy
 pandas
 parameterized
 pytest
+tqdm

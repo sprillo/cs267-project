@@ -41,7 +41,9 @@ def check_count_matrices_are_equal(
 
 
 class TestCountTransitionsTiny(unittest.TestCase):
-    @parameterized.expand([("multiprocess", 3), ("serial", 1)])
+    @parameterized.expand(
+        [("3 processes", 3), ("2 processes", 2), ("serial", 1)]
+    )
     def test_count_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
@@ -69,7 +71,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("multiprocess", 3), ("serial", 1)])
+    @parameterized.expand(
+        [("3 processes", 3), ("2 processes", 2), ("serial", 1)]
+    )
     def test_count_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
@@ -97,7 +101,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("multiprocess", 3), ("serial", 1)])
+    @parameterized.expand(
+        [("3 processes", 3), ("2 processes", 2), ("serial", 1)]
+    )
     def test_count_co_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
@@ -126,7 +132,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("multiprocess", 3), ("serial", 1)])
+    @parameterized.expand(
+        [("3 processes", 3), ("2 processes", 2), ("serial", 1)]
+    )
     def test_count_co_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
