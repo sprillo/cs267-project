@@ -6,8 +6,7 @@ import numpy as np
 import pandas as pd
 import tqdm
 
-from src.io import read_msa, read_tree, write_count_matrices
-from src.io.contact_map import read_contact_map
+from src.io import read_msa, read_tree, read_contact_map, write_count_matrices
 from src.utils import get_process_args, quantize
 
 
