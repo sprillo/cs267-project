@@ -1,3 +1,4 @@
+import os
 from typing import Dict
 
 
@@ -27,3 +28,17 @@ def read_msa(
             f"MSA at {msa_path}: All sequences should have the same length."
         )
     return msa
+
+
+def write_msa(
+    msa: Dict[str, str],
+    msa_path: str
+) -> None:
+    msa_dir = os.path.dirname(msa_path)
+    if not os.path.exists(msa_dir):
+        os.makedirs(msa_dir)
+    res = ""
+    for seq_name in sorted(list(msa.keys())):
+        res += f">{seq_name}\n"
+        res += f"{msa[seq_name]}\n"
+    open(msa_path, "w").write(res)

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 
 class Tree:
@@ -8,6 +8,7 @@ class Tree:
         self._m = 0
         self._out_deg = {}
         self._in_deg = {}
+        self._parent = {}
 
     def add_node(self, v: str) -> None:
         self._adj_list[v] = []
@@ -19,6 +20,11 @@ class Tree:
         self._m += 1
         self._out_deg[u] += 1
         self._in_deg[v] += 1
+        if v in self._parent:
+            raise Exception(
+                f"Node {v} already has a parent, graph is not a tree."
+            )
+        self._parent[v] = (u, length)
 
     def is_node(self, v: str) -> bool:
         return v in self._adj_list
@@ -45,6 +51,19 @@ class Tree:
 
     def is_leaf(self, u: str) -> bool:
         return self._out_deg[u] == 0
+
+    def preorder_traversal(self) -> List[str]:
+        res = []
+
+        def dfs(v: str):
+            res.append(v)
+            for (u, _) in self.children(v):
+                dfs(u)
+        dfs(self.root())
+        return res
+
+    def parent(self, u: str) -> Tuple[str, int]:
+        return self._parent[u]
 
 
 def read_tree(
