@@ -1,3 +1,0 @@
-state   prob
-S   0.5
-T   0.5
