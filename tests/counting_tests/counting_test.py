@@ -10,6 +10,8 @@ from src.counting.count_co_transitions import count_co_transitions
 from src.counting.count_transitions import count_transitions
 from src.io.count_matrices import read_count_matrices
 
+DATA_DIR = "./tests/counting_tests/test_input_data"
+
 
 def check_count_matrices_are_equal(
     count_matrices_1: Dict[str, pd.DataFrame],
@@ -53,9 +55,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_edges")
             count_transitions(
-                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
-                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
-                site_rates_dir="./tests/counting_tests/test_input_data/tiny/site_rates_dir",
+                tree_dir=f"{DATA_DIR}/tiny/tree_dir",
+                msa_dir=f"{DATA_DIR}/tiny/msa_dir",
+                site_rates_dir=f"{DATA_DIR}/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
@@ -67,7 +69,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "./tests/counting_tests/test_input_data/tiny/count_matrices_dir_edges/result.txt"
+                f"{DATA_DIR}/tiny/count_matrices_dir_edges/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -82,9 +84,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_cherries")
             count_transitions(
-                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
-                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
-                site_rates_dir="./tests/counting_tests/test_input_data/tiny/site_rates_dir",
+                tree_dir=f"{DATA_DIR}/tiny/tree_dir",
+                msa_dir=f"{DATA_DIR}/tiny/msa_dir",
+                site_rates_dir=f"{DATA_DIR}/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],
@@ -96,7 +98,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "./tests/counting_tests/test_input_data/tiny/count_matrices_dir_cherries/result.txt"
+                f"{DATA_DIR}/tiny/count_matrices_dir_cherries/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -111,9 +113,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_edges")
             count_co_transitions(
-                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
-                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
-                contact_map_dir="./tests/counting_tests/test_input_data/tiny/contact_map_dir",
+                tree_dir=f"{DATA_DIR}/tiny/tree_dir",
+                msa_dir=f"{DATA_DIR}/tiny/msa_dir",
+                contact_map_dir=f"{DATA_DIR}/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
@@ -126,7 +128,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "./tests/counting_tests/test_input_data/tiny/count_co_matrices_dir_edges/result.txt"
+                f"{DATA_DIR}/tiny/count_co_matrices_dir_edges/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -141,9 +143,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_cherries")
             count_co_transitions(
-                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
-                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
-                contact_map_dir="./tests/counting_tests/test_input_data/tiny/contact_map_dir",
+                tree_dir=f"{DATA_DIR}/tiny/tree_dir",
+                msa_dir=f"{DATA_DIR}/tiny/msa_dir",
+                contact_map_dir=f"{DATA_DIR}/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],
@@ -156,7 +158,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "./tests/counting_tests/test_input_data/tiny/count_co_matrices_dir_cherries/result.txt"
+                f"{DATA_DIR}/tiny/count_co_matrices_dir_cherries/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,

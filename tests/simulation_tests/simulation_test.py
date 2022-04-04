@@ -2,7 +2,6 @@ import os
 import tempfile
 import unittest
 from collections import defaultdict
-from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -15,8 +14,9 @@ from src.io import (
     write_contact_map,
     write_site_rates,
 )
-from src.markov_chain import compute_stationary_distribution
 from src.simulation import simulate_msas
+
+DATA_DIR = "./tests/simulation_tests/test_input_data"
 
 
 def create_synthetic_contact_map(
@@ -24,7 +24,8 @@ def create_synthetic_contact_map(
 ) -> np.array:
     if num_sites_in_contact % 2 != 0:
         raise Exception(
-            f"num_sites_in_contact should be even, but provided: {num_sites_in_contact}"
+            "num_sites_in_contact should be even, but provided: "
+            f"{num_sites_in_contact}"
         )
     num_contacting_pairs = num_sites_in_contact // 2
     contact_map = np.zeros(shape=(num_sites, num_sites), dtype=int)
@@ -58,7 +59,8 @@ def check_empirical_counts(
         rel_error = abs(abs_error / expected_counts)
         if rel_error > rel_error_tolerance:
             raise Exception(
-                f"Expected state {state} to appear approximately {expected_counts} times, but found {empirical_counts[state]}."
+                f"Expected state {state} to appear approximately "
+                f"{expected_counts} times, but found {empirical_counts[state]}."
             )
 
 
@@ -70,7 +72,6 @@ class TestSimulation(unittest.TestCase):
         families = ["fam1", "fam2", "fam3"]
         tree_dir = "./tests/simulation_tests/test_input_data/tree_dir"
         with tempfile.TemporaryDirectory() as synthetic_contact_map_dir:
-            # synthetic_contact_map_dir = "./tests/simulation_tests/test_input_data/synthetic_contact_maps"
             # Create synthetic contact maps
             contact_maps = {}
             for i, family in enumerate(families):
@@ -88,7 +89,6 @@ class TestSimulation(unittest.TestCase):
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
-                # synthetic_site_rates_dir = "./tests/simulation_tests/test_input_data/synthetic_site_rates"
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
@@ -97,23 +97,23 @@ class TestSimulation(unittest.TestCase):
                     write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
-                    # simulated_msa_dir = f"./tests/simulation_tests/test_input_data/simulated_msas_{num_processes}"
                     simulate_msas(
                         tree_dir=tree_dir,
                         site_rates_dir=synthetic_site_rates_dir,
                         contact_map_dir=synthetic_contact_map_dir,
                         families=families,
                         amino_acids=["S", "T"],
-                        pi_1_path="./tests/simulation_tests/test_input_data/extreme_model/pi_1.txt",
-                        Q_1_path="./tests/simulation_tests/test_input_data/extreme_model/Q_1.txt",
-                        pi_2_path="./tests/simulation_tests/test_input_data/extreme_model/pi_2.txt",
-                        Q_2_path="./tests/simulation_tests/test_input_data/extreme_model/Q_2.txt",
+                        pi_1_path=f"{DATA_DIR}/extreme_model/pi_1.txt",
+                        Q_1_path=f"{DATA_DIR}/extreme_model/Q_1.txt",
+                        pi_2_path=f"{DATA_DIR}/extreme_model/pi_2.txt",
+                        Q_2_path=f"{DATA_DIR}/extreme_model/Q_2.txt",
                         strategy="all_transitions",
                         output_msa_dir=simulated_msa_dir,
                         random_seed=0,
                         num_processes=num_processes,
                     )
-                    # Check that the distribution of the endings states matches the stationary distribution
+                    # Check that the distribution of the endings states matches
+                    # the stationary distribution
                     C_1 = defaultdict(int)  # single states
                     C_2 = defaultdict(int)  # co-evolving pairs
                     for family in families:
@@ -151,14 +151,17 @@ class TestSimulation(unittest.TestCase):
                                     state = seq[i] + seq[j]
                                     C_2[state] += 1
 
-                    # Check that almost all single sites are 'S' and pair of sites are 'TT'.
+                    # Check that almost all single sites are 'S' and pair of
+                    # sites are 'TT'.
                     if C_1["S"] / sum(C_1.values()) < 0.95:
                         raise Exception(
-                            f"Almost all the single-site leaf states should be 'S', but found: {dict(C_1)}"
+                            "Almost all the single-site leaf states should be "
+                            f"'S', but found: {dict(C_1)}"
                         )
                     if C_2["TT"] / sum(C_2.values()) < 0.95:
                         raise Exception(
-                            f"Almost all the co-evolution leaf states should be 'TT', but found: {dict(C_2)}"
+                            "Almost all the co-evolution leaf states should be "
+                            f"'TT', but found: {dict(C_2)}"
                         )
 
     @parameterized.expand(
@@ -168,7 +171,6 @@ class TestSimulation(unittest.TestCase):
         families = ["fam1", "fam2", "fam3"]
         tree_dir = "./tests/simulation_tests/test_input_data/tree_dir"
         with tempfile.TemporaryDirectory() as synthetic_contact_map_dir:
-            # synthetic_contact_map_dir = "./tests/simulation_tests/test_input_data/synthetic_contact_maps"
             # Create synthetic contact maps
             contact_maps = {}
             for i, family in enumerate(families):
@@ -186,7 +188,6 @@ class TestSimulation(unittest.TestCase):
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
-                # synthetic_site_rates_dir = "./tests/simulation_tests/test_input_data/synthetic_site_rates"
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
@@ -195,23 +196,23 @@ class TestSimulation(unittest.TestCase):
                     write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
-                    # simulated_msa_dir = f"./tests/simulation_tests/test_input_data/simulated_msas_{num_processes}"
                     simulate_msas(
                         tree_dir=tree_dir,
                         site_rates_dir=synthetic_site_rates_dir,
                         contact_map_dir=synthetic_contact_map_dir,
                         families=families,
                         amino_acids=["S", "T"],
-                        pi_1_path="./tests/simulation_tests/test_input_data/normal_model/pi_1.txt",
-                        Q_1_path="./tests/simulation_tests/test_input_data/normal_model/Q_1.txt",
-                        pi_2_path="./tests/simulation_tests/test_input_data/normal_model/pi_2.txt",
-                        Q_2_path="./tests/simulation_tests/test_input_data/normal_model/Q_2.txt",
+                        pi_1_path=f"{DATA_DIR}/normal_model/pi_1.txt",
+                        Q_1_path=f"{DATA_DIR}/normal_model/Q_1.txt",
+                        pi_2_path=f"{DATA_DIR}/normal_model/pi_2.txt",
+                        Q_2_path=f"{DATA_DIR}/normal_model/Q_2.txt",
                         strategy="all_transitions",
                         output_msa_dir=simulated_msa_dir,
                         random_seed=0,
                         num_processes=num_processes,
                     )
-                    # Check that the distribution of the endings states matches the stationary distribution
+                    # Check that the distribution of the endings states matches
+                    # the stationary distribution
                     C_1 = defaultdict(int)  # single states
                     C_2 = defaultdict(int)  # co-evolving pairs
                     for family in families:
@@ -250,10 +251,10 @@ class TestSimulation(unittest.TestCase):
                                     C_2[state] += 1
 
                     pi_1 = read_probability_distribution(
-                        "./tests/simulation_tests/test_input_data/normal_model/pi_1.txt"
+                        f"{DATA_DIR}/normal_model/pi_1.txt"
                     )
                     pi_2 = read_probability_distribution(
-                        "./tests/simulation_tests/test_input_data/normal_model/pi_2.txt"
+                        f"{DATA_DIR}/normal_model/pi_2.txt"
                     )
                     check_empirical_counts(C_1, pi_1, rel_error_tolerance=0.10)
                     check_empirical_counts(C_2, pi_2, rel_error_tolerance=0.10)

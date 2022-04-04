@@ -66,7 +66,8 @@ def sample_transition(
             new_state_index = random.choices(
                 population=range(n - 1), weights=weights, k=1
             )[0]
-            # Because new_state_index is in [0, n - 2], we must map it back to [0, n - 1].
+            # Because new_state_index is in [0, n - 2], we must map it back to
+            # [0, n - 1].
             if new_state_index >= curr_state_index:
                 new_state_index += 1
             curr_state_index = new_state_index
@@ -112,27 +113,33 @@ def _map_func(args: Dict):
         # Validate states of rate matrices and root distribution
         if list(pi_1_df.index) != amino_acids:
             raise Exception(
-                f"pi_1 index is:\n{pi_1_df.index}\nbut expected amino acids:\n{amino_acids}"
+                f"pi_1 index is:\n{pi_1_df.index}\nbut expected amino acids:"
+                f"\n{amino_acids}"
             )
         if list(pi_2_df.index) != pairs_of_amino_acids:
             raise Exception(
-                f"pi_2 index is:\n{pi_2_df.index}\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+                f"pi_2 index is:\n{pi_2_df.index}\nbut expected pairs of amino "
+                f"acids:\n{pairs_of_amino_acids}"
             )
         if list(Q_1_df.index) != amino_acids:
             raise Exception(
-                f"Q_1 index is:\n{Q_1_df.index}\n\nbut expected amino acids:\n{amino_acids}"
+                f"Q_1 index is:\n{Q_1_df.index}\n\nbut expected amino acids:"
+                f"\n{amino_acids}"
             )
         if list(Q_1_df.columns) != amino_acids:
             raise Exception(
-                f"Q_1 columns are:\n{Q_1_df.columns}\n\nbut expected amino acids:\n{amino_acids}"
+                f"Q_1 columns are:\n{Q_1_df.columns}\n\nbut expected amino "
+                f"acids:\n{amino_acids}"
             )
         if list(Q_2_df.index) != pairs_of_amino_acids:
             raise Exception(
-                f"Q_2 index is:\n{Q_2_df.index}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+                f"Q_2 index is:\n{Q_2_df.index}\n\nbut expected pairs of amino "
+                f"acids:\n{pairs_of_amino_acids}"
             )
         if list(Q_2_df.columns) != pairs_of_amino_acids:
             raise Exception(
-                f"Q_1 columns are:\n{Q_s_df.columns}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+                f"Q_1 columns are:\n{Q_2_df.columns}\n\nbut expected pairs of "
+                f"amino acids:\n{pairs_of_amino_acids}"
             )
         pi_1 = pi_1_df.to_numpy().reshape(-1)
         pi_2 = pi_2_df.to_numpy().reshape(-1)
@@ -198,7 +205,7 @@ def _map_func(args: Dict):
                     sample_transition(
                         starting_state=parent_states[n_independent_sites + i],
                         rate_matrix=Q_2,
-                        elapsed_time=branch_length,  # No adjustment for site rates
+                        elapsed_time=branch_length,  # No site rate adjustment
                         strategy=strategy,
                     )
                 )
@@ -219,7 +226,8 @@ def _map_func(args: Dict):
                 (site_1, site_2) = contacting_pairs[i]
                 if site_2 >= len(node_states):
                     raise Exception(
-                        f"Site {(site_1, site_2)} out of range: {len(node_states)}"
+                        f"Site {(site_1, site_2)} out of range: "
+                        f"{len(node_states)}"
                     )
                 node_states[site_1] = state_str[0]
                 node_states[site_2] = state_str[1]
