@@ -1,9 +1,7 @@
 import pandas as pd
 
 
-def read_rate_matrix(
-    rate_matrix_path: str
-) -> pd.DataFrame:
+def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
     res = pd.read_csv(
         rate_matrix_path,
         delim_whitespace=True,

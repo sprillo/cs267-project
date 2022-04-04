@@ -1,9 +1,7 @@
 import numpy as np
 
 
-def compute_stationary_distribution(
-    rate_matrix: np.array
-) -> np.array:
+def compute_stationary_distribution(rate_matrix: np.array) -> np.array:
     eigvals, eigvecs = np.linalg.eig(rate_matrix.transpose())
     eigvals = eigvals.real
     eigvecs = eigvecs.real

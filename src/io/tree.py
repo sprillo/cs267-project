@@ -59,6 +59,7 @@ class Tree:
             res.append(v)
             for (u, _) in self.children(v):
                 dfs(u)
+
         dfs(self.root())
         return res
 

@@ -30,10 +30,7 @@ def read_msa(
     return msa
 
 
-def write_msa(
-    msa: Dict[str, str],
-    msa_path: str
-) -> None:
+def write_msa(msa: Dict[str, str], msa_path: str) -> None:
     msa_dir = os.path.dirname(msa_path)
     if not os.path.exists(msa_dir):
         os.makedirs(msa_dir)

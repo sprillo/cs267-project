@@ -1,20 +1,27 @@
+import hashlib
 import multiprocessing
 import os
+import random
 from typing import Dict, List
+
+import numpy as np
 import tqdm
 
-import hashlib
-import numpy as np
-import random
-
-from src.io import read_tree, read_site_rates, read_contact_map, read_rate_matrix, read_probability_distribution, write_msa
+from src.io import (
+    read_contact_map,
+    read_probability_distribution,
+    read_rate_matrix,
+    read_site_rates,
+    read_tree,
+    write_msa,
+)
 from src.utils import get_process_args
 
 
-def sample(
-    probability_distribution: np.array
-) -> int:
-    return np.random.choice(range(len(probability_distribution)), p=probability_distribution)
+def sample(probability_distribution: np.array) -> int:
+    return np.random.choice(
+        range(len(probability_distribution)), p=probability_distribution
+    )
 
 
 def sample_transition(
@@ -44,24 +51,21 @@ def sample_transition(
         current_t = 0  # We simulate the process starting from time 0.
         while True:
             # See when the next transition happens
-            waiting_time = np.random.exponential(1.0 / -rate_matrix[curr_state_index, curr_state_index])
+            waiting_time = np.random.exponential(
+                1.0 / -rate_matrix[curr_state_index, curr_state_index]
+            )
             current_t += waiting_time
             if current_t >= elapsed_time:
                 # We reached the end of the process
                 return curr_state_index
             # Update the curr_state_index
-            weights =\
-                list(rate_matrix[
-                    curr_state_index,
-                    :curr_state_index]) +\
-                list(rate_matrix[
-                    curr_state_index,
-                    (curr_state_index + 1):])
-            assert(len(weights) == n - 1)
+            weights = list(
+                rate_matrix[curr_state_index, :curr_state_index]
+            ) + list(rate_matrix[curr_state_index, (curr_state_index + 1) :])
+            assert len(weights) == n - 1
             new_state_index = random.choices(
-                population=range(n - 1),
-                weights=weights,
-                k=1)[0]
+                population=range(n - 1), weights=weights, k=1
+            )[0]
             # Because new_state_index is in [0, n - 2], we must map it back to [0, n - 1].
             if new_state_index >= curr_state_index:
                 new_state_index += 1
@@ -72,9 +76,7 @@ def sample_transition(
         raise Exception(f"Unknown strategy: {strategy}")
 
 
-def _map_func(
-    args: Dict
-):
+def _map_func(args: Dict):
     """
     Version of simulate_msas run by an individual process.
     """
@@ -93,8 +95,12 @@ def _map_func(
 
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
-        site_rates = read_site_rates(site_rates_path=os.path.join(site_rates_dir, family + ".txt"))
-        contact_map = read_contact_map(contact_map_path=os.path.join(contact_map_dir, family + ".txt"))
+        site_rates = read_site_rates(
+            site_rates_path=os.path.join(site_rates_dir, family + ".txt")
+        )
+        contact_map = read_contact_map(
+            contact_map_path=os.path.join(contact_map_dir, family + ".txt")
+        )
         pi_1_df = read_probability_distribution(pi_1_path)
         Q_1_df = read_rate_matrix(Q_1_path)
         pi_2_df = read_probability_distribution(pi_2_path)
@@ -105,31 +111,38 @@ def _map_func(
         ]
         # Validate states of rate matrices and root distribution
         if list(pi_1_df.index) != amino_acids:
-            raise Exception(f"pi_1 index is:\n{pi_1_df.index}\nbut expected amino acids:\n{amino_acids}")
+            raise Exception(
+                f"pi_1 index is:\n{pi_1_df.index}\nbut expected amino acids:\n{amino_acids}"
+            )
         if list(pi_2_df.index) != pairs_of_amino_acids:
-            raise Exception(f"pi_2 index is:\n{pi_2_df.index}\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}")
+            raise Exception(
+                f"pi_2 index is:\n{pi_2_df.index}\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+            )
         if list(Q_1_df.index) != amino_acids:
-            raise Exception(f"Q_1 index is:\n{Q_1_df.index}\n\nbut expected amino acids:\n{amino_acids}")
+            raise Exception(
+                f"Q_1 index is:\n{Q_1_df.index}\n\nbut expected amino acids:\n{amino_acids}"
+            )
         if list(Q_1_df.columns) != amino_acids:
-            raise Exception(f"Q_1 columns are:\n{Q_1_df.columns}\n\nbut expected amino acids:\n{amino_acids}")
+            raise Exception(
+                f"Q_1 columns are:\n{Q_1_df.columns}\n\nbut expected amino acids:\n{amino_acids}"
+            )
         if list(Q_2_df.index) != pairs_of_amino_acids:
-            raise Exception(f"Q_2 index is:\n{Q_2_df.index}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}")
+            raise Exception(
+                f"Q_2 index is:\n{Q_2_df.index}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+            )
         if list(Q_2_df.columns) != pairs_of_amino_acids:
-            raise Exception(f"Q_1 columns are:\n{Q_s_df.columns}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}")
+            raise Exception(
+                f"Q_1 columns are:\n{Q_s_df.columns}\n\nbut expected pairs of amino acids:\n{pairs_of_amino_acids}"
+            )
         pi_1 = pi_1_df.to_numpy().reshape(-1)
         pi_2 = pi_2_df.to_numpy().reshape(-1)
         Q_1 = Q_1_df.to_numpy()
         Q_2 = Q_2_df.to_numpy()
 
-
         num_sites = len(site_rates)
 
         contacting_pairs = list(zip(*np.where(contact_map == 1)))
-        contacting_pairs = [
-            (i, j)
-            for (i, j) in contacting_pairs
-            if i < j
-        ]
+        contacting_pairs = [(i, j) for (i, j) in contacting_pairs if i < j]
         # Validate that each site is in contact with at most one other site
         contacting_sites = list(sum(contacting_pairs, ()))
         if len(set(contacting_sites)) != len(contacting_sites):
@@ -137,7 +150,9 @@ def _map_func(
                 f"Each site can only be in contact with one other site. "
                 f"The contacting sites were: {contacting_pairs}"
             )
-        independent_sites = [i for i in range(num_sites) if i not in contacting_sites]
+        independent_sites = [
+            i for i in range(num_sites) if i not in contacting_sites
+        ]
 
         n_independent_sites = len(independent_sites)
         n_contacting_pairs = len(contacting_pairs)
@@ -146,7 +161,9 @@ def _map_func(
         # the end. The first n_independent_sites columns will evolve
         # independently, and the last n_independent_sites columns will
         # co-evolve.
-        seed = int(hashlib.md5(family.encode()).hexdigest()[:8], 16) + random_seed
+        seed = (
+            int(hashlib.md5(family.encode()).hexdigest()[:8], 16) + random_seed
+        )
         random.seed(seed)
         np.random.seed(seed)
         msa_int = {}  # type: Dict[str, List[int]]
@@ -171,7 +188,8 @@ def _map_func(
                     sample_transition(
                         starting_state=parent_states[i],
                         rate_matrix=Q_1,
-                        elapsed_time=branch_length * site_rates[independent_sites[i]],
+                        elapsed_time=branch_length
+                        * site_rates[independent_sites[i]],
                         strategy=strategy,
                     )
                 )
@@ -205,7 +223,7 @@ def _map_func(
                     )
                 node_states[site_1] = state_str[0]
                 node_states[site_2] = state_str[1]
-            msa[node] = ''.join(node_states)
+            msa[node] = "".join(node_states)
             if not all([state != "" for state in state_str]):
                 raise Exception("Error mapping integer states to amino acids.")
         msa_path = os.path.join(output_msa_dir, family + ".txt")

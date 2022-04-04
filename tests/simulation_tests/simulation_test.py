@@ -1,29 +1,37 @@
 import os
 import tempfile
 import unittest
-from typing import Dict
 from collections import defaultdict
+from typing import Dict
 
 import numpy as np
 import pandas as pd
 from parameterized import parameterized
 
+from src.io import (
+    read_msa,
+    read_probability_distribution,
+    read_tree,
+    write_contact_map,
+    write_site_rates,
+)
 from src.markov_chain import compute_stationary_distribution
 from src.simulation import simulate_msas
-from src.io import read_msa, write_contact_map, write_site_rates, read_tree, read_probability_distribution
 
 
 def create_synthetic_contact_map(
-    num_sites: int,
-    num_sites_in_contact: int,
-    random_seed: int
+    num_sites: int, num_sites_in_contact: int, random_seed: int
 ) -> np.array:
     if num_sites_in_contact % 2 != 0:
-        raise Exception(f"num_sites_in_contact should be even, but provided: {num_sites_in_contact}")
+        raise Exception(
+            f"num_sites_in_contact should be even, but provided: {num_sites_in_contact}"
+        )
     num_contacting_pairs = num_sites_in_contact // 2
     contact_map = np.zeros(shape=(num_sites, num_sites), dtype=int)
     np.random.seed(random_seed)
-    sites_in_contact = np.random.choice(range(num_sites), num_sites_in_contact, replace=False)
+    sites_in_contact = np.random.choice(
+        range(num_sites), num_sites_in_contact, replace=False
+    )
     contacting_pairs = [
         (sites_in_contact[2 * i], sites_in_contact[2 * i + 1])
         for i in range(num_contacting_pairs)
@@ -38,7 +46,7 @@ def create_synthetic_contact_map(
 def check_empirical_counts(
     empirical_counts,  # defaultdict of Dict[str, int]
     expected_distribution: pd.DataFrame,
-    rel_error_tolerance: float
+    rel_error_tolerance: float,
 ):
     """
     Raises Exception if the deviation is too large.
@@ -49,12 +57,14 @@ def check_empirical_counts(
         abs_error = empirical_counts[state] - expected_counts
         rel_error = abs(abs_error / expected_counts)
         if rel_error > rel_error_tolerance:
-            raise Exception(f"Expected state {state} to appear approximately {expected_counts} times, but found {empirical_counts[state]}.")
+            raise Exception(
+                f"Expected state {state} to appear approximately {expected_counts} times, but found {empirical_counts[state]}."
+            )
 
 
 class TestSimulation(unittest.TestCase):
     @parameterized.expand(
-        [("3 processes", 3)]#, ("2 processes", 2), ("serial", 1)]
+        [("3 processes", 3)]  # , ("2 processes", 2), ("serial", 1)]
     )
     def test_simulate_msas_extreme_model(self, name, num_processes):
         families = ["fam1", "fam2", "fam3"]
@@ -69,16 +79,12 @@ class TestSimulation(unittest.TestCase):
                 contact_map = create_synthetic_contact_map(
                     num_sites=num_sites,
                     num_sites_in_contact=num_sites_in_contact,
-                    random_seed=i
+                    random_seed=i,
                 )
                 contact_map_path = os.path.join(
-                    synthetic_contact_map_dir,
-                    family + ".txt"
+                    synthetic_contact_map_dir, family + ".txt"
                 )
-                write_contact_map(
-                    contact_map,
-                    contact_map_path
-                )
+                write_contact_map(contact_map, contact_map_path)
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
@@ -86,13 +92,9 @@ class TestSimulation(unittest.TestCase):
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
-                        synthetic_site_rates_dir,
-                        family + ".txt"
+                        synthetic_site_rates_dir, family + ".txt"
                     )
-                    write_site_rates(
-                        site_rates,
-                        site_rates_path
-                    )
+                    write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
                     # simulated_msa_dir = f"./tests/simulation_tests/test_input_data/simulated_msas_{num_processes}"
@@ -115,10 +117,7 @@ class TestSimulation(unittest.TestCase):
                     C_1 = defaultdict(int)  # single states
                     C_2 = defaultdict(int)  # co-evolving pairs
                     for family in families:
-                        tree_path = os.path.join(
-                            tree_dir,
-                            family + ".txt"
-                        )
+                        tree_path = os.path.join(tree_dir, family + ".txt")
                         tree = read_tree(
                             tree_path=tree_path,
                         )
@@ -126,17 +125,23 @@ class TestSimulation(unittest.TestCase):
                             os.path.join(simulated_msa_dir, family + ".txt")
                         )
                         contact_map = contact_maps[family]
-                        contacting_pairs = list(zip(*np.where(contact_map == 1)))
+                        contacting_pairs = list(
+                            zip(*np.where(contact_map == 1))
+                        )
                         contacting_pairs = [
-                            (i, j)
-                            for (i, j) in contacting_pairs
-                            if i < j
+                            (i, j) for (i, j) in contacting_pairs if i < j
                         ]
                         contacting_sites = list(sum(contacting_pairs, ()))
-                        sites_indep = [i for i in range(num_sites) if i not in contacting_sites]
+                        sites_indep = [
+                            i
+                            for i in range(num_sites)
+                            if i not in contacting_sites
+                        ]
                         for node in tree.nodes():
                             if node not in msa:
-                                raise Exception(f"Missing sequence for node: {node}")
+                                raise Exception(
+                                    f"Missing sequence for node: {node}"
+                                )
                             if tree.is_leaf(node):
                                 seq = msa[node]
                                 for i in sites_indep:
@@ -148,12 +153,16 @@ class TestSimulation(unittest.TestCase):
 
                     # Check that almost all single sites are 'S' and pair of sites are 'TT'.
                     if C_1["S"] / sum(C_1.values()) < 0.95:
-                        raise Exception(f"Almost all the single-site leaf states should be 'S', but found: {dict(C_1)}")
+                        raise Exception(
+                            f"Almost all the single-site leaf states should be 'S', but found: {dict(C_1)}"
+                        )
                     if C_2["TT"] / sum(C_2.values()) < 0.95:
-                        raise Exception(f"Almost all the co-evolution leaf states should be 'TT', but found: {dict(C_2)}")
+                        raise Exception(
+                            f"Almost all the co-evolution leaf states should be 'TT', but found: {dict(C_2)}"
+                        )
 
     @parameterized.expand(
-        [("3 processes", 3)]#, ("2 processes", 2), ("serial", 1)]
+        [("3 processes", 3)]  # , ("2 processes", 2), ("serial", 1)]
     )
     def test_simulate_msas_normal_model(self, name, num_processes):
         families = ["fam1", "fam2", "fam3"]
@@ -168,16 +177,12 @@ class TestSimulation(unittest.TestCase):
                 contact_map = create_synthetic_contact_map(
                     num_sites=num_sites,
                     num_sites_in_contact=num_sites_in_contact,
-                    random_seed=i
+                    random_seed=i,
                 )
                 contact_map_path = os.path.join(
-                    synthetic_contact_map_dir,
-                    family + ".txt"
+                    synthetic_contact_map_dir, family + ".txt"
                 )
-                write_contact_map(
-                    contact_map,
-                    contact_map_path
-                )
+                write_contact_map(contact_map, contact_map_path)
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
@@ -185,13 +190,9 @@ class TestSimulation(unittest.TestCase):
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
-                        synthetic_site_rates_dir,
-                        family + ".txt"
+                        synthetic_site_rates_dir, family + ".txt"
                     )
-                    write_site_rates(
-                        site_rates,
-                        site_rates_path
-                    )
+                    write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
                     # simulated_msa_dir = f"./tests/simulation_tests/test_input_data/simulated_msas_{num_processes}"
@@ -214,10 +215,7 @@ class TestSimulation(unittest.TestCase):
                     C_1 = defaultdict(int)  # single states
                     C_2 = defaultdict(int)  # co-evolving pairs
                     for family in families:
-                        tree_path = os.path.join(
-                            tree_dir,
-                            family + ".txt"
-                        )
+                        tree_path = os.path.join(tree_dir, family + ".txt")
                         tree = read_tree(
                             tree_path=tree_path,
                         )
@@ -225,17 +223,23 @@ class TestSimulation(unittest.TestCase):
                             os.path.join(simulated_msa_dir, family + ".txt")
                         )
                         contact_map = contact_maps[family]
-                        contacting_pairs = list(zip(*np.where(contact_map == 1)))
+                        contacting_pairs = list(
+                            zip(*np.where(contact_map == 1))
+                        )
                         contacting_pairs = [
-                            (i, j)
-                            for (i, j) in contacting_pairs
-                            if i < j
+                            (i, j) for (i, j) in contacting_pairs if i < j
                         ]
                         contacting_sites = list(sum(contacting_pairs, ()))
-                        sites_indep = [i for i in range(num_sites) if i not in contacting_sites]
+                        sites_indep = [
+                            i
+                            for i in range(num_sites)
+                            if i not in contacting_sites
+                        ]
                         for node in tree.nodes():
                             if node not in msa:
-                                raise Exception(f"Missing sequence for node: {node}")
+                                raise Exception(
+                                    f"Missing sequence for node: {node}"
+                                )
                             if tree.is_leaf(node):
                                 seq = msa[node]
                                 for i in sites_indep:
@@ -245,7 +249,11 @@ class TestSimulation(unittest.TestCase):
                                     state = seq[i] + seq[j]
                                     C_2[state] += 1
 
-                    pi_1 = read_probability_distribution("./tests/simulation_tests/test_input_data/normal_model/pi_1.txt")
-                    pi_2 = read_probability_distribution("./tests/simulation_tests/test_input_data/normal_model/pi_2.txt")
+                    pi_1 = read_probability_distribution(
+                        "./tests/simulation_tests/test_input_data/normal_model/pi_1.txt"
+                    )
+                    pi_2 = read_probability_distribution(
+                        "./tests/simulation_tests/test_input_data/normal_model/pi_2.txt"
+                    )
                     check_empirical_counts(C_1, pi_1, rel_error_tolerance=0.10)
                     check_empirical_counts(C_2, pi_2, rel_error_tolerance=0.10)

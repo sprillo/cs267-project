@@ -1,5 +1,4 @@
 import os
-
 from typing import List
 
 
@@ -12,10 +11,7 @@ def read_site_rates(site_rates_path: str) -> List[float]:
         raise Exception(f"Could nor read site rates in file: {site_rates_path}")
 
 
-def write_site_rates(
-    site_rates: List[float],
-    site_rates_path: str
-) -> None:
+def write_site_rates(site_rates: List[float], site_rates_path: str) -> None:
     site_rates_dir = os.path.dirname(site_rates_path)
     if not os.path.exists(site_rates_dir):
         os.makedirs(site_rates_dir)
