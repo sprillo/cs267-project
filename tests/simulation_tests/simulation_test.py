@@ -63,103 +63,101 @@ class TestSimulation(unittest.TestCase):
     )
     def test_simulate_msas_1(self, name, num_processes):
         families = ["fam1", "fam2", "fam3"]
-        tree_dir = "./tests/simulation_tests/test_input_data/tiny/tree_dir"
-        with tempfile.TemporaryDirectory() as synthetic_contact_map_dir:
-            synthetic_contact_map_dir = "./synthetic_contact_maps"
-            # Create synthetic contact maps
-            contact_maps = {}
-            for i, family in enumerate(families):
-                num_sites = 1000
-                num_sites_in_contact = 600
-                contact_map = create_synthetic_contact_map(
-                    num_sites=num_sites,
-                    num_sites_in_contact=num_sites_in_contact,
-                    random_seed=i
-                )
-                contact_map_path = os.path.join(
-                    synthetic_contact_map_dir,
-                    family + ".txt"
-                )
-                write_contact_map(
-                    contact_map,
-                    contact_map_path
-                )
-                contact_maps[family] = contact_map
-            with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
-                synthetic_site_rates_dir = "./synthetic_site_rates"
-                for i, family in enumerate(families):
-                    site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
-                    site_rates_path = os.path.join(
-                        synthetic_site_rates_dir,
-                        family + ".txt"
-                    )
-                    write_site_rates(
-                        site_rates,
-                        site_rates_path
-                    )
-                with tempfile.TemporaryDirectory() as root_dir:
-                    root_dir = "test_output/"
-                    simulated_msa_dir = os.path.join(root_dir, "simulated_msas")
-                    simulate_msas(
-                        tree_dir=tree_dir,
-                        site_rates_dir=synthetic_site_rates_dir,
-                        contact_map_dir=synthetic_contact_map_dir,
-                        families=families,
-                        amino_acids=["S", "T"],
-                        pi_1_path="./tests/simulation_tests/test_input_data/tiny/model/pi_1.txt",
-                        Q_1_path="./tests/simulation_tests/test_input_data/tiny/model/Q_1.txt",
-                        pi_2_path="./tests/simulation_tests/test_input_data/tiny/model/pi_2.txt",
-                        Q_2_path="./tests/simulation_tests/test_input_data/tiny/model/Q_2.txt",
-                        strategy="all_transitions",
-                        output_msa_dir=simulated_msa_dir,
-                        random_seed=0,
-                        num_processes=num_processes,
-                    )
-                    # Check that the distribution of the endings states matches the stationary distribution
-                    C_1 = defaultdict(int)  # single states
-                    C_2 = defaultdict(int)  # co-evolving pairs
-                    for family in families:
-                        tree_path = os.path.join(
-                            tree_dir,
-                            family + ".txt"
-                        )
-                        tree = read_tree(
-                            tree_path=tree_path,
-                        )
-                        msa = read_msa(
-                            os.path.join(simulated_msa_dir, family + ".txt")
-                        )
-                        contacting_pairs = list(zip(*np.where(contact_map == 1)))
-                        contacting_pairs = [
-                            (i, j)
-                            for (i, j) in contacting_pairs
-                            if i < j
-                        ]
-                        contacting_sites = list(sum(contacting_pairs, ()))
-                        sites_indep = [i for i in range(num_sites) if i not in contacting_sites]
-                        for node in tree.nodes():
-                            if node not in msa:
-                                raise Exception(f"Missing sequence for node: {node}")
-                            if tree.is_leaf(node):
-                                seq = msa[node]
-                                for i in sites_indep:
-                                    state = seq[i]
-                                    C_1[state] += 1
-                                for (i, j) in contacting_pairs:
-                                    state = seq[i] + seq[j]
-                                    C_2[state] += 1
-                    print(C_1)
-                    print(C_2)
-                    assert(False)
+        tree_dir = "./tests/simulation_tests/test_input_data/tree_dir"
+        synthetic_contact_map_dir = "./tests/simulation_tests/test_input_data/synthetic_contact_maps"
+        # Create synthetic contact maps
+        contact_maps = {}
+        for i, family in enumerate(families):
+            num_sites = 100
+            num_sites_in_contact = 60
+            contact_map = create_synthetic_contact_map(
+                num_sites=num_sites,
+                num_sites_in_contact=num_sites_in_contact,
+                random_seed=i
+            )
+            contact_map_path = os.path.join(
+                synthetic_contact_map_dir,
+                family + ".txt"
+            )
+            write_contact_map(
+                contact_map,
+                contact_map_path
+            )
+            contact_maps[family] = contact_map
 
-                    # for family in families:
-                    #     expected_msa = read_msa(
-                    #         f"./tests/simulation_tests/test_input_data/tiny/simulated_msas/{family}.txt"
-                    #     )
-                    #     simulated_msa = read_msa(
-                    #         os.path.join(outdir, "result.txt")
-                    #     )
-                    #     check_msas_are_equal(
-                    #         expected_msa,
-                    #         simulated_msa,
-                    #     )
+        synthetic_site_rates_dir = "./tests/simulation_tests/test_input_data/synthetic_site_rates"
+        for i, family in enumerate(families):
+            site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
+            site_rates_path = os.path.join(
+                synthetic_site_rates_dir,
+                family + ".txt"
+            )
+            write_site_rates(
+                site_rates,
+                site_rates_path
+            )
+
+        simulated_msa_dir = f"./tests/simulation_tests/test_input_data/simulated_msas_{num_processes}"
+        simulate_msas(
+            tree_dir=tree_dir,
+            site_rates_dir=synthetic_site_rates_dir,
+            contact_map_dir=synthetic_contact_map_dir,
+            families=families,
+            amino_acids=["S", "T"],
+            pi_1_path="./tests/simulation_tests/test_input_data/model/pi_1.txt",
+            Q_1_path="./tests/simulation_tests/test_input_data/model/Q_1.txt",
+            pi_2_path="./tests/simulation_tests/test_input_data/model/pi_2.txt",
+            Q_2_path="./tests/simulation_tests/test_input_data/model/Q_2.txt",
+            strategy="all_transitions",
+            output_msa_dir=simulated_msa_dir,
+            random_seed=0,
+            num_processes=num_processes,
+        )
+        # Check that the distribution of the endings states matches the stationary distribution
+        C_1 = defaultdict(int)  # single states
+        C_2 = defaultdict(int)  # co-evolving pairs
+        for family in families:
+            tree_path = os.path.join(
+                tree_dir,
+                family + ".txt"
+            )
+            tree = read_tree(
+                tree_path=tree_path,
+            )
+            msa = read_msa(
+                os.path.join(simulated_msa_dir, family + ".txt")
+            )
+            contacting_pairs = list(zip(*np.where(contact_map == 1)))
+            contacting_pairs = [
+                (i, j)
+                for (i, j) in contacting_pairs
+                if i < j
+            ]
+            contacting_sites = list(sum(contacting_pairs, ()))
+            sites_indep = [i for i in range(num_sites) if i not in contacting_sites]
+            for node in tree.nodes():
+                if node not in msa:
+                    raise Exception(f"Missing sequence for node: {node}")
+                if tree.is_leaf(node):
+                    seq = msa[node]
+                    for i in sites_indep:
+                        state = seq[i]
+                        C_1[state] += 1
+                    for (i, j) in contacting_pairs:
+                        state = seq[i] + seq[j]
+                        C_2[state] += 1
+        print(C_1)
+        print(C_2)
+        assert(False)
+
+        # for family in families:
+        #     expected_msa = read_msa(
+        #         f"./tests/simulation_tests/test_input_data/simulated_msas/{family}.txt"
+        #     )
+        #     simulated_msa = read_msa(
+        #         os.path.join(outdir, "result.txt")
+        #     )
+        #     check_msas_are_equal(
+        #         expected_msa,
+        #         simulated_msa,
+        #     )
