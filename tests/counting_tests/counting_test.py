@@ -67,7 +67,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "test_input_data/tiny/count_matrices_dir_edges/result.txt"
+                "./tests/counting_tests/test_input_data/tiny/count_matrices_dir_edges/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -96,7 +96,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "test_input_data/tiny/count_matrices_dir_cherries/result.txt"
+                "./tests/counting_tests/test_input_data/tiny/count_matrices_dir_cherries/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -126,7 +126,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "test_input_data/tiny/count_co_matrices_dir_edges/result.txt"
+                "./tests/counting_tests/test_input_data/tiny/count_co_matrices_dir_edges/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
@@ -156,7 +156,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
                 os.path.join(outdir, "result.txt")
             )
             expected_count_matrices = read_count_matrices(
-                "test_input_data/tiny/count_co_matrices_dir_cherries/result.txt"
+                "./tests/counting_tests/test_input_data/tiny/count_co_matrices_dir_cherries/result.txt"
             )
             check_count_matrices_are_equal(
                 expected_count_matrices,
