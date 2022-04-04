@@ -147,6 +147,7 @@ def _map_func(
         # independently, and the last n_independent_sites columns will
         # co-evolve.
         seed = int(hashlib.md5(family.encode()).hexdigest()[:8], 16) + random_seed
+        random.seed(seed)
         np.random.seed(seed)
         msa_int = {}  # type: Dict[str, List[int]]
 
@@ -304,6 +305,6 @@ def simulate_msas(
     # Map step (distribute families among processes)
     if num_processes > 1:
         with multiprocessing.Pool(num_processes) as pool:
-            tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args))
+            list(tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args)))
     else:
-        tqdm.tqdm(map(_map_func, map_args), total=len(map_args))
+        list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))
