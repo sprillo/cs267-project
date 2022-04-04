@@ -53,9 +53,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_edges")
             count_transitions(
-                tree_dir="./test_input_data/tiny/tree_dir",
-                msa_dir="./test_input_data/tiny/msa_dir",
-                site_rates_dir="./test_input_data/tiny/site_rates_dir",
+                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
+                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
+                site_rates_dir="./tests/counting_tests/test_input_data/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
@@ -82,9 +82,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_cherries")
             count_transitions(
-                tree_dir="./test_input_data/tiny/tree_dir",
-                msa_dir="./test_input_data/tiny/msa_dir",
-                site_rates_dir="./test_input_data/tiny/site_rates_dir",
+                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
+                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
+                site_rates_dir="./tests/counting_tests/test_input_data/tiny/site_rates_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],
@@ -111,9 +111,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_edges")
             count_co_transitions(
-                tree_dir="./test_input_data/tiny/tree_dir",
-                msa_dir="./test_input_data/tiny/msa_dir",
-                contact_map_dir="./test_input_data/tiny/contact_map_dir",
+                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
+                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
+                contact_map_dir="./tests/counting_tests/test_input_data/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 5.01],
@@ -141,9 +141,9 @@ class TestCountTransitionsTiny(unittest.TestCase):
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_cherries")
             count_co_transitions(
-                tree_dir="./test_input_data/tiny/tree_dir",
-                msa_dir="./test_input_data/tiny/msa_dir",
-                contact_map_dir="./test_input_data/tiny/contact_map_dir",
+                tree_dir="./tests/counting_tests/test_input_data/tiny/tree_dir",
+                msa_dir="./tests/counting_tests/test_input_data/tiny/msa_dir",
+                contact_map_dir="./tests/counting_tests/test_input_data/tiny/contact_map_dir",
                 families=["fam1", "fam2", "fam3"],
                 amino_acids=["I", "L", "S", "T"],
                 quantization_points=[1.99, 10.01],

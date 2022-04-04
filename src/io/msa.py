@@ -41,4 +41,6 @@ def write_msa(
     for seq_name in sorted(list(msa.keys())):
         res += f">{seq_name}\n"
         res += f"{msa[seq_name]}\n"
-    open(msa_path, "w").write(res)
+    with open(msa_path, "w") as outfile:
+        outfile.write(res)
+        outfile.flush()
