@@ -70,7 +70,7 @@ class Tree:
 def read_tree(
     tree_path: str,
 ) -> Tree:
-    lines = open(tree_path, "r").read().split("\n")
+    lines = open(tree_path, "r").read().strip().split("\n")
     try:
         n, s = lines[0].split(" ")
         if s != "nodes":
@@ -94,6 +94,11 @@ def read_tree(
         raise Exception(
             f"Tree file: {tree_path} should have line '[num_edges] edges' at "
             f"position {n + 1}, but it had line: '{lines[n + 1]}'"
+        )
+    if len(lines) != n + 1 + m + 1:
+        raise Exception(
+            f"Tree file: {tree_path} should have {m} edges, but it has "
+            f"{len(lines) - n - 2} edges instead."
         )
     for i in range(n + 2, n + 2 + m, 1):
         try:
