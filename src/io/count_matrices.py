@@ -1,12 +1,14 @@
 import os
-from typing import Dict
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 
 
-def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
-    res = {}
+def read_count_matrices(
+    count_matrices_path: str,
+) -> List[Tuple[float, pd.DataFrame]]:
+    res = []
     lines = open(count_matrices_path, "r").read().strip().split("\n")
     line_idx = 0
     num_matrices, s = lines[line_idx].strip().split(" ")
@@ -57,24 +59,23 @@ def read_count_matrices(count_matrices_path: str) -> Dict[float, pd.DataFrame]:
             index=row_states,
             columns=states,
         )
-        res[q] = count_matrix
+        res.append((q, count_matrix))
     return res
 
 
 def write_count_matrices(
-    count_matrices: Dict[float, pd.DataFrame], count_matrices_path: str
+    count_matrices: List[Tuple[float, pd.DataFrame]], count_matrices_path: str
 ) -> None:
     count_matrix_dir = os.path.dirname(count_matrices_path)
     if not os.path.exists(count_matrix_dir):
         os.makedirs(count_matrix_dir)
     num_matrices = len(count_matrices)
-    num_states = len(next(iter(count_matrices.values())))
+    num_states = len(count_matrices[0][1])
     with open(count_matrices_path, "a") as out_file:
         out_file.write(f"{num_matrices} matrices\n{num_states} states\n")
-    for q in sorted(count_matrices.keys()):
+    for (q, count_matrix) in count_matrices:
         with open(count_matrices_path, "a") as out_file:
             out_file.write(f"{q}\n")
-        count_matrix = count_matrices[q]
         count_matrix.to_csv(
             count_matrices_path, mode="a", index=True, header=True, sep="\t"
         )

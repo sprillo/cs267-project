@@ -1,6 +1,6 @@
 import multiprocessing
 import os
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ from src.io import read_msa, read_site_rates, read_tree, write_count_matrices
 from src.utils import get_process_args, quantization_idx
 
 
-def _map_func(args):
+def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
     """
     Version of count_transitions run by an individual process.
 
@@ -36,9 +36,9 @@ def _map_func(args):
             site_rates_path=os.path.join(site_rates_dir, family + ".txt")
         )
         for node in tree.nodes():
-            node_seq = msa[node]
-            msa_length = len(node_seq)
             if edge_or_cherry == "edge":
+                node_seq = msa[node]
+                msa_length = len(node_seq)
                 # Extract all transitions on edges starting at 'node'
                 for (child, branch_length) in tree.children(node):
                     child_seq = msa[child]
@@ -69,6 +69,7 @@ def _map_func(args):
                         children[1],
                     )
                     leaf_seq_1, leaf_seq_2 = msa[leaf_1], msa[leaf_2]
+                    msa_length = len(leaf_seq_1)
                     for amino_acid_idx in range(msa_length):
                         site_rate = site_rates[amino_acid_idx]
                         branch_length_total = branch_length_1 + branch_length_2
@@ -90,14 +91,17 @@ def _map_func(args):
                                 count_matrices_numpy[
                                     q_idx, state_2_idx, state_1_idx
                                 ] += 0.5
-    count_matrices = {
-        q: pd.DataFrame(
-            count_matrices_numpy[q_idx, :, :],
-            index=amino_acids,
-            columns=amino_acids,
-        )
+    count_matrices = [
+        [
+            q,
+            pd.DataFrame(
+                count_matrices_numpy[q_idx, :, :],
+                index=amino_acids,
+                columns=amino_acids,
+            ),
+        ]
         for (q_idx, q) in enumerate(quantization_points)
-    }
+    ]
     return count_matrices
 
 
@@ -175,8 +179,10 @@ def count_transitions(
     # Reduce step (aggregate count matrices from all processes)
     count_matrices = count_matrices_per_process[0]
     for process_rank in range(1, num_processes):
-        for q in quantization_points:
-            count_matrices[q] += count_matrices_per_process[process_rank][q]
+        for q_idx in range(len(quantization_points)):
+            count_matrices[q_idx][1] += count_matrices_per_process[
+                process_rank
+            ][q_idx][1]
 
     write_count_matrices(
         count_matrices, os.path.join(output_count_matrices_dir, "result.txt")
