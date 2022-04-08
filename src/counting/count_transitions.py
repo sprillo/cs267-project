@@ -78,19 +78,19 @@ def _map_func(args):
                             branch_length_total * site_rate, quantization_points
                         )
                         if q_idx is not None:
-                            start_state = leaf_seq_1[amino_acid_idx]
-                            end_state = leaf_seq_2[amino_acid_idx]
+                            state_1 = leaf_seq_1[amino_acid_idx]
+                            state_2 = leaf_seq_2[amino_acid_idx]
                             if (
-                                start_state in amino_acids
-                                and end_state in amino_acids
+                                state_1 in amino_acids
+                                and state_2 in amino_acids
                             ):
-                                start_state_idx = aa_to_int[start_state]
-                                end_state_idx = aa_to_int[end_state]
+                                state_1_idx = aa_to_int[state_1]
+                                state_2_idx = aa_to_int[state_2]
                                 count_matrices_numpy[
-                                    q_idx, start_state_idx, end_state_idx
+                                    q_idx, state_1_idx, state_2_idx
                                 ] += 0.5
                                 count_matrices_numpy[
-                                    q_idx, end_state_idx, start_state_idx
+                                    q_idx, state_2_idx, state_1_idx
                                 ] += 0.5
     count_matrices = {
         q: pd.DataFrame(

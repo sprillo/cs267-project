@@ -91,8 +91,8 @@ def _map_func(args):
                     if q_idx is not None:
                         for (i, j) in contacting_pairs:
                             # We accumulate the transitions in both directions
-                            start_state = leaf_seq_1[i] + leaf_seq_1[j]
-                            end_state = leaf_seq_2[i] + leaf_seq_2[j]
+                            state_1 = leaf_seq_1[i] + leaf_seq_1[j]
+                            state_2 = leaf_seq_2[i] + leaf_seq_2[j]
                             if (
                                 leaf_seq_1[i] in amino_acids
                                 and leaf_seq_1[j] in amino_acids
@@ -100,10 +100,10 @@ def _map_func(args):
                                 and leaf_seq_2[j] in amino_acids
                             ):
                                 for (s, e) in [
-                                    (start_state, end_state),
-                                    (start_state[::-1], end_state[::-1]),
-                                    (end_state, start_state),
-                                    (end_state[::-1], start_state[::-1]),
+                                    (state_1, state_2),
+                                    (state_1[::-1], state_2[::-1]),
+                                    (state_2, state_1),
+                                    (state_2[::-1], state_1[::-1]),
                                 ]:
                                     s_idx = aa_pair_to_int[s]
                                     e_idx = aa_pair_to_int[e]
