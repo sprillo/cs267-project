@@ -2,6 +2,8 @@ from typing import List, Optional
 
 import numpy as np
 
+amino_acids = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+
 
 def quantize(
     branch_length: float, quantization_points: List[float]
