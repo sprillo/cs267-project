@@ -33,7 +33,13 @@ def _map_func(args):
     }
 
     num_amino_acids = len(amino_acids)
-    count_matrices_numpy = np.zeros(shape=(len(quantization_points), num_amino_acids**2, num_amino_acids**2))
+    count_matrices_numpy = np.zeros(
+        shape=(
+            len(quantization_points),
+            num_amino_acids**2,
+            num_amino_acids**2,
+        )
+    )
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
@@ -52,9 +58,7 @@ def _map_func(args):
                 # Extract all transitions on edges starting at 'node'
                 for (child, branch_length) in tree.children(node):
                     child_seq = msa[child]
-                    q_idx = quantization_idx(
-                        branch_length, quantization_points
-                    )
+                    q_idx = quantization_idx(branch_length, quantization_points)
                     if q_idx is not None:
                         for (i, j) in contacting_pairs:
                             start_state = node_seq[i] + node_seq[j]

@@ -2,15 +2,41 @@ from typing import List, Optional
 
 import numpy as np
 
-amino_acids = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
+amino_acids = [
+    "A",
+    "R",
+    "N",
+    "D",
+    "C",
+    "Q",
+    "E",
+    "G",
+    "H",
+    "I",
+    "L",
+    "K",
+    "M",
+    "F",
+    "P",
+    "S",
+    "T",
+    "W",
+    "Y",
+    "V",
+]
 
 
 def quantization_idx(
     branch_length: float, quantization_points_sorted: np.array
 ) -> Optional[int]:
-    if branch_length < quantization_points_sorted[0] or branch_length > quantization_points_sorted[-1]:
+    if (
+        branch_length < quantization_points_sorted[0]
+        or branch_length > quantization_points_sorted[-1]
+    ):
         return None
-    smallest_upper_bound_idx = np.searchsorted(quantization_points_sorted, branch_length)
+    smallest_upper_bound_idx = np.searchsorted(
+        quantization_points_sorted, branch_length
+    )
     if smallest_upper_bound_idx == 0:
         return 0
     else:

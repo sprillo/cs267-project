@@ -25,10 +25,10 @@ def _map_func(args):
     edge_or_cherry = args[6]
 
     num_amino_acids = len(amino_acids)
-    aa_to_int = {
-        aa: i for (i, aa) in enumerate(amino_acids)
-    }
-    count_matrices_numpy = np.zeros(shape=(len(quantization_points), num_amino_acids, num_amino_acids))
+    aa_to_int = {aa: i for (i, aa) in enumerate(amino_acids)}
+    count_matrices_numpy = np.zeros(
+        shape=(len(quantization_points), num_amino_acids, num_amino_acids)
+    )
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
@@ -57,9 +57,7 @@ def _map_func(args):
                                 start_state_idx = aa_to_int[start_state]
                                 end_state_idx = aa_to_int[end_state]
                                 count_matrices_numpy[
-                                    q_idx,
-                                    start_state_idx,
-                                    end_state_idx
+                                    q_idx, start_state_idx, end_state_idx
                                 ] += 1
             elif edge_or_cherry == "cherry":
                 children = tree.children(node)

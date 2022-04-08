@@ -15,9 +15,7 @@ def read_site_rates(site_rates_path: str) -> List[float]:
             f"'[num_sites] sites', but started with: {lines[0]} instead."
         )
     try:
-        res = list(
-            map(float, lines[1].split(" "))
-        )
+        res = list(map(float, lines[1].split(" ")))
     except Exception:
         raise Exception(f"Could nor read site rates in file: {site_rates_path}")
     if len(res) != num_sites:
