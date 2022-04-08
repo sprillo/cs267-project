@@ -7,7 +7,7 @@ import pandas as pd
 import tqdm
 
 from src.io import read_msa, read_site_rates, read_tree, write_count_matrices
-from src.utils import get_process_args, quantize
+from src.utils import get_process_args, quantization_idx
 
 
 def _map_func(args):
@@ -21,18 +21,14 @@ def _map_func(args):
     site_rates_dir = args[2]
     families = args[3]
     amino_acids = args[4]
-    quantization_points = args[5]
+    quantization_points = np.array(sorted(args[5]))
     edge_or_cherry = args[6]
 
     num_amino_acids = len(amino_acids)
-    count_matices = {
-        q: pd.DataFrame(
-            np.zeros(shape=(num_amino_acids, num_amino_acids)),
-            index=amino_acids,
-            columns=amino_acids,
-        )
-        for q in quantization_points
+    aa_to_int = {
+        aa: i for (i, aa) in enumerate(amino_acids)
     }
+    count_matrices_numpy = np.zeros(shape=(len(quantization_points), num_amino_acids, num_amino_acids))
     for family in families:
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         msa = read_msa(msa_path=os.path.join(msa_dir, family + ".txt"))
@@ -48,18 +44,22 @@ def _map_func(args):
                     child_seq = msa[child]
                     for amino_acid_idx in range(msa_length):
                         site_rate = site_rates[amino_acid_idx]
-                        q = quantize(
+                        q_idx = quantization_idx(
                             branch_length * site_rate, quantization_points
                         )
-                        if q is not None:
+                        if q_idx is not None:
                             start_state = node_seq[amino_acid_idx]
                             end_state = child_seq[amino_acid_idx]
                             if (
                                 start_state in amino_acids
                                 and end_state in amino_acids
                             ):
-                                count_matices[q].loc[
-                                    start_state, end_state
+                                start_state_idx = aa_to_int[start_state]
+                                end_state_idx = aa_to_int[end_state]
+                                count_matrices_numpy[
+                                    q_idx,
+                                    start_state_idx,
+                                    end_state_idx
                                 ] += 1
             elif edge_or_cherry == "cherry":
                 children = tree.children(node)
@@ -74,23 +74,33 @@ def _map_func(args):
                     for amino_acid_idx in range(msa_length):
                         site_rate = site_rates[amino_acid_idx]
                         branch_length_total = branch_length_1 + branch_length_2
-                        q = quantize(
+                        q_idx = quantization_idx(
                             branch_length_total * site_rate, quantization_points
                         )
-                        if q is not None:
+                        if q_idx is not None:
                             start_state = leaf_seq_1[amino_acid_idx]
                             end_state = leaf_seq_2[amino_acid_idx]
                             if (
                                 start_state in amino_acids
                                 and end_state in amino_acids
                             ):
-                                count_matices[q].loc[
-                                    start_state, end_state
+                                start_state_idx = aa_to_int[start_state]
+                                end_state_idx = aa_to_int[end_state]
+                                count_matrices_numpy[
+                                    q_idx, start_state_idx, end_state_idx
                                 ] += 0.5
-                                count_matices[q].loc[
-                                    end_state, start_state
+                                count_matrices_numpy[
+                                    q_idx, end_state_idx, start_state_idx
                                 ] += 0.5
-    return count_matices
+    count_matrices = {
+        q: pd.DataFrame(
+            count_matrices_numpy[q_idx, :, :],
+            index=amino_acids,
+            columns=amino_acids,
+        )
+        for (q_idx, q) in enumerate(quantization_points)
+    }
+    return count_matrices
 
 
 def count_transitions(

@@ -5,19 +5,23 @@ import numpy as np
 amino_acids = ["A", "R", "N", "D", "C", "Q", "E", "G", "H", "I", "L", "K", "M", "F", "P", "S", "T", "W", "Y", "V"]
 
 
-def quantize(
-    branch_length: float, quantization_points: List[float]
-) -> Optional[float]:
-    if branch_length < min(quantization_points) or branch_length > max(
-        quantization_points
-    ):
+def quantization_idx(
+    branch_length: float, quantization_points_sorted: np.array
+) -> Optional[int]:
+    if branch_length < quantization_points_sorted[0] or branch_length > quantization_points_sorted[-1]:
         return None
-    relative_errors = [
-        max(abs(branch_length / q - 1), abs(q / branch_length - 1))
-        for q in quantization_points
-    ]
-    argmin = np.argmin(relative_errors)
-    return quantization_points[argmin]
+    smallest_upper_bound_idx = np.searchsorted(quantization_points_sorted, branch_length)
+    if smallest_upper_bound_idx == 0:
+        return 0
+    else:
+        left_value = quantization_points_sorted[smallest_upper_bound_idx - 1]
+        right_value = quantization_points_sorted[smallest_upper_bound_idx]
+        relative_error_left = branch_length / left_value - 1
+        relative_error_right = right_value / branch_length - 1
+        if relative_error_left < relative_error_right:
+            return smallest_upper_bound_idx - 1
+        else:
+            return smallest_upper_bound_idx
 
 
 def get_process_args(
