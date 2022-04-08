@@ -10,17 +10,17 @@ Then install requirements:
 pip install -r requirements.txt
 ```
 
-To run ALL the tests:
-```
-python -m pytest tests/
-```
-
-To run JUST the counting tests (takes ~ 1 second):
+To run the counting fast tests (takes ~ 1 second):
 ```
 python -m pytest tests/counting_tests/
 ```
 
-To run JUST the simulations tests (takes ~ 10 seconds):
+To run the counting fast AND SLOW tests (takes ~ 5 minutes, requires 32 cores):
+```
+python -m pytest tests/counting_tests/ --runslow
+```
+
+To run the simulation fast tests (takes ~ 10 seconds):
 ```
 python -m pytest tests/simulation_tests/
 ```
