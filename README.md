@@ -93,7 +93,7 @@ The _real_ datasets we will be working with have 15051 protein families and are 
 - `contact_maps_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
 - `site_rates_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
 
-You can ignore the suffix `None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats` - this has to do with how I generated the data. Just look at the prefix, e.g. `trees_4096...`, `msas_4096...` etc.
+You can ignore the suffix `None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats` - this has to do with how I generated the data. Just look at the prefix, e.g. `trees_4096...`, `msas_4096...` etc. to know what dataset you are using.
 
 Here are the sizes of the datasets for you to get a feel:
 
