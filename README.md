@@ -51,7 +51,27 @@ if use_cpp_implementation:
     raise NotImplementedError
 ```
 
-It might be easier to start with `count_transitions` since it is single-site. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
+It might be easier to start with `count_transitions` since it is single-site. The signature of the `count_co_transitions` function is:
+
+```
+def count_co_transitions(
+    tree_dir: str,
+    msa_dir: str,
+    contact_map_dir: str,
+    families: List[str],
+    amino_acids: List[str],
+    quantization_points: List[float],
+    edge_or_cherry: bool,
+    minimum_distance_for_nontrivial_contact: int,
+    output_count_matrices_dir: str,
+    num_processes: int,
+    use_cpp_implementation: bool = False,
+) -> None
+```
+
+Importantly, here `tree_dir`, `msa_dir`, and `contact_map_dir` refer to the directories containing the trees, msas, and contact maps. Furthermore, `families` specifies for what protein families we should perform the computation. This easily allows testing the method on a subset of the protein families before running it on all of them. `output_count_matrices_dir` is where the count matrices should be writted to, in a file simply called `result.txt`.
+
+Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
 
 ### src.simulation
 
@@ -61,6 +81,29 @@ This module exposes a unique function `simulate_msas` which simulates data under
 if use_cpp_implementation:
     raise NotImplementedError
 ```
+
+The signature of the `simulate_msas` function is:
+
+```
+def simulate_msas(
+    tree_dir: str,
+    site_rates_dir: str,
+    contact_map_dir: str,
+    families: List[str],
+    amino_acids: List[str],
+    pi_1_path: str,
+    Q_1_path: str,
+    pi_2_path: str,
+    Q_2_path: str,
+    strategy: str,
+    output_msa_dir: str,
+    random_seed: int,
+    num_processes: int,
+    use_cpp_implementation: bool = False,
+) -> None:
+```
+
+Importantly, here `tree_dir`, `site_rates_dir`, and `contact_map_dir` refer to the directories containing the trees, site rates, and contact maps. Furthermore, `families` specifies for what protein families we should perform the computation. This easily allows testing the method on a subset of the protein families before running it on all of them. `output_msa_dir` is where the count simulated MSAs should be writted to, one per input family, at the file {family_name}.txt.
 
 Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
 
