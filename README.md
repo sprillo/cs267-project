@@ -1,5 +1,7 @@
 # CS267 Project: Scalable Estimation and Evaluation of Models of Amino-Acid Co-Evolution
 
+This repo contains starter code for our CS267 class project. The starter code consists of parallel Python implementations and automated correctness tests.
+
 ## Getting set up
 
 To get set up on Cori:
