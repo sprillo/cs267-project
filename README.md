@@ -66,7 +66,7 @@ Take a look at the docstring of the function for more details, as well as the te
 
 ### src.evaluation
 
-This module exposes a unique function `compute_log_likelihoods` which computes data log likelihood under a given Markov Chain model of amino acid evolution. This is the counterpart to `simulate_msas`, in the sense that `simulate_msas` can simulate data from the model, while `compute_log_likelihoods` can compute the likelihood of data under the model. Our goal is to make `compute_log_likelihoods` as fast as possible.
+This module exposes a unique function `compute_log_likelihoods` which computes data log likelihood under a given Markov Chain model of amino acid evolution. This is the counterpart to `simulate_msas`, in the sense that `simulate_msas` can simulate data from the model, while `compute_log_likelihoods` can compute the likelihood of data under the model. Our goal is to write an efficient C++ implementation for `compute_log_likelihoods`, and I will take care of it to begin with (I still have to write the Pyhton code for it).
 
 ## Datasets
 
