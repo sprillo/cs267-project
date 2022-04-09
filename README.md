@@ -181,7 +181,7 @@ A site rate file looks like this (taken from `tests/counting_tests/test_input_da
 1.0 1.0 1.0 1.0 1.0
 ```
 
-The first line indicates the number of sites, followed by the rate at which each site evolves (this is only used if a site is _not_ in contact with any other site; sites that are in contact will by simplicty all evolve at the same rate of 1.0).
+The first line indicates the number of sites, followed by the rate at which each site evolves (this is only used if a site is _not_ in contact with any other site; sites that are in contact will by simplicty all co-evolve at the same rate of 1.0).
 
 ## Additional data files
 
