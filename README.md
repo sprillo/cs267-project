@@ -211,7 +211,7 @@ TS  1   0   -2  1
 TT  0   0.5   0.5   -1
 ```
 
-Entry (i, i) indicates the negative of the rate at which state i is left, and entry (i, j) with i \neq j indicates the rate at which state i transitions to state j. Each row adds up to 0. For a rate matrix Q, the probability of being in state j at time t given that we started at time 0 in state i is given by \exp(tQ)_{i, j} where \exp is the matrix exponential.
+Entry (i, i) indicates the negative of the rate at which state i is left, and entry (i, j) with i \neq j indicates the rate at which state i transitions to state j. Each row adds up to 0. For a rate matrix Q, the probability of being in state j at time t given that we started at time 0 in state i is given by \exp(tQ)_{i, j} where \exp is the matrix exponential. Note that this is a toy rate matrix, and that real co-evolution rate matrices will be of size 400 x 400.
 
 ### Count matrices
 
