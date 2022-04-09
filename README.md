@@ -103,7 +103,7 @@ def simulate_msas(
 ) -> None:
 ```
 
-Importantly, here `tree_dir`, `site_rates_dir`, and `contact_map_dir` refer to the directories containing the trees, site rates, and contact maps. Furthermore, `families` specifies for what protein families we should perform the computation. This easily allows testing the method on a subset of the protein families before running it on all of them. `output_msa_dir` is where the simulated MSAs should be writted to, one per input family, at the file {family_name}.txt.
+Importantly, here `tree_dir`, `site_rates_dir`, and `contact_map_dir` refer to the directories containing the trees, site rates, and contact maps. Furthermore, `families` specifies for what protein families we should perform the computation. This easily allows testing the method on a subset of the protein families before running it on all of them. `output_msa_dir` is where the simulated MSAs should be writted to, one per input family, named `{family_name}.txt`
 
 Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
 
