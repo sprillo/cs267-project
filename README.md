@@ -124,7 +124,7 @@ A contact map file looks like this (taken from `tests/counting_tests/test_input_
 10011
 ```
 
-The first line indicates the number of sites, and the matrix following indicates at position $(i, j)$ whether positions $i$ and $j$ are in contact. This matrix is by definition symmetric.
+The first line indicates the number of sites, and the matrix following indicates at position (i, j) whether positions i and j are in contact. This matrix is by definition symmetric.
 
 ### Site rates
 
@@ -165,4 +165,4 @@ TS  1   0   -2  1
 TT  0   0.5   0.5   -1
 ```
 
-Entry $(i, i)$ indicates the negative of the rate at which state $i$ is left, and entry $(i, j)$ with $i \neq j$ indicates the rate at which state $i$ transitions to state $j$. Each row adds up to $0$. For a rate matrix $Q$, the probability of being in state $j$ at time $t$ given that we started at time $0$ in state $i$ is given by $\exp(tQ)_{i, j}$ where $\exp$ is the matrix exponential.
+Entry (i, i) indicates the negative of the rate at which state i is left, and entry (i, j) with i \neq j indicates the rate at which state i transitions to state j. Each row adds up to 0. For a rate matrix Q, the probability of being in state j at time t given that we started at time 0 in state i is given by \exp(tQ)_{i, j} where \exp is the matrix exponential.
