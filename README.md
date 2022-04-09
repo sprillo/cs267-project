@@ -44,11 +44,25 @@ There are no simulation slow tests (if you pass the fast tests you are good).
 
 ### src.counting
 
-This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to make `count_co_transitions` as fast as possible, but it might be easier to start with `count_transitions`. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`.
+This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to write an efficient C++ implementation for `count_co_transitions`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will error out:
+
+```
+if use_cpp_implementation:
+    raise NotImplementedError
+```
+
+It might be easier to start with `count_transitions` since it is single-site. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`.
 
 ### src.simulation
 
-This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to make `simulate_msas` as fast as possible. Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`.
+This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to write an efficient C++ implementation for `simulate_msas`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will error out:
+
+```
+if use_cpp_implementation:
+    raise NotImplementedError
+```
+
+Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`.
 
 ### src.evaluation
 
