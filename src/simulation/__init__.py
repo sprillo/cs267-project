@@ -1,1 +1,1 @@
-from .simulate_msas import simulate_msas
+from ._simulate_msas import simulate_msas

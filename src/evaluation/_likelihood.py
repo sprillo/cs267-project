@@ -21,6 +21,7 @@ def compute_log_likelihoods(
     Q_2_path: str,
     output_likelihood_dir: str,
     num_processes: int,
+    use_cpp_implementation: bool = False,
 ) -> None:
     """
     Compute log-likelihoods under the given model.
@@ -63,5 +64,10 @@ def compute_log_likelihoods(
         output_likelihood_dir: Directory where to write the log-likelihoods,
             with site-level resolution.
         num_processes: Number of processes used to parallelize computation.
+        use_cpp_implementation: If to use efficient C++ implementation
+            instead of Python.
     """
-    pass
+    if use_cpp_implementation:
+        raise NotImplementedError
+
+    raise NotImplementedError

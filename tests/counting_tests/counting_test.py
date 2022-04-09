@@ -8,9 +8,9 @@ import pandas as pd
 import pytest
 from parameterized import parameterized
 
-from src.counting.count_co_transitions import count_co_transitions
-from src.counting.count_transitions import count_transitions
-from src.io.count_matrices import read_count_matrices
+from src.counting import count_co_transitions
+from src.counting import count_transitions
+from src.io import read_count_matrices
 from src.utils import amino_acids
 
 DATA_DIR = "./tests/counting_tests/test_input_data"
