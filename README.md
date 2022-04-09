@@ -40,11 +40,11 @@ python -m pytest tests/simulation_tests/
 
 ### src.counting
 
-This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to make `count_co_transitions` as fast as possible, but it might be easier to start with `count_transitions`.
+This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to make `count_co_transitions` as fast as possible, but it might be easier to start with `count_transitions`. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`.
 
 ### src.simulation
 
-This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to make `simulate_msas` as fast as possible.
+This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to make `simulate_msas` as fast as possible. Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`.
 
 ### src.evaluation
 
@@ -109,7 +109,7 @@ TTIIS
 SSIIS
 ```
 
-This encodes a dictionary `{"internal-0": "SSIIS", "internal-1": "SSIIS", ...}` mapping protein names to protein sequences.
+This encodes a dictionary `{"internal-0": "SSIIS", "internal-1": "SSIIS", ...}` mapping protein names to protein sequences. This is what the output of the `simulate_msas` function looks like: there will be one sequence for each node in the input tree.
 
 ### Contact maps
 
@@ -166,3 +166,50 @@ TT  0   0.5   0.5   -1
 ```
 
 Entry (i, i) indicates the negative of the rate at which state i is left, and entry (i, j) with i \neq j indicates the rate at which state i transitions to state j. Each row adds up to 0. For a rate matrix Q, the probability of being in state j at time t given that we started at time 0 in state i is given by \exp(tQ)_{i, j} where \exp is the matrix exponential.
+
+### Count matrices
+
+A count matrix file looks like this (taken from `tests/counting_tests/test_input_data/tiny/count_co_matrices_dir_edges/result.txt`):
+
+```
+2 matrices
+16 states
+1.99
+    II  IL  IS  IT  LI  LL  LS  LT  SI  SL  SS  ST  TI  TL  TS  TT
+II  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+IL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+IS  0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0
+IT  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LI  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LS  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LT  0   0   0   0   0   0   0   2   0   0   0   0   0   0   0   0
+SI  0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0
+SL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+SS  0   0   0   0   0   0   0   0   0   0   0   0.5 0   0   0.5 0
+ST  0   0   0   0   0   0   0   0   0   0   0   0.5 0   0   0   0
+TI  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+TL  0   0   0   0   0   0   0   0   0   0   0   0   0   2   0   0
+TS  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0.5 0
+TT  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+5.01
+    II  IL  IS  IT  LI  LL  LS  LT  SI  SL  SS  ST  TI  TL  TS  TT
+II  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+IL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+IS  0   0   2   0   0   0   0   0   0   0   0   0   0   0   0   0
+IT  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LI  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LS  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+LT  0   0   0   2   0   0   0   0   0   0   0   0   0   0   0   0
+SI  0   0   0   0   0   0   0   0   2   0   0   0   0   0   0   0
+SL  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+SS  0   0   0   0   0   0   0   0   0   0   1   0   0   0   0   0
+ST  0   0   0   0   0   0   0   0   0   0   0   0.5 0   0   0   0
+TI  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+TL  0   0   0   0   0   0   0   0   0   0   0   0   2   0   0   0
+TS  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0.5 0
+TT  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
+```
+
+The first row indicates how many matrices there are, the second row how many states there are, and then each count matrix follows, headed by the branch length it is associated to. Note that this is a small example, on real data the count matrices will have size 400 x 400. Count matrices are computed by the `count_co_transitions` function.
