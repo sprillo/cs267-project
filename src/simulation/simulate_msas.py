@@ -261,6 +261,7 @@ def simulate_msas(
     output_msa_dir: str,
     random_seed: int,
     num_processes: int,
+    use_cpp_implementation: bool = False,
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
@@ -309,7 +310,12 @@ def simulate_msas(
         random_seed: Random seed for reproducibility. Using the same random
             seed and strategy leads to the exact same simulated data.
         num_processes: Number of processes used to parallelize computation.
+        use_cpp_implementation: If to use efficient C++ implementation
+            instead of Python.
     """
+    if use_cpp_implementation:
+        raise NotImplementedError
+
     map_args = [
         [
             tree_dir,

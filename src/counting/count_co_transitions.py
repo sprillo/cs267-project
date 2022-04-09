@@ -139,6 +139,7 @@ def count_co_transitions(
     minimum_distance_for_nontrivial_contact: int,
     output_count_matrices_dir: str,
     num_processes: int,
+    use_cpp_implementation: bool = False,
 ) -> None:
     """
     Count the number of co-transitions.
@@ -180,7 +181,12 @@ def count_co_transitions(
         output_count_matrices_dir: Directory where to write the count matrices
             to.
         num_processes: Number of processes used to parallelize computation.
+        use_cpp_implementation: If to use efficient C++ implementation
+            instead of Python.
     """
+    if use_cpp_implementation:
+        raise NotImplementedError
+
     map_args = [
         [
             tree_dir,
