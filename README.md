@@ -307,4 +307,4 @@ The first row indicates how many matrices there are, the second row how many sta
 
 ## Help
 
-Just chat with me. There's a few lower-level logic details, but you will see them in the code, and we can go over them together.
+Just chat with me. There's a bit of lower-level logic details, but you will see them in the code, and we can go over them together.
