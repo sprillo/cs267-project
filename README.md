@@ -59,14 +59,40 @@ There are 4 kinds of data files:
 - Contact maps
 - Site rates
 
-Each protein family has exactly one file of each kind associated with it. We store trees, MSAs, contact maps, and site rates in separate directories, such as the tiny test dataset at "tests/counting_tests/test_input_data/tiny", which contains (among other test data):
+Each protein family has exactly one file of each kind associated with it. We store trees, MSAs, contact maps, and site rates in separate directories, such as the tiny test dataset at `tests/counting_tests/test_input_data/tiny`, which contains (among other test data):
 
-- "tests/counting_tests/test_input_data/tiny/tree_dir"
-- "tests/counting_tests/test_input_data/tiny/msa_dir"
-- "tests/counting_tests/test_input_data/tiny/contact_map_dir"
-- "tests/counting_tests/test_input_data/tiny/site_rates_dir"
+- `tests/counting_tests/test_input_data/tiny/tree_dir`
+- `tests/counting_tests/test_input_data/tiny/msa_dir`
+- `tests/counting_tests/test_input_data/tiny/contact_map_dir`
+- `tests/counting_tests/test_input_data/tiny/site_rates_dir`
 
-Each protein family contains a file in each of these directories.
+Each protein family contains a file in each of these directories. The _real_ datasets we will be workinghave 15051 protein families and are located under `/global/cscratch1/sd/sprillo/cs267_data`. There are 3 real datasets with increasing sizes: one with 1024 sequences per family, one with 2048, and one with 4096. For example, the dataset with 4096 sequences per family is composed of:
+
+- `trees_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
+- `msas_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
+- `contact_maps_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
+- `site_rates_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
+
+Here are the sizes of the datasets for you to get a feel:
+
+```
+sprillo@cori03: /global/cscratch1/sd/sprillo/cs267_data () $ du -h --max-depth=1 . | sort -h
+66M    ./site_rates_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+66M    ./site_rates_2048_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+66M    ./site_rates_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+1.2G   ./trees_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+1.3G   ./contact_maps_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+1.3G   ./contact_maps_2048_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+1.3G   ./contact_maps_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+2.3G   ./trees_2048_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+3.6G   ./msas_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+3.8G   ./trees_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+6.8G   ./msas_2048_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+12G    ./msas_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats
+33G    .
+```
+
+In addition, a subset of 32 families from the dataset with 1024 sequences is located at `tests/counting_tests/test_input_data/medium`. It is used for testing the counting method in `tests/counting_tests/counting_test.py`, and you can consider using it as you implement your method to get a feeling for how fast things are going before you run them on the large datasets.
 
 ### Trees
 
