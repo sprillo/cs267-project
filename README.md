@@ -200,7 +200,7 @@ TTIIS
 SSIIS
 ```
 
-This encodes a dictionary `{"internal-0": "SSIIS", "internal-1": "SSIIS", ...}` mapping protein names to protein sequences. This is what the output of the `simulate_msas` function looks like: there will be one sequence for each node in the input tree.
+This encodes a dictionary `{"internal-0": "SSIIS", "internal-1": "SSIIS", ...}` mapping protein names to protein sequences. This is what the output of the `simulate_msas` function looks like: there will be one sequence for each node in the input tree (and one MSA per input family).
 
 ### Contact maps
 
