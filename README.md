@@ -84,7 +84,9 @@ Each protein family has exactly one file of each kind associated with it. We sto
 - `contact_map_dir`
 - `site_rates_dir`
 
-Each protein family contains a file in each of these directories. The _real_ datasets we will be workinghave 15051 protein families and are located under `/global/cscratch1/sd/sprillo/cs267_data`. There are 3 real datasets with increasing sizes: one with 1024 sequences per family, one with 2048, and one with 4096. For example, the dataset with 4096 sequences per family is composed of:
+Each protein family contains a file in each of these directories.
+
+The _real_ datasets we will be working with have 15051 protein families and are located under `/global/cscratch1/sd/sprillo/cs267_data`. There are 3 real datasets with increasing sizes: one with 1024 sequences per family, one with 2048, and one with 4096. For example, the dataset with 4096 sequences per family is composed of:
 
 - `trees_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
 - `msas_4096_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats`
