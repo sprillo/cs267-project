@@ -38,7 +38,7 @@ To run ONLY the simulation fast tests (takes ~ 10 seconds):
 python -m pytest tests/simulation_tests/
 ```
 
-There are no simulation slow tests (if you pass the fast tests you should be good.)
+There are no simulation slow tests (if you pass the fast tests you are good).
 
 ## Main Modules
 
