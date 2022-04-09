@@ -51,7 +51,7 @@ if use_cpp_implementation:
     raise NotImplementedError
 ```
 
-It might be easier to start with `count_transitions` since it is single-site. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ executable.
+It might be easier to start with `count_transitions` since it is single-site. Take a look at the docstring of these functions for more details, as well as the tests at `tests/counting_tests/counting_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
 
 ### src.simulation
 
@@ -62,7 +62,7 @@ if use_cpp_implementation:
     raise NotImplementedError
 ```
 
-Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ executable.
+Take a look at the docstring of the function for more details, as well as the tests at `tests/simulation_tests/simulation_test.py`. You are free to add any C++ specific flags to the Python API (such as number of OpenMP threads, number of nodes, etc.), such that they get forwarded to your C++ program.
 
 ### src.evaluation
 
