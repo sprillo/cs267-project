@@ -44,7 +44,7 @@ There are no simulation slow tests (if you pass the fast tests you are good).
 
 ### src.counting
 
-This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to write an efficient C++ implementation for `count_co_transitions`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will error out:
+This module contains the functions to compute count matrices used to estimate rate matrices. The two functions exposed by this module are `count_transitions` and `count_co_transitions`. The function `count_transitions` counts transitions between _single_ amino acids, while the function `count_co_transitions` counts transitions between _pairs_ of amino acids. Our goal is to write an efficient C++ implementation for `count_co_transitions`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will raise an error:
 
 ```
 if use_cpp_implementation:
@@ -55,7 +55,7 @@ It might be easier to start with `count_transitions` since it is single-site. Ta
 
 ### src.simulation
 
-This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to write an efficient C++ implementation for `simulate_msas`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will error out:
+This module exposes a unique function `simulate_msas` which simulates data under a given Markov Chain model of amino acid evolution. Our goal is to write an efficient C++ implementation for `simulate_msas`, which should be called from the Python code when `use_cpp_implementation=True`. Currently, there is no C++ implementation, so it will raise an error:
 
 ```
 if use_cpp_implementation:
