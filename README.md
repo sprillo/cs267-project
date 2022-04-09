@@ -138,7 +138,7 @@ The first line indicates how many nodes are in the tree, followed by the node na
 
 ### Multiple sequence alignments (MSAs)
 
-An MSA looks like this (taken from `tests/counting_tests/test_input_data/tiny/tree_dir/fam1.txt`):
+An MSA file looks like this (taken from `tests/counting_tests/test_input_data/tiny/tree_dir/fam1.txt`):
 
 ```
 >internal-0
