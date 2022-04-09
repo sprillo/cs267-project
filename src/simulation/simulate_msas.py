@@ -240,12 +240,6 @@ def _map_func(args: Dict):
             msa_path,
         )
 
-        # TODO: For caching crash recovery, do this:
-        # os.system(f'chmod 444 "{msa_path}"')
-        # success_path = os.path.join(output_msa_dir, family + ".success")
-        # with open(success_path, "w") as success_file:
-        #     success_file.write("SUCCESS\n")
-
 
 def simulate_msas(
     tree_dir: str,
