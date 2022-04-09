@@ -79,10 +79,10 @@ There are 4 kinds of data files:
 
 Each protein family has exactly one file of each kind associated with it. We store trees, MSAs, contact maps, and site rates in separate directories, such as the tiny test dataset at `tests/counting_tests/test_input_data/tiny`, which contains (among other test data):
 
-- `tests/counting_tests/test_input_data/tiny/tree_dir`
-- `tests/counting_tests/test_input_data/tiny/msa_dir`
-- `tests/counting_tests/test_input_data/tiny/contact_map_dir`
-- `tests/counting_tests/test_input_data/tiny/site_rates_dir`
+- `tree_dir`
+- `msa_dir`
+- `contact_map_dir`
+- `site_rates_dir`
 
 Each protein family contains a file in each of these directories. The _real_ datasets we will be workinghave 15051 protein families and are located under `/global/cscratch1/sd/sprillo/cs267_data`. There are 3 real datasets with increasing sizes: one with 1024 sequences per family, one with 2048, and one with 4096. For example, the dataset with 4096 sequences per family is composed of:
 
