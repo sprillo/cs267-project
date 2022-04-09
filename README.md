@@ -258,4 +258,4 @@ TS  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0.5 0
 TT  0   0   0   0   0   0   0   0   0   0   0   0   0   0   0   0
 ```
 
-The first row indicates how many matrices there are, the second row how many states there are, and then each count matrix follows, preceded by the branch length it is associated to. Note that this is a small example, on real data the count matrices will have size 400 x 400. Count matrices are computed by the `count_co_transitions` function.
+The first row indicates how many matrices there are, the second row how many states there are, and then each count matrix follows, preceded by the branch length it is associated to. Note that this is a small example: on real data the count matrices will have size 400 x 400, and we will want to compute 100 of them. Count matrices are computed by the `count_co_transitions` function.
