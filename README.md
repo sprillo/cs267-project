@@ -15,7 +15,7 @@ To run the counting fast tests (takes ~ 1 second):
 python -m pytest tests/counting_tests/
 ```
 
-To run the counting fast AND SLOW tests (takes ~ 5 minutes, requires 32 cores):
+To run the counting fast AND SLOW tests (takes ~ 2 minutes, requires 32 cores):
 ```
 python -m pytest tests/counting_tests/ --runslow
 ```
