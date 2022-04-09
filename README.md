@@ -157,7 +157,7 @@ sprillo@cori03: /global/cscratch1/sd/sprillo/cs267_data () $ du -h --max-depth=1
 
 To make your life easier, a subset of 32 families from the dataset with 1024 sequences is commited at `tests/counting_tests/test_input_data/medium`. It is used for testing the counting method in `tests/counting_tests/counting_test.py`, and you can consider using this reduced dataset as you implement your method, e.g. to run it locally on your own machine. The name of these 32 families are listed in the `families_medium` variable in the `tests/counting_tests/counting_test.py` module.
 
-Next, I describe the exact way in which each kind of data is represented.
+Next, I describe the exact way in which each kind of data is stored:
 
 ### Trees
 
