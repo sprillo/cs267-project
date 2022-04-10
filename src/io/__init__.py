@@ -3,4 +3,4 @@ from ._count_matrices import read_count_matrices, write_count_matrices
 from ._msa import read_msa, write_msa
 from ._rate_matrix import read_probability_distribution, read_rate_matrix
 from ._site_rates import read_site_rates, write_site_rates
-from ._tree import read_tree
+from ._tree import read_tree, Tree

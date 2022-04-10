@@ -3,4 +3,5 @@ numpy
 pandas
 parameterized
 pytest
+torch
 tqdm
