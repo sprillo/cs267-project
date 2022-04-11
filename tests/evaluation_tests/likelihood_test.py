@@ -505,6 +505,68 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
         np.testing.assert_almost_equal(lls, [ll_expected / 2, ll_expected / 2], decimal=4)
 
+    def test_small_wag_x_wag_3_seqs_many_sites(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            'l1': 'KSRMFCP',
+            'l2': 'ITVDQAE',
+            'l3': 'LGYNGHW',
+        }
+        contact_map = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+        site_rates = [1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0]  # I use 2s to make sure site rates are not getting used for coevolution
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+        )
+        # TODO: Test actual Python implementation too!
+        lls_expected = [
+            -9.714873,
+            (-7.343870 + -10.78960) / 2,
+            (-10.56782 + -11.85804) / 2,
+            (-11.85804 + -10.56782) / 2,
+            -11.38148,
+            (-10.78960 + -7.343870) / 2,
+            -11.31551,
+        ]
+        np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
+        np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
+
     # @parameterized.expand(
     #     [("3 processes", 3)]
     # )
