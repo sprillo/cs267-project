@@ -14,7 +14,8 @@ from src.counting import count_transitions
 from src.io import read_count_matrices
 from src.evaluation import compute_log_likelihoods
 from tests.utils import create_synthetic_contact_map
-from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution
+from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution,\
+    equ_matrix
 
 from src.io import Tree
 import src
@@ -115,6 +116,10 @@ def brute_force_likelihood_computation(
     aa_pair_to_int = {
         aa_pair: i for (i, aa_pair) in enumerate(pairs_of_amino_acids)
     }
+    for i, aa in enumerate(amino_acids):
+        aa_pair_to_int[aa + '-'] = slice(i * len(amino_acids), (i + 1) * len(amino_acids), 1)
+        aa_pair_to_int['-' + aa] = slice(i, len(amino_acids) ** 2, len(amino_acids))
+    aa_pair_to_int['--'] = slice(0, len(amino_acids) ** 2, 1)
 
     num_internal_nodes = sum([not tree.is_leaf(v) for v in tree.nodes()])
     single_site_patterns = [''.join(pattern) for pattern in itertools.product(amino_acids, repeat=num_internal_nodes)]
@@ -143,7 +148,7 @@ def brute_force_likelihood_computation(
                 (parent, branch_length) = tree.parent(node)
                 expms[node] = matrix_exponential(branch_length * Q_1 * site_rates[site_idx])
 
-        # Compute the likelihood of independent site i
+        # Compute the likelihood of independent site site_idx
         lls_for_patterns = []
         for anc_states in single_site_patterns:
             leaf_states = ''.join([msa[int_to_node[j]][site_idx] for j in range(num_internal_nodes, num_nodes, 1)])
@@ -163,8 +168,47 @@ def brute_force_likelihood_computation(
             lls_for_patterns.append(ll_joint)
         lls[site_idx] = log_sum_exp(np.array(lls_for_patterns))
     for (site_idx_1, site_idx_2) in contacting_pairs:
-        lls[site_idx_1] = -1
-        lls[site_idx_2] = -1
+        # Pre-compute matrix exponentials
+        expms = {}
+        for node in tree.nodes():
+            if not tree.is_root(node):
+                (parent, branch_length) = tree.parent(node)
+                expms[node] = matrix_exponential(branch_length * Q_2)  # No site rate adjustment
+        # Compute the likelihood of pair-of-sites (site_idx_1, site_idx_2)
+        lls_for_patterns = []
+        for (anc_states_1, anc_states_2) in pair_of_site_patterns:
+            leaf_states_1 = ''.join([msa[int_to_node[j]][site_idx_1] for j in range(num_internal_nodes, num_nodes, 1)])
+            all_states_1 = list(anc_states_1 + leaf_states_1)
+            leaf_states_2 = ''.join([msa[int_to_node[j]][site_idx_2] for j in range(num_internal_nodes, num_nodes, 1)])
+            all_states_2 = list(anc_states_2 + leaf_states_2)
+            # print(f"(all_states_1, all_states_2) = {(all_states_1, all_states_2)}")
+            # Compute ll of this pattern
+            ll_joint = 0
+            root_state = all_states_1[node_to_int[tree.root()]] + all_states_2[node_to_int[tree.root()]]
+            ll_joint += \
+                np.log(
+                    pi_2[
+                        aa_pair_to_int[
+                            root_state
+                        ]
+                    ]
+                )  # root likelihood
+            for (u, v, _) in tree.edges():
+                start_state = all_states_1[node_to_int[u]] + all_states_2[node_to_int[u]]
+                end_state = all_states_1[node_to_int[v]] + all_states_2[node_to_int[v]]
+                # print(f"Probing transition from {start_state} to {end_state}")
+                ll_joint += np.log(
+                    np.sum(
+                        expms[v][
+                            aa_pair_to_int[start_state],
+                            aa_pair_to_int[end_state],
+                        ]
+                    )
+                )
+            # print(f"ll_joint = {ll_joint}")
+            lls_for_patterns.append(ll_joint)
+        lls[site_idx_1] = log_sum_exp(np.array(lls_for_patterns)) / 2
+        lls[site_idx_2] = log_sum_exp(np.array(lls_for_patterns)) / 2
     return sum(lls), lls
 
 
@@ -282,6 +326,140 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             lls, [-10.092142, -7.344207], decimal=4
         )
 
+    def test_small_equ_x_equ_3_seqs(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            'l1': 'SK',
+            'l2': 'TI',
+            'l3': 'GL',
+        }
+        contact_map = np.ones((2, 2))
+        # contact_map = np.eye(2)
+        site_rates = [1.0, 1.0]
+        equ = equ_matrix().to_numpy()
+        pi = compute_stationary_distribution(equ)
+        equ_x_equ = chain_product(equ, equ)
+        pi_x_pi = compute_stationary_distribution(equ_x_equ)
+        np.testing.assert_almost_equal(
+            matrix_exponential(equ_x_equ)[0, 0],
+            matrix_exponential(equ)[0, 0] ** 2
+        )
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=equ,
+            pi_2=pi_x_pi,
+            Q_2=equ_x_equ,
+        )
+        # TODO: Test actual Python implementation too!
+        np.testing.assert_almost_equal(ll, -9.382765 * 2, decimal=4)
+        np.testing.assert_almost_equal(lls, [-9.382765, -9.382765], decimal=4)
+
+    def test_small_equ_x_wag_3_seqs(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            'l1': 'SK',
+            'l2': 'TI',
+            'l3': 'GL',
+        }
+        contact_map = np.ones((2, 2))
+        # contact_map = np.eye(2)
+        site_rates = [1.0, 1.0]
+        equ = equ_matrix().to_numpy()
+        wag = wag_matrix().to_numpy()
+        equ_x_wag = chain_product(equ, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(equ_x_wag)[0, 0],
+            matrix_exponential(equ)[0, 0] * matrix_exponential(wag)[0, 0]
+        )
+        pi_2 = compute_stationary_distribution(equ_x_wag)
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=None,
+            Q_1=None,
+            pi_2=pi_2,
+            Q_2=equ_x_wag,
+        )
+        # TODO: Test actual Python implementation too!
+        epected_ll = -9.382765 + -9.714873
+        np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
+        np.testing.assert_almost_equal(lls, [epected_ll / 2, epected_ll / 2], decimal=4)
+
+    def test_small_wag_x_equ_3_seqs(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            'l1': 'KS',
+            'l2': 'IT',
+            'l3': 'LG',
+        }
+        contact_map = np.ones((2, 2))
+        # contact_map = np.eye(2)
+        site_rates = [1.0, 1.0]
+        equ = equ_matrix().to_numpy()
+        wag = wag_matrix().to_numpy()
+        wag_x_equ = chain_product(wag, equ)
+        pi_2 = compute_stationary_distribution(wag_x_equ)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_equ)[0, 0],
+            matrix_exponential(wag)[0, 0] * matrix_exponential(equ)[0, 0]
+        )
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=None,
+            Q_1=None,
+            pi_2=pi_2,
+            Q_2=wag_x_equ,
+        )
+        # TODO: Test actual Python implementation too!
+        epected_ll = -9.714873 + -9.382765
+        np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
+        np.testing.assert_almost_equal(lls, [epected_ll / 2, epected_ll / 2], decimal=4)
+
     def test_small_wag_x_wag_3_seqs(self):
         """
         This was manually verified with FastTree.
@@ -301,9 +479,15 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             'l3': 'GL',
         }
         contact_map = np.ones((2, 2))
+        # contact_map = np.eye(2)
         site_rates = [1.0, 1.0]
         wag = wag_matrix().to_numpy()
-        wag_x_wag = chain_product(wag)
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = brute_force_likelihood_computation(
             tree=tree,
@@ -311,14 +495,15 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             contact_map=contact_map,
             site_rates=site_rates,
             amino_acids=src.utils.amino_acids,
-            pi_1=wag_stationary_distribution().to_numpy(),
+            pi_1=pi,
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
         )
         # TODO: Test actual Python implementation too!
-        np.testing.assert_almost_equal(ll, -7.343870 + -9.714873, decimal=4)
-        np.testing.assert_almost_equal(lls, [-7.343870, -9.714873], decimal=4)
+        ll_expected = -7.343870 + -9.714873
+        np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
+        np.testing.assert_almost_equal(lls, [ll_expected / 2, ll_expected / 2], decimal=4)
 
     # @parameterized.expand(
     #     [("3 processes", 3)]
