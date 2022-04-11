@@ -630,6 +630,194 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
+    def test_small_wag_x_wag_3_seqs_many_sites(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            'l1': 'KSRMFCP',
+            'l2': 'ITVDQAE',
+            'l3': 'LGYNGHW',
+        }
+        contact_map = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+        site_rates = [1.0, 2.0, 2.0, 1.0, 1.0, 2.0, 1.0]  # I use 2s to make sure site rates are not getting used for coevolution
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+        )
+        # TODO: Test actual Python implementation too!
+        lls_expected = [
+            -9.714873,
+            (-7.343870 + -10.78960) / 2,
+            (-10.56782 + -11.85804) / 2,
+            (-11.85804 + -10.56782) / 2,
+            -11.38148,
+            (-10.78960 + -7.343870) / 2,
+            -11.31551,
+        ]
+        np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
+        np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
+
+    @pytest.mark.slow
+    def test_small_wag_x_wag_2_seqs_many_sites(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "i1", "l1", "l2"])
+        tree.add_edges(
+            [
+                ("r", "i1", 0.37),
+                ("i1", "l1", 1.1),
+                ("i1", "l2", 2.2),
+            ]
+        )
+        msa = {
+            'l1': 'AGFYLTV',
+            'l2': 'DPHISKQ',
+        }
+        contact_map = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+        # contact_map = np.eye(7)
+        site_rates = [1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 1.0]  # I use 2s to make sure site rates are not getting used for coevolution
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+        )
+        # TODO: *Replace* by actual Python implementation!
+        lls_expected = [
+            -5.301370,
+            (-5.790787 + -5.537568) / 2,
+            (-6.895662 + -6.497235) / 2,
+            (-6.497235 + -6.895662) / 2,
+            -5.436122,
+            (-5.537568 + -5.790787) / 2,
+            -6.212303,
+        ]
+        np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
+        np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
+
+    @pytest.mark.slow
+    def test_small_wag_x_wag_2_seqs_many_sites_and_gaps(self):
+        """
+        This was manually verified with FastTree.
+        """
+        tree = Tree()
+        tree.add_nodes(["r", "i1", "l1", "l2"])
+        tree.add_edges(
+            [
+                ("r", "i1", 0.37),
+                ("i1", "l1", 1.1),
+                ("i1", "l2", 2.2),
+            ]
+        )
+        msa = {
+            'l1': '----LT-',
+            'l2': '-PHI--Q',
+        }
+        contact_map = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 0, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 0, 1],
+            ]
+        )
+        # contact_map = np.eye(7)
+        site_rates = [1.0, 2.0, 2.0, 2.0, 1.0, 2.0, 1.0]  # I use 2s to make sure site rates are not getting used for coevolution
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+        )
+        # TODO: *Replace* by actual Python implementation!
+        lls_expected = [
+            0.0,
+            (-3.084277 + -2.796673) / 2,
+            (-3.711890 + -3.026892) / 2,
+            (-3.026892 + -3.711890) / 2,
+            -2.450980,
+            (-2.796673 + -3.084277) / 2,
+            -3.304213,
+        ]
+        np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
+        np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
+
     # @parameterized.expand(
     #     [("3 processes", 3)]
     # )
