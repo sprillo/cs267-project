@@ -1,12 +1,28 @@
+import os
+
+from typing import List
+
+import numpy as np
 import pandas as pd
 
 
 def write_probability_distribution(
-    probability_distribution: pd.DataFrame,
+    probability_distribution: np.array,
+    states: List[str],
     probability_distribution_path: str,
 ) -> None:
-    rate_matrix.to_csv(
-        probability_distribution,
+    probability_distribution_dir = os.path.dirname(probability_distribution_path)
+    if not os.path.exists(probability_distribution_dir):
+        os.makedirs(probability_distribution_dir)
+    if len(states) != probability_distribution.shape[0]:
+        raise Exception(f"probability_distribution has shape {probability_distribution.shape}, inconsistent with states: {states}")
+    probability_distribution_df = pd.DataFrame(
+        probability_distribution.reshape(-1),
+        index=states,
+        columns=["prob"],
+    )
+    probability_distribution_df.index.name = "state"
+    probability_distribution_df.to_csv(
         probability_distribution_path,
         sep="\t",
         index=True,
@@ -14,11 +30,19 @@ def write_probability_distribution(
 
 
 def write_rate_matrix(
-    rate_matrix: pd.DataFrame,
+    rate_matrix: np.array,
+    states: List[str],
     rate_matrix_path: str,
 ) -> None:
-    rate_matrix.to_csv(
+    rate_matrix_dir = os.path.dirname(rate_matrix_path)
+    if not os.path.exists(rate_matrix_dir):
+        os.makedirs(rate_matrix_dir)
+    rate_matrix_df = pd.DataFrame(
         rate_matrix,
+        index=states,
+        columns=states,
+    )
+    rate_matrix_df.to_csv(
         rate_matrix_path,
         sep="\t",
         index=True,
@@ -30,6 +54,8 @@ def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
         rate_matrix_path,
         delim_whitespace=True,
         index_col=0,
+        keep_default_na=False,
+        na_values=['_'],
         # dtype=float,
     ).astype(float)
     # TODO: Assert that it is a rate matrix
@@ -43,6 +69,8 @@ def read_probability_distribution(
         probability_distribution_path,
         delim_whitespace=True,
         index_col=0,
+        keep_default_na=False,
+        na_values=['_'],
     ).astype(float)
     if res.shape[1] != 1:
         raise Exception(

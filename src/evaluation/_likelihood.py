@@ -225,20 +225,56 @@ def compute_log_likelihoods(
         msa = read_msa(msa_path)
         site_rates = read_site_rates(site_rates_path)
         contact_map = read_contact_map(contact_map_path)
-        pi_1 = read_probability_distribution(pi_1_path)
-        Q_1 = read_rate_matrix(Q_1_path)
-        pi_2 = read_probability_distribution(pi_2_path)
-        Q_2 = read_rate_matrix(Q_2_path)
+        pi_1_df = read_probability_distribution(pi_1_path)
+        Q_1_df = read_rate_matrix(Q_1_path)
+        pi_2_df = read_probability_distribution(pi_2_path)
+        Q_2_df = read_rate_matrix(Q_2_path)
+
+        pairs_of_amino_acids = [
+            aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
+        ]
+        # Validate states of rate matrices and root distribution
+        if list(pi_1_df.index) != amino_acids:
+            raise Exception(
+                f"pi_1 index is:\n{list(pi_1_df.index)}\nbut expected amino acids:"
+                f"\n{amino_acids}"
+            )
+        if list(pi_2_df.index) != pairs_of_amino_acids:
+            raise Exception(
+                f"pi_2 index is:\n{list(pi_2_df.index)}\nbut expected pairs of amino "
+                f"acids:\n{pairs_of_amino_acids}"
+            )
+        if list(Q_1_df.index) != amino_acids:
+            raise Exception(
+                f"Q_1 index is:\n{list(Q_1_df.index)}\n\nbut expected amino acids:"
+                f"\n{amino_acids}"
+            )
+        if list(Q_1_df.columns) != amino_acids:
+            raise Exception(
+                f"Q_1 columns are:\n{list(Q_1_df.columns)}\n\nbut expected amino "
+                f"acids:\n{amino_acids}"
+            )
+        if list(Q_2_df.index) != pairs_of_amino_acids:
+            raise Exception(
+                f"Q_2 index is:\n{list(Q_2_df.index)}\n\nbut expected pairs of amino "
+                f"acids:\n{pairs_of_amino_acids}"
+            )
+        if list(Q_2_df.columns) != pairs_of_amino_acids:
+            raise Exception(
+                f"Q_1 columns are:\n{list(Q_2_df.columns)}\n\nbut expected pairs of "
+                f"amino acids:\n{pairs_of_amino_acids}"
+            )
+
         ll, lls = brute_force_likelihood_computation(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
             site_rates=site_rates,
             amino_acids=amino_acids,
-            pi_1=pi_1,
-            Q_1=Q_1,
-            pi_2=pi_2,
-            Q_2=Q_2,
+            pi_1=pi_1_df.to_numpy(),
+            Q_1=Q_1_df.to_numpy(),
+            pi_2=pi_2_df.to_numpy(),
+            Q_2=Q_2_df.to_numpy(),
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)

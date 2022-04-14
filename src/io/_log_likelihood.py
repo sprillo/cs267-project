@@ -1,3 +1,5 @@
+import os
+
 from typing import List, Tuple
 
 
@@ -5,11 +7,14 @@ def write_log_likelihood(
     log_likelihood: Tuple[float, List[float]],
     log_likelihood_path: str
 ) -> None:
+    log_likelihood_dir = os.path.dirname(log_likelihood_path)
+    if not os.path.exists(log_likelihood_dir):
+        os.makedirs(log_likelihood_dir)
     ll, lls = log_likelihood
     res = ""
     res += f"{ll}\n"
     res += f"{len(lls)} sites\n"
-    res += " ".join(lls)
+    res += " ".join(list(map(str, lls)))
     open(log_likelihood_path, "w").write(res)
 
 

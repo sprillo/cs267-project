@@ -49,11 +49,11 @@ def equ_stationary_distribution() -> pd.DataFrame():
     return res
 
 
-def _composite_index(i, j, num_states):
+def _composite_index(i: int, j: int, num_states: int):
     return i * num_states + j
 
 
-def chain_product(rate_matrix_1, rate_matrix_2):
+def chain_product(rate_matrix_1: np.array, rate_matrix_2: np.array) -> np.array:
     assert(rate_matrix_1.shape == rate_matrix_2.shape)
     num_states = rate_matrix_1.shape[0]
     product_matrix = np.zeros((num_states ** 2, num_states ** 2))

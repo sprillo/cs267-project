@@ -130,15 +130,27 @@ def likelihood_computation_wrapper(
                     with tempfile.TemporaryDirectory() as site_rates_dir:
                         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
                         write_site_rates(site_rates, site_rates_path)
-                        with tempfile.NamedTemporaryFile("w") as pi_1_path:
-                            write_probability_distribution(pi_1, pi_1_path)
-                            with tempfile.NamedTemporaryFile("w") as Q_1_path:
-                                write_rate_matrix(Q_1, Q_1_path)
-                                with tempfile.NamedTemporaryFile("w") as pi_2_path:
-                                    write_probability_distribution(pi_2, pi_2_path)
-                                    with tempfile.NamedTemporaryFile("w") as Q_2_path:
-                                        write_rate_matrix(Q_2, Q_2_path)
-                                        with tempfile.TemporaryDirectory() as output_likelihood_dir:
+                        with tempfile.NamedTemporaryFile("w") as pi_1_file:
+                            pi_1_path = pi_1_file.name
+                            # pi_1_path = "./pi_1_path.txt"
+                            write_probability_distribution(pi_1, amino_acids, pi_1_path)
+                            with tempfile.NamedTemporaryFile("w") as Q_1_file:
+                                Q_1_path = Q_1_file.name
+                                # Q_1_path = "./Q_1_path.txt"
+                                write_rate_matrix(Q_1, amino_acids, Q_1_path)
+                                with tempfile.NamedTemporaryFile("w") as pi_2_file:
+                                    pi_2_path = pi_2_file.name
+                                    # pi_2_path = "./pi_2_path.txt"
+                                    amino_acid_pairs = [
+                                        aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
+                                    ]
+                                    write_probability_distribution(pi_2,  amino_acid_pairs, pi_2_path)
+                                    with tempfile.NamedTemporaryFile("w") as Q_2_file:
+                                        Q_2_path = Q_2_file.name
+                                        # Q_2_path = "./Q_2_path.txt"
+                                        write_rate_matrix(Q_2,  amino_acid_pairs, Q_2_path)
+                                        with tempfile.TemporaryDirectory() as log_likelihood_dir:
+                                            # log_likelihood_dir = "log_likelihood_dir"
                                             compute_log_likelihoods(
                                                 tree_dir=tree_dir,
                                                 msa_dir=msa_dir,
@@ -150,17 +162,17 @@ def likelihood_computation_wrapper(
                                                 Q_1_path=Q_1_path,
                                                 pi_2_path=pi_2_path,
                                                 Q_2_path=Q_2_path,
-                                                output_likelihood_dir=output_likelihood_dir,
+                                                output_likelihood_dir=log_likelihood_dir,
                                                 num_processes=1,
                                                 use_cpp_implementation=use_cpp_implementation,
                                             )
-                                        log_likelihood_path = os.path.join(
-                                            log_likelihood, family + ".txt"
-                                        )
-                                        ll, lls = read_log_likelihood(
-                                            log_likelihood_path
-                                        )
-                                        return ll, lls
+                                            log_likelihood_path = os.path.join(
+                                                log_likelihood_dir, family + ".txt"
+                                            )
+                                            ll, lls = read_log_likelihood(
+                                                log_likelihood_path
+                                            )
+                                            return ll, lls
     else:
         raise NotImplementedError(f"Unknown method: {method}")
 
@@ -186,6 +198,10 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(1)
         site_rates = [1.0]
+        equ = equ_matrix().to_numpy()
+        pi = compute_stationary_distribution(equ)
+        equ_x_equ = chain_product(equ, equ)
+        pi_x_pi = compute_stationary_distribution(equ_x_equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
@@ -194,9 +210,9 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
-            pi_2=None,
-            Q_2=None,
-            method="brute_force",
+            pi_2=pi_x_pi,
+            Q_2=equ_x_equ,
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -7.343870, decimal=4)
@@ -225,6 +241,10 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(1)
         site_rates = [1.0]
+        equ = equ_matrix().to_numpy()
+        pi = compute_stationary_distribution(equ)
+        equ_x_equ = chain_product(equ, equ)
+        pi_x_pi = compute_stationary_distribution(equ_x_equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
@@ -233,9 +253,9 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
-            pi_2=None,
-            Q_2=None,
-            method="brute_force",
+            pi_2=pi_x_pi,
+            Q_2=equ_x_equ,
+            method="python",
         )
         # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -10.091868, decimal=4)
@@ -264,6 +284,9 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(2)
         site_rates = [1.0, 1.0]
+        equ = equ_matrix().to_numpy()
+        equ_x_equ = chain_product(equ, equ)
+        pi_x_pi = compute_stationary_distribution(equ_x_equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
@@ -272,9 +295,9 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
-            pi_2=None,
-            Q_2=None,
-            method="brute_force",
+            pi_2=pi_x_pi,
+            Q_2=equ_x_equ,
+            method="python",
         )
         # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -17.436349, decimal=4)
@@ -321,7 +344,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=equ,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -9.382765 * 2, decimal=4)
@@ -356,17 +379,18 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(equ)[0, 0] * matrix_exponential(wag)[0, 0]
         )
         pi_2 = compute_stationary_distribution(equ_x_wag)
+        pi = compute_stationary_distribution(equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
             site_rates=site_rates,
             amino_acids=src.utils.amino_acids,
-            pi_1=None,
-            Q_1=None,
+            pi_1=pi,
+            Q_1=equ,
             pi_2=pi_2,
             Q_2=equ_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         epected_ll = -9.382765 + -9.714873
@@ -402,17 +426,18 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag_x_equ)[0, 0],
             matrix_exponential(wag)[0, 0] * matrix_exponential(equ)[0, 0]
         )
+        pi = compute_stationary_distribution(equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
             site_rates=site_rates,
             amino_acids=src.utils.amino_acids,
-            pi_1=None,
-            Q_1=None,
+            pi_1=pi,
+            Q_1=equ,
             pi_2=pi_2,
             Q_2=wag_x_equ,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         epected_ll = -9.714873 + -9.382765
@@ -458,7 +483,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         ll_expected = -7.343870 + -9.714873
@@ -513,7 +538,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -577,7 +602,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -640,7 +665,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -704,7 +729,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: *Replace* by actual Python implementation!
         lls_expected = [
@@ -768,7 +793,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
-            method="brute_force",
+            method="python",
         )
         # TODO: *Replace* by actual Python implementation!
         lls_expected = [
@@ -824,7 +849,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
     #         ),
     #         pi_2=None,
     #         Q_2=None,
-    #         method="brute_force",
+    #         method="python",
     #     )
     #     print(f"lls = {lls}")
 
