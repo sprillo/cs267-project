@@ -21,21 +21,15 @@ from parameterized import parameterized
 
 from src.counting import count_co_transitions
 from src.counting import count_transitions
-from src.io import read_count_matrices
+from src.io import write_tree, write_contact_map, write_msa, write_site_rates, write_probability_distribution, write_rate_matrix, read_log_likelihood
 from src.evaluation import compute_log_likelihoods
 from tests.utils import create_synthetic_contact_map
 from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution,\
     equ_matrix
+from src.evaluation import compute_log_likelihoods, brute_force_likelihood_computation
 
 from src.io import Tree
 import src
-
-
-def log_sum_exp(lls: np.array) -> float:
-    m = lls.max()
-    lls -= m
-    res = np.log(np.sum(np.exp(lls))) + m
-    return res
 
 
 def create_fake_msa_and_contact_map_and_site_rates(
@@ -93,136 +87,6 @@ def create_fake_msa_and_contact_map_and_site_rates(
     return msa, contact_map, site_rates
 
 
-def brute_force_likelihood_computation(
-    tree: Tree,
-    msa: Dict[str, str],
-    contact_map: np.array,
-    site_rates: List[float],
-    amino_acids: List[str],
-    pi_1: np.array,
-    Q_1: np.array,
-    pi_2: np.array,
-    Q_2: np.array,
-) -> Tuple[float, List[float]]:
-    """
-    Compute data loglikelihood by brute force.
-
-    The ancestral states are marginalized out by hand.
-    """
-    num_sites = contact_map.shape[0]
-
-    contacting_pairs = list(zip(*np.where(contact_map == 1)))
-    contacting_pairs = [(i, j) for (i, j) in contacting_pairs if i < j]
-    contacting_sites = list(sum(contacting_pairs, ()))
-    independent_sites = [
-        i for i in range(num_sites) if i not in contacting_sites
-    ]
-
-    pairs_of_amino_acids = [
-        aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
-    ]
-    aa_to_int = {aa: i for (i, aa) in enumerate(amino_acids)}
-    aa_to_int['-'] = slice(0, len(amino_acids), 1)  # Slice yay!
-    aa_pair_to_int = {
-        aa_pair: i for (i, aa_pair) in enumerate(pairs_of_amino_acids)
-    }
-    for i, aa in enumerate(amino_acids):
-        aa_pair_to_int[aa + '-'] = slice(i * len(amino_acids), (i + 1) * len(amino_acids), 1)
-        aa_pair_to_int['-' + aa] = slice(i, len(amino_acids) ** 2, len(amino_acids))
-    aa_pair_to_int['--'] = slice(0, len(amino_acids) ** 2, 1)
-
-    num_internal_nodes = sum([not tree.is_leaf(v) for v in tree.nodes()])
-    single_site_patterns = [''.join(pattern) for pattern in itertools.product(amino_acids, repeat=num_internal_nodes)]
-    # print(f"single_site_patterns = {single_site_patterns}")
-    pair_of_site_patterns = list(itertools.product(single_site_patterns, repeat=2))
-    # print(f"pair_of_site_patterns = {pair_of_site_patterns}")
-
-    # Compute node to int mapping
-    # First come the internal nodes, then come the leaf nodes
-    num_nodes = len(tree.nodes())
-    node_to_int = {}
-    int_to_node = [-1] * num_nodes
-    for i, node in enumerate(tree.internal_nodes()):
-        node_to_int[node] = i
-        int_to_node[i] = node
-    num_internal_nodes = len(tree.internal_nodes())
-    for i, node in enumerate(tree.leaves()):
-        node_to_int[node] = num_internal_nodes + i
-        int_to_node[num_internal_nodes + i] = node
-
-    lls = [-1] * num_sites
-    for site_idx in independent_sites:
-        # Pre-compute matrix exponentials
-        expms = {}
-        for node in tree.nodes():
-            if not tree.is_root(node):
-                (parent, branch_length) = tree.parent(node)
-                expms[node] = matrix_exponential(branch_length * Q_1 * site_rates[site_idx])
-
-        # Compute the likelihood of independent site site_idx
-        lls_for_patterns = []
-        for anc_states in single_site_patterns:
-            leaf_states = ''.join([msa[int_to_node[j]][site_idx] for j in range(num_internal_nodes, num_nodes, 1)])
-            all_states = list(anc_states + leaf_states)
-            # Compute ll of this pattern
-            ll_joint = 0
-            ll_joint += np.log(pi_1[aa_to_int[all_states[node_to_int[tree.root()]]]])  # root likelihood
-            for (u, v, _) in tree.edges():
-                ll_joint += np.log(
-                    np.sum(
-                        expms[v][
-                            aa_to_int[all_states[node_to_int[u]]],
-                            aa_to_int[all_states[node_to_int[v]]],
-                        ]
-                    )
-                )
-            lls_for_patterns.append(ll_joint)
-        lls[site_idx] = log_sum_exp(np.array(lls_for_patterns))
-    for (site_idx_1, site_idx_2) in contacting_pairs:
-        # Pre-compute matrix exponentials
-        expms = {}
-        for node in tree.nodes():
-            if not tree.is_root(node):
-                (parent, branch_length) = tree.parent(node)
-                expms[node] = matrix_exponential(branch_length * Q_2)  # No site rate adjustment
-        # Compute the likelihood of pair-of-sites (site_idx_1, site_idx_2)
-        lls_for_patterns = []
-        for (anc_states_1, anc_states_2) in pair_of_site_patterns:
-            leaf_states_1 = ''.join([msa[int_to_node[j]][site_idx_1] for j in range(num_internal_nodes, num_nodes, 1)])
-            all_states_1 = list(anc_states_1 + leaf_states_1)
-            leaf_states_2 = ''.join([msa[int_to_node[j]][site_idx_2] for j in range(num_internal_nodes, num_nodes, 1)])
-            all_states_2 = list(anc_states_2 + leaf_states_2)
-            # print(f"(all_states_1, all_states_2) = {(all_states_1, all_states_2)}")
-            # Compute ll of this pattern
-            ll_joint = 0
-            root_state = all_states_1[node_to_int[tree.root()]] + all_states_2[node_to_int[tree.root()]]
-            ll_joint += \
-                np.log(
-                    pi_2[
-                        aa_pair_to_int[
-                            root_state
-                        ]
-                    ]
-                )  # root likelihood
-            for (u, v, _) in tree.edges():
-                start_state = all_states_1[node_to_int[u]] + all_states_2[node_to_int[u]]
-                end_state = all_states_1[node_to_int[v]] + all_states_2[node_to_int[v]]
-                # print(f"Probing transition from {start_state} to {end_state}")
-                ll_joint += np.log(
-                    np.sum(
-                        expms[v][
-                            aa_pair_to_int[start_state],
-                            aa_pair_to_int[end_state],
-                        ]
-                    )
-                )
-            # print(f"ll_joint = {ll_joint}")
-            lls_for_patterns.append(ll_joint)
-        lls[site_idx_1] = log_sum_exp(np.array(lls_for_patterns)) / 2
-        lls[site_idx_2] = log_sum_exp(np.array(lls_for_patterns)) / 2
-    return sum(lls), lls
-
-
 def likelihood_computation_wrapper(
     tree: Tree,
     msa: Dict[str, str],
@@ -250,6 +114,53 @@ def likelihood_computation_wrapper(
             pi_2=pi_2,
             Q_2=Q_2,
         )
+    elif method == "python" or method == "C++":
+        family = "fam1"
+        families = [family]
+        use_cpp_implementation = method == "C++"
+        with tempfile.TemporaryDirectory() as tree_dir:
+            tree_path = os.path.join(tree_dir, family + ".txt")
+            write_tree(tree, tree_path)
+            with tempfile.TemporaryDirectory() as msa_dir:
+                msa_path = os.path.join(msa_dir, family + ".txt")
+                write_msa(msa, msa_path)
+                with tempfile.TemporaryDirectory() as contact_map_dir:
+                    contact_map_path = os.path.join(contact_map_dir, family + ".txt")
+                    write_contact_map(contact_map, contact_map_path)
+                    with tempfile.TemporaryDirectory() as site_rates_dir:
+                        site_rates_path = os.path.join(site_rates_dir, family + ".txt")
+                        write_site_rates(site_rates, site_rates_path)
+                        with tempfile.NamedTemporaryFile("w") as pi_1_path:
+                            write_probability_distribution(pi_1, pi_1_path)
+                            with tempfile.NamedTemporaryFile("w") as Q_1_path:
+                                write_rate_matrix(Q_1, Q_1_path)
+                                with tempfile.NamedTemporaryFile("w") as pi_2_path:
+                                    write_probability_distribution(pi_2, pi_2_path)
+                                    with tempfile.NamedTemporaryFile("w") as Q_2_path:
+                                        write_rate_matrix(Q_2, Q_2_path)
+                                        with tempfile.TemporaryDirectory() as output_likelihood_dir:
+                                            compute_log_likelihoods(
+                                                tree_dir=tree_dir,
+                                                msa_dir=msa_dir,
+                                                site_rates_dir=site_rates_dir,
+                                                contact_map_dir=contact_map_dir,
+                                                families=families,
+                                                amino_acids=amino_acids,
+                                                pi_1_path=pi_1_path,
+                                                Q_1_path=Q_1_path,
+                                                pi_2_path=pi_2_path,
+                                                Q_2_path=Q_2_path,
+                                                output_likelihood_dir=output_likelihood_dir,
+                                                num_processes=1,
+                                                use_cpp_implementation=use_cpp_implementation,
+                                            )
+                                        log_likelihood_path = os.path.join(
+                                            log_likelihood, family + ".txt"
+                                        )
+                                        ll, lls = read_log_likelihood(
+                                            log_likelihood_path
+                                        )
+                                        return ll, lls
     else:
         raise NotImplementedError(f"Unknown method: {method}")
 

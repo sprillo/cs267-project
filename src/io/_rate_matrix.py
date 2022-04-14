@@ -1,6 +1,30 @@
 import pandas as pd
 
 
+def write_probability_distribution(
+    probability_distribution: pd.DataFrame,
+    probability_distribution_path: str,
+) -> None:
+    rate_matrix.to_csv(
+        probability_distribution,
+        probability_distribution_path,
+        sep="\t",
+        index=True,
+    )
+
+
+def write_rate_matrix(
+    rate_matrix: pd.DataFrame,
+    rate_matrix_path: str,
+) -> None:
+    rate_matrix.to_csv(
+        rate_matrix,
+        rate_matrix_path,
+        sep="\t",
+        index=True,
+    )
+
+
 def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
     res = pd.read_csv(
         rate_matrix_path,

@@ -98,6 +98,20 @@ class Tree:
         return [u for u in self.nodes() if not self.is_leaf(u)]
 
 
+def write_tree(
+    tree: Tree,
+    tree_path: str,
+) -> None:
+    res = ""
+    res += f"{tree.num_nodes()} nodes\n"
+    for node in tree.nodes():
+        res += f"{node}\n"
+    res += f"{tree.num_edges()} edges\n"
+    for (u, v, d) in tree.edges():
+        res += f"{u} {v} {d}\n"
+    open(tree_path, "w").write(res)
+
+
 def read_tree(
     tree_path: str,
 ) -> Tree:
