@@ -1,3 +1,13 @@
+"""
+TODO:
+/ ABORTED (too hard; I will just do some large test using whatever tree FastTree likes to estimate to test my Python Felsenstein Implementation's total LL. Then, I will just rely on comparisson against brute force method for smaller trees with site-level resolution):
+    Running FastTree with a fixed Tree:
+    Need to try to turn off branch length estimation with a fixed topology... Apparently line 2331
+    LL gets printed in line 2418. 2423 writes to the provided logfile.
+    Alignment gets read and printed in 2089.
+    All the interesting stuff in main seems to happen in 2128 if statement, the alternative to 2110 which happens when make_matrix=false (always the case unless -makematrix is specified as a command line arg)
+    2188 (2193) reads the input tree if provided
+"""
 import os
 import tempfile
 import unittest
@@ -128,6 +138,7 @@ def brute_force_likelihood_computation(
     # print(f"pair_of_site_patterns = {pair_of_site_patterns}")
 
     # Compute node to int mapping
+    # First come the internal nodes, then come the leaf nodes
     num_nodes = len(tree.nodes())
     node_to_int = {}
     int_to_node = [-1] * num_nodes
@@ -212,6 +223,37 @@ def brute_force_likelihood_computation(
     return sum(lls), lls
 
 
+def likelihood_computation_wrapper(
+    tree: Tree,
+    msa: Dict[str, str],
+    contact_map: np.array,
+    site_rates: List[float],
+    amino_acids: List[str],
+    pi_1: np.array,
+    Q_1: np.array,
+    pi_2: np.array,
+    Q_2: np.array,
+    method: str,
+) -> Tuple[float, List[float]]:
+    """
+    Compute data loglikelihood by one of several methods
+    """
+    if method == "brute_force":
+        return brute_force_likelihood_computation(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=amino_acids,
+            pi_1=pi_1,
+            Q_1=Q_1,
+            pi_2=pi_2,
+            Q_2=Q_2,
+        )
+    else:
+        raise NotImplementedError(f"Unknown method: {method}")
+
+
 class TestComputeLogLikelihoods(unittest.TestCase):
     def test_small_wag_3_seqs(self):
         """
@@ -233,7 +275,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(1)
         site_rates = [1.0]
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -243,6 +285,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag_matrix().to_numpy(),
             pi_2=None,
             Q_2=None,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -7.343870, decimal=4)
@@ -271,7 +314,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(1)
         site_rates = [1.0]
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -281,6 +324,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag_matrix().to_numpy(),
             pi_2=None,
             Q_2=None,
+            method="brute_force",
         )
         # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -10.091868, decimal=4)
@@ -309,7 +353,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         }
         contact_map = np.eye(2)
         site_rates = [1.0, 1.0]
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -319,6 +363,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag_matrix().to_numpy(),
             pi_2=None,
             Q_2=None,
+            method="brute_force",
         )
         # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -17.436349, decimal=4)
@@ -355,7 +400,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(equ_x_equ)[0, 0],
             matrix_exponential(equ)[0, 0] ** 2
         )
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -365,6 +410,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=equ,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -9.382765 * 2, decimal=4)
@@ -399,7 +445,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(equ)[0, 0] * matrix_exponential(wag)[0, 0]
         )
         pi_2 = compute_stationary_distribution(equ_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -409,6 +455,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=None,
             pi_2=pi_2,
             Q_2=equ_x_wag,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         epected_ll = -9.382765 + -9.714873
@@ -444,7 +491,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag_x_equ)[0, 0],
             matrix_exponential(wag)[0, 0] * matrix_exponential(equ)[0, 0]
         )
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -454,6 +501,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=None,
             pi_2=pi_2,
             Q_2=wag_x_equ,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         epected_ll = -9.714873 + -9.382765
@@ -489,7 +537,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -499,6 +547,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         ll_expected = -7.343870 + -9.714873
@@ -543,7 +592,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -553,6 +602,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -606,7 +656,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -616,6 +666,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -668,7 +719,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -678,6 +729,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: Test actual Python implementation too!
         lls_expected = [
@@ -731,7 +783,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -741,6 +793,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: *Replace* by actual Python implementation!
         lls_expected = [
@@ -794,7 +847,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             matrix_exponential(wag)[0, 0] ** 2
         )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
@@ -804,6 +857,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_1=wag,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            method="brute_force",
         )
         # TODO: *Replace* by actual Python implementation!
         lls_expected = [
@@ -841,7 +895,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
     #             num_rate_categories=3
     #         )
 
-    #     ll, lls = brute_force_likelihood_computation(
+    #     ll, lls = likelihood_computation_wrapper(
     #         tree=tree,
     #         msa=msa,
     #         contact_map=contact_map,
@@ -859,6 +913,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
     #         ),
     #         pi_2=None,
     #         Q_2=None,
+    #         method="brute_force",
     #     )
     #     print(f"lls = {lls}")
 
