@@ -247,24 +247,28 @@ def dp_likelihood_computation(
     pair_site_transition_mats = {}
 
     st = time.time()
+    # Strategy: compute all matrix exponentials up front with a 3D matrix stack.
     def populate_transition_mats():
-        for node in tree.nodes():
-            if tree.is_root(node):
-                continue
-
-            single_site_transition_mats_node = np.zeros(shape=(n_independent_sites, len(amino_acids), len(amino_acids)))
+        non_root_nodes = [node for node in tree.nodes() if not tree.is_root(node)]
+        single_site_3d_stack = np.zeros(shape=(len(non_root_nodes) * n_independent_sites, len(amino_acids), len(amino_acids)))
+        pair_site_3d_stack = np.zeros(shape=(len(non_root_nodes), len(pairs_of_amino_acids), len(pairs_of_amino_acids)))
+        for (i, node) in enumerate(non_root_nodes):
             (_, length) = tree.parent(node)
-            for (i, site_id) in enumerate(independent_sites):
-                single_site_transition_mats_node[i, :, :] = matrix_exponential(
-                    Q_1 * length * site_rates[site_id]  # TODO: Make sure that not adjusting for site rate fails the tests.
-                )
-            single_site_transition_mats[node] = single_site_transition_mats_node
+            for (j, site_id) in enumerate(independent_sites):
+                single_site_3d_stack[i * n_independent_sites + j] = Q_1 * length * site_rates[site_id]
+        single_site_transition_mats_3d = matrix_exponential(single_site_3d_stack)
+        for (i, node) in enumerate(non_root_nodes):
+            single_site_transition_mats[node] = single_site_transition_mats_3d[(i * n_independent_sites) : ((i + 1) * n_independent_sites), :, :]
 
-            pair_site_transition_mats[node] = matrix_exponential(
-                Q_2 * length
-            )[None, :, :]
+        for (i, node) in enumerate(non_root_nodes):
+            (_, length) = tree.parent(node)
+            pair_site_3d_stack[i, :, :] = Q_2 * length
+        pair_site_transition_mats_3d = matrix_exponential(pair_site_3d_stack)
+        for (i, node) in enumerate(non_root_nodes):
+            pair_site_transition_mats[node] = pair_site_transition_mats_3d[i, :, :][None, :, :]
     populate_transition_mats()
     print(f"Time to populate_transition_mats: {time.time() - st}")
+    # assert(False)
 
     dp_single_site = {}
     dp_pair_site = {}
