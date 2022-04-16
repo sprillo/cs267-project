@@ -88,6 +88,17 @@ class Tree:
         dfs(self.root())
         return res
 
+    def postorder_traversal(self) -> List[str]:
+        res = []
+
+        def dfs(v: str):
+            for (u, _) in self.children(v):
+                dfs(u)
+            res.append(v)
+
+        dfs(self.root())
+        return res
+
     def parent(self, u: str) -> Tuple[str, int]:
         return self._parent[u]
 

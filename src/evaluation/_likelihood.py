@@ -11,9 +11,9 @@ from typing import Dict, List, Tuple
 import numpy as np
 import itertools
 
-from src.io import read_tree, read_msa, read_site_rates, read_contact_map, read_probability_distribution, read_rate_matrix, write_log_likelihood, Tree
-from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution,\
-    equ_matrix
+from src.io import read_tree, read_msa, read_site_rates, read_contact_map, \
+    read_probability_distribution, read_rate_matrix, write_log_likelihood, Tree
+from src.markov_chain import matrix_exponential
 
 
 def log_sum_exp(lls: np.array) -> float:
@@ -153,6 +153,184 @@ def brute_force_likelihood_computation(
     return sum(lls), lls
 
 
+def dp_likelihood_computation(
+    tree: Tree,
+    msa: Dict[str, str],
+    contact_map: np.array,
+    site_rates: List[float],
+    amino_acids: List[str],
+    pi_1: np.array,
+    Q_1: np.array,
+    pi_2: np.array,
+    Q_2: np.array,
+) -> Tuple[float, List[float]]:
+    """
+    Compute the data log-likelihood with dynamic programming.
+    """
+    # These are just binary vectors that encode the observation sets
+    node_observations_single_site = {}  # type: Dict[str, np.array]
+    node_observations_pair_site = {}  # type: Dict[str, np.array]
+
+    pairs_of_amino_acids = [
+        aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
+    ]  # TODO: Make sure that changing the concatenation order here fails the tests
+
+    num_sites = len(site_rates)
+
+    contacting_pairs = list(zip(*np.where(contact_map == 1)))
+    contacting_pairs = [(i, j) for (i, j) in contacting_pairs if i < j]
+    # Validate that each site is in contact with at most one other site
+    contacting_sites = list(sum(contacting_pairs, ()))
+    if len(set(contacting_sites)) != len(contacting_sites):
+        raise Exception(
+            f"Each site can only be in contact with one other site. "
+            f"The contacting sites were: {contacting_pairs}"
+        )
+    independent_sites = [
+        i for i in range(num_sites) if i not in contacting_sites
+    ]
+
+    n_independent_sites = len(independent_sites)
+    n_contacting_pairs = len(contacting_pairs)
+
+    aa_to_int = {aa: i for (i, aa) in enumerate(amino_acids)}
+    aa_to_int['-'] = slice(0, len(amino_acids), 1)  # Slice yay!
+    aa_pair_to_int = {
+        aa_pair: i for (i, aa_pair) in enumerate(pairs_of_amino_acids)
+    }
+    for i, aa in enumerate(amino_acids):
+        aa_pair_to_int[aa + '-'] = slice(i * len(amino_acids), (i + 1) * len(amino_acids), 1)
+        aa_pair_to_int['-' + aa] = slice(i, len(amino_acids) ** 2, len(amino_acids))
+    aa_pair_to_int['--'] = slice(0, len(amino_acids) ** 2, 1)
+
+    def one_hot_single_site_observation(aa: str):
+        if aa == '-':
+            return np.ones(shape=(len(amino_acids), 1))
+        res = np.zeros(shape=(len(amino_acids), 1))
+        res[aa_to_int[aa]] = 1.0
+        return res
+
+    def one_hot_pair_site_observation(aa1: str, aa2: str):
+        if aa1 == '-' and aa2 == '-':
+            return np.ones(shape=(len(pairs_of_amino_acids), 1))
+        res = np.zeros(shape=(len(pairs_of_amino_acids), 1))
+        if aa2 == '-':
+            aa1_id = aa_to_int[aa1]
+            for i in range(len(amino_acids)):
+                res[aa1_id * len(amino_acids) + i] = 1.0
+        if aa1 == '-':
+            aa2_id = aa_to_int[aa2]
+            for i in range(len(amino_acids)):
+                res[aa2_id + i * len(amino_acids)] = 1.0
+        if aa1 != '-' and aa2 != '-':
+            res[aa_pair_to_int[aa1 + aa2]] = 1.0  # TODO: Make sure that changing the concatenation order here fails the tests
+        return res
+
+    def populate_leaf_observation_arrays():
+        for leaf in tree.leaves():
+            seq = msa[leaf]
+
+            single_site_obs = np.zeros(shape=(n_independent_sites, len(amino_acids), 1))
+            for (i, site_id) in enumerate(independent_sites):
+                single_site_obs[i, :, :] = one_hot_single_site_observation(seq[site_id])
+            node_observations_single_site[leaf] = single_site_obs
+
+            pair_site_obs = np.zeros(shape=(n_contacting_pairs, len(pairs_of_amino_acids), 1))
+            for (i, (site_id_1, site_id_2)) in enumerate(contacting_pairs):
+                pair_site_obs[i, :, :] = one_hot_pair_site_observation(seq[site_id_1], seq[site_id_2])
+            node_observations_pair_site[leaf] = pair_site_obs
+    populate_leaf_observation_arrays()
+
+    def populate_internal_node_observation_arrays():
+        for node in tree.internal_nodes():
+            node_observations_single_site[node] = np.ones(shape=(n_independent_sites, len(amino_acids), 1))
+            node_observations_pair_site[node] = np.ones(shape=(n_contacting_pairs, len(pairs_of_amino_acids), 1))
+    populate_internal_node_observation_arrays()
+
+    single_site_transition_mats = {}
+    pair_site_transition_mats = {}
+
+    def populate_transition_mats():
+        for node in tree.nodes():
+            if tree.is_root(node):
+                continue
+
+            single_site_transition_mats_node = np.zeros(shape=(n_independent_sites, len(amino_acids), len(amino_acids)))
+            (_, length) = tree.parent(node)
+            for (i, site_id) in enumerate(independent_sites):
+                single_site_transition_mats_node[i, :, :] = matrix_exponential(
+                    Q_1 * length * site_rates[site_id]
+                )
+            single_site_transition_mats[node] = single_site_transition_mats_node
+
+            pair_site_transition_mats[node] = matrix_exponential(
+                Q_2 * length
+            )[None, :, :]
+    populate_transition_mats()
+
+    dp_single_site = {}
+    dp_pair_site = {}
+
+    for node in tree.postorder_traversal():
+        dp_single_site[node] = np.zeros(shape=(n_independent_sites, len(amino_acids), 1))
+        dp_pair_site[node] = np.zeros(shape=(n_contacting_pairs, len(pairs_of_amino_acids), 1))
+        if tree.is_leaf(node):
+            continue
+        for (child, _) in tree.children(node):
+            dp_single_site_child = dp_single_site[child]
+            max_ll_single_site_child = dp_single_site_child.max(axis=1, keepdims=True)
+            dp_single_site_child -= max_ll_single_site_child
+            dp_single_site[node] += \
+                np.log(
+                    single_site_transition_mats[child]
+                    @ (
+                        np.exp(dp_single_site_child)
+                        * node_observations_single_site[child]
+                    )
+                ) + max_ll_single_site_child
+        for (child, _) in tree.children(node):
+            dp_pair_site_child = dp_pair_site[child]
+            max_ll_pair_site_child = dp_pair_site_child.max(axis=1, keepdims=True)
+            dp_pair_site_child -= max_ll_pair_site_child
+            dp_pair_site[node] += \
+                np.log(
+                    pair_site_transition_mats[child]
+                    @ (
+                        np.exp(dp_pair_site_child)
+                        * node_observations_pair_site[child]
+                    )
+                ) + max_ll_pair_site_child
+
+    dp_single_site_root = dp_single_site[tree.root()]
+    max_ll_single_site_root = dp_single_site_root.max(axis=1, keepdims=True)
+    dp_single_site_root -= max_ll_single_site_root
+    res_single_site = np.log(
+        pi_1.reshape(1, 1, -1) @ (
+            np.exp(dp_single_site_root)
+            * node_observations_single_site[tree.root()]
+        )
+    ) + max_ll_single_site_root
+
+    dp_pair_site_root = dp_pair_site[tree.root()]
+    max_ll_pair_site_root = dp_pair_site_root.max(axis=1, keepdims=True)
+    dp_pair_site_root -= max_ll_pair_site_root
+    res_pair_site = np.log(
+        pi_2.reshape(1, 1, -1) @ (
+            np.exp(dp_pair_site_root)
+            * node_observations_pair_site[tree.root()]
+        )
+    ) + max_ll_pair_site_root
+
+    lls = [0] * num_sites
+    for (i, site_id) in enumerate(independent_sites):
+        lls[site_id] = res_single_site[i, 0, 0]
+    for (i, (site_id_1, site_id_2)) in enumerate(contacting_pairs):
+        lls[site_id_1] = res_pair_site[i, 0, 0] / 2.0
+        lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
+
+    return sum(lls), lls
+
+
 def compute_log_likelihoods(
     tree_dir: str,
     msa_dir: str,
@@ -221,6 +399,7 @@ def compute_log_likelihoods(
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
         contact_map_path = os.path.join(contact_map_dir, family + ".txt")
+
         tree = read_tree(tree_path)
         msa = read_msa(msa_path)
         site_rates = read_site_rates(site_rates_path)
@@ -265,7 +444,7 @@ def compute_log_likelihoods(
                 f"amino acids:\n{pairs_of_amino_acids}"
             )
 
-        ll, lls = brute_force_likelihood_computation(
+        ll, lls = dp_likelihood_computation(
             tree=tree,
             msa=msa,
             contact_map=contact_map,
