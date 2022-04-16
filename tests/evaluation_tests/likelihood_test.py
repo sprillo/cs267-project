@@ -21,7 +21,7 @@ from parameterized import parameterized
 
 from src.counting import count_co_transitions
 from src.counting import count_transitions
-from src.io import write_tree, write_contact_map, write_msa, write_site_rates, write_probability_distribution, write_rate_matrix, read_log_likelihood
+from src.io import write_tree, write_contact_map, write_msa, write_site_rates, write_probability_distribution, write_rate_matrix, read_log_likelihood, read_tree, read_msa, read_site_rates, read_contact_map
 from src.evaluation import compute_log_likelihoods
 from tests.utils import create_synthetic_contact_map
 from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution,\
@@ -30,6 +30,8 @@ from src.evaluation import compute_log_likelihoods, brute_force_likelihood_compu
 
 from src.io import Tree
 import src
+
+DATA_DIR = "./tests/evaluation_tests/test_input_data"
 
 
 def create_fake_msa_and_contact_map_and_site_rates(
@@ -795,6 +797,38 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         ]
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
+
+    @pytest.mark.slow
+    def test_real_data(self):
+        num_cats = 1
+        tree = read_tree(os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt"))
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a92_1_A.txt"))
+        site_rates = read_site_rates(os.path.join(DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/1a92_1_A.txt"))
+        # contact_map = read_contact_map(os.path.join(DATA_DIR, "contact_map_dir/1a92_1_A.txt"))
+        contact_map = np.eye(len(site_rates))
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = likelihood_computation_wrapper(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            method="python",
+        )
+        ll_expected = -4649.6146
+        np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
     # @parameterized.expand(
     #     [("3 processes", 3)]

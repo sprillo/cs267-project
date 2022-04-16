@@ -194,35 +194,30 @@ def dp_likelihood_computation(
     n_contacting_pairs = len(contacting_pairs)
 
     aa_to_int = {aa: i for (i, aa) in enumerate(amino_acids)}
-    aa_to_int['-'] = slice(0, len(amino_acids), 1)  # Slice yay!
     aa_pair_to_int = {
         aa_pair: i for (i, aa_pair) in enumerate(pairs_of_amino_acids)
     }
-    for i, aa in enumerate(amino_acids):
-        aa_pair_to_int[aa + '-'] = slice(i * len(amino_acids), (i + 1) * len(amino_acids), 1)
-        aa_pair_to_int['-' + aa] = slice(i, len(amino_acids) ** 2, len(amino_acids))
-    aa_pair_to_int['--'] = slice(0, len(amino_acids) ** 2, 1)
 
     def one_hot_single_site_observation(aa: str):
-        if aa == '-':
+        if aa not in amino_acids:
             return np.ones(shape=(len(amino_acids), 1))
         res = np.zeros(shape=(len(amino_acids), 1))
         res[aa_to_int[aa]] = 1.0
         return res
 
     def one_hot_pair_site_observation(aa1: str, aa2: str):
-        if aa1 == '-' and aa2 == '-':
+        if aa1 not in amino_acids and aa2 not in amino_acids:
             return np.ones(shape=(len(pairs_of_amino_acids), 1))
         res = np.zeros(shape=(len(pairs_of_amino_acids), 1))
-        if aa2 == '-':
+        if aa2 not in amino_acids:
             aa1_id = aa_to_int[aa1]
             for i in range(len(amino_acids)):
                 res[aa1_id * len(amino_acids) + i] = 1.0
-        if aa1 == '-':
+        if aa1 not in amino_acids:
             aa2_id = aa_to_int[aa2]
             for i in range(len(amino_acids)):
                 res[aa2_id + i * len(amino_acids)] = 1.0
-        if aa1 != '-' and aa2 != '-':
+        if aa1 in amino_acids and aa2 in amino_acids:
             res[aa_pair_to_int[aa1 + aa2]] = 1.0  # TODO: Make sure that changing the concatenation order here fails the tests
         return res
 
@@ -259,7 +254,7 @@ def dp_likelihood_computation(
             (_, length) = tree.parent(node)
             for (i, site_id) in enumerate(independent_sites):
                 single_site_transition_mats_node[i, :, :] = matrix_exponential(
-                    Q_1 * length * site_rates[site_id]
+                    Q_1 * length * site_rates[site_id]  # TODO: Make sure that not adjusting for site rate fails the tests.
                 )
             single_site_transition_mats[node] = single_site_transition_mats_node
 
