@@ -214,7 +214,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=equ_x_equ,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -7.343870, decimal=4)
         np.testing.assert_almost_equal(lls, [-7.343870], decimal=4)
 
@@ -257,7 +256,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=equ_x_equ,
             method="python",
         )
-        # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -10.091868, decimal=4)
         np.testing.assert_almost_equal(lls, [-10.091868], decimal=4)
 
@@ -299,7 +297,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=equ_x_equ,
             method="python",
         )
-        # TODO: test actual Python implementation!
         np.testing.assert_almost_equal(ll, -17.436349, decimal=4)
         np.testing.assert_almost_equal(
             lls, [-10.092142, -7.344207], decimal=4
@@ -346,7 +343,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=equ_x_equ,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         np.testing.assert_almost_equal(ll, -9.382765 * 2, decimal=4)
         np.testing.assert_almost_equal(lls, [-9.382765, -9.382765], decimal=4)
 
@@ -392,7 +388,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=equ_x_wag,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         epected_ll = -9.382765 + -9.714873
         np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
         np.testing.assert_almost_equal(lls, [epected_ll / 2, epected_ll / 2], decimal=4)
@@ -439,7 +434,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_equ,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         epected_ll = -9.714873 + -9.382765
         np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
         np.testing.assert_almost_equal(lls, [epected_ll / 2, epected_ll / 2], decimal=4)
@@ -485,7 +479,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         ll_expected = -7.343870 + -9.714873
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
         np.testing.assert_almost_equal(lls, [ll_expected / 2, ll_expected / 2], decimal=4)
@@ -540,7 +533,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         lls_expected = [
             -9.714873,
             (-7.343870 + -10.78960) / 2,
@@ -604,7 +596,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         lls_expected = [
             0.0,
             (-5.323960 + -2.446133) / 2,
@@ -667,7 +658,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: Test actual Python implementation too!
         lls_expected = [
             -9.714873,
             (-7.343870 + -10.78960) / 2,
@@ -731,7 +721,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: *Replace* by actual Python implementation!
         lls_expected = [
             -5.301370,
             (-5.790787 + -5.537568) / 2,
@@ -795,7 +784,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        # TODO: *Replace* by actual Python implementation!
         lls_expected = [
             0.0,
             (-3.084277 + -2.796673) / 2,
