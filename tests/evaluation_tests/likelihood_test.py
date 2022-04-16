@@ -798,9 +798,14 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
+    @parameterized.expand(
+        [("1_cat", 1, -4649.6146), ("2_cat", 2, -4397.8184), ("4_cat", 4, -4337.8688), ("20_cat", 20, -4307.0638)]
+    )
     @pytest.mark.slow
-    def test_real_data(self):
-        num_cats = 1
+    def test_real_data_single_site(self, name, num_cats, ll_expected):
+        """
+        Test on family 1a92_1_A using only WAG (no co-evolution model).
+        """
         tree = read_tree(os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt"))
         msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a92_1_A.txt"))
         site_rates = read_site_rates(os.path.join(DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/1a92_1_A.txt"))
@@ -827,7 +832,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        ll_expected = -4649.6146
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
     # @parameterized.expand(
