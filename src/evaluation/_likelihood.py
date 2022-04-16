@@ -6,6 +6,7 @@ against FastTree ran with 1 site rate category only (i.e. no site rates)
 and a product rate matrix.
 """
 import os
+import time
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -245,6 +246,7 @@ def dp_likelihood_computation(
     single_site_transition_mats = {}
     pair_site_transition_mats = {}
 
+    st = time.time()
     def populate_transition_mats():
         for node in tree.nodes():
             if tree.is_root(node):
@@ -262,10 +264,12 @@ def dp_likelihood_computation(
                 Q_2 * length
             )[None, :, :]
     populate_transition_mats()
+    print(f"Time to populate_transition_mats: {time.time() - st}")
 
     dp_single_site = {}
     dp_pair_site = {}
 
+    st = time.time()
     for node in tree.postorder_traversal():
         dp_single_site[node] = np.zeros(shape=(n_independent_sites, len(amino_acids), 1))
         dp_pair_site[node] = np.zeros(shape=(n_contacting_pairs, len(pairs_of_amino_acids), 1))
@@ -323,6 +327,8 @@ def dp_likelihood_computation(
         lls[site_id_1] = res_pair_site[i, 0, 0] / 2.0
         lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
 
+    print(f"Time for dp = {time.time() - st}")
+    # assert(False)  # Uncomment to see timing results when running tests
     return sum(lls), lls
 
 

@@ -834,6 +834,42 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         )
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
+    @parameterized.expand(
+        [("20_cat", 20, -264605.0691)]
+    )
+    @pytest.mark.slow
+    def test_real_data_single_site_huge(self, name, num_cats, ll_expected):
+        """
+        Test on family 13gs_1_A using only WAG (no co-evolution model).
+        """
+        tree = read_tree(os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/13gs_1_A.txt"))
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/13gs_1_A.txt"))
+        site_rates = read_site_rates(os.path.join(DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/13gs_1_A.txt"))
+        # contact_map = read_contact_map(os.path.join(DATA_DIR, "contact_map_dir/13gs_1_A.txt"))
+        contact_map = np.eye(len(site_rates))
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = likelihood_computation_wrapper(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            method="python",
+        )
+        np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
+
     # @parameterized.expand(
     #     [("3 processes", 3)]
     # )
