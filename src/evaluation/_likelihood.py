@@ -250,22 +250,25 @@ def dp_likelihood_computation(
     # Strategy: compute all matrix exponentials up front with a 3D matrix stack.
     def populate_transition_mats():
         non_root_nodes = [node for node in tree.nodes() if not tree.is_root(node)]
-        single_site_3d_stack = np.zeros(shape=(len(non_root_nodes) * n_independent_sites, len(amino_acids), len(amino_acids)))
-        pair_site_3d_stack = np.zeros(shape=(len(non_root_nodes), len(pairs_of_amino_acids), len(pairs_of_amino_acids)))
-        for (i, node) in enumerate(non_root_nodes):
-            (_, length) = tree.parent(node)
-            for (j, site_id) in enumerate(independent_sites):
-                single_site_3d_stack[i * n_independent_sites + j] = Q_1 * length * site_rates[site_id]
-        single_site_transition_mats_3d = matrix_exponential(single_site_3d_stack)
-        for (i, node) in enumerate(non_root_nodes):
-            single_site_transition_mats[node] = single_site_transition_mats_3d[(i * n_independent_sites) : ((i + 1) * n_independent_sites), :, :]
 
-        for (i, node) in enumerate(non_root_nodes):
-            (_, length) = tree.parent(node)
-            pair_site_3d_stack[i, :, :] = Q_2 * length
-        pair_site_transition_mats_3d = matrix_exponential(pair_site_3d_stack)
-        for (i, node) in enumerate(non_root_nodes):
-            pair_site_transition_mats[node] = pair_site_transition_mats_3d[i, :, :][None, :, :]
+        if n_independent_sites > 0:
+            single_site_3d_stack = np.zeros(shape=(len(non_root_nodes) * n_independent_sites, len(amino_acids), len(amino_acids)))
+            for (i, node) in enumerate(non_root_nodes):
+                (_, length) = tree.parent(node)
+                for (j, site_id) in enumerate(independent_sites):
+                    single_site_3d_stack[i * n_independent_sites + j] = Q_1 * length * site_rates[site_id]
+            single_site_transition_mats_3d = matrix_exponential(single_site_3d_stack)
+            for (i, node) in enumerate(non_root_nodes):
+                single_site_transition_mats[node] = single_site_transition_mats_3d[(i * n_independent_sites) : ((i + 1) * n_independent_sites), :, :]
+
+        if n_contacting_pairs > 0:
+            pair_site_3d_stack = np.zeros(shape=(len(non_root_nodes), len(pairs_of_amino_acids), len(pairs_of_amino_acids)))
+            for (i, node) in enumerate(non_root_nodes):
+                (_, length) = tree.parent(node)
+                pair_site_3d_stack[i, :, :] = Q_2 * length
+            pair_site_transition_mats_3d = matrix_exponential(pair_site_3d_stack)
+            for (i, node) in enumerate(non_root_nodes):
+                pair_site_transition_mats[node] = pair_site_transition_mats_3d[i, :, :][None, :, :]
     populate_transition_mats()
     print(f"Time to populate_transition_mats: {time.time() - st}")
     # assert(False)
@@ -279,57 +282,63 @@ def dp_likelihood_computation(
         dp_pair_site[node] = np.zeros(shape=(n_contacting_pairs, len(pairs_of_amino_acids), 1))
         if tree.is_leaf(node):
             continue
-        for (child, _) in tree.children(node):
-            dp_single_site_child = dp_single_site[child]
-            max_ll_single_site_child = dp_single_site_child.max(axis=1, keepdims=True)
-            dp_single_site_child -= max_ll_single_site_child
-            dp_single_site[node] += \
-                np.log(
-                    single_site_transition_mats[child]
-                    @ (
-                        np.exp(dp_single_site_child)
-                        * node_observations_single_site[child]
-                    )
-                ) + max_ll_single_site_child
-        for (child, _) in tree.children(node):
-            dp_pair_site_child = dp_pair_site[child]
-            max_ll_pair_site_child = dp_pair_site_child.max(axis=1, keepdims=True)
-            dp_pair_site_child -= max_ll_pair_site_child
-            dp_pair_site[node] += \
-                np.log(
-                    pair_site_transition_mats[child]
-                    @ (
-                        np.exp(dp_pair_site_child)
-                        * node_observations_pair_site[child]
-                    )
-                ) + max_ll_pair_site_child
+        if n_independent_sites > 0:
+            for (child, _) in tree.children(node):
+                dp_single_site_child = dp_single_site[child]
+                max_ll_single_site_child = dp_single_site_child.max(axis=1, keepdims=True)
+                dp_single_site_child -= max_ll_single_site_child
+                dp_single_site[node] += \
+                    np.log(
+                        single_site_transition_mats[child]
+                        @ (
+                            np.exp(dp_single_site_child)
+                            * node_observations_single_site[child]
+                        )
+                    ) + max_ll_single_site_child
+        if n_contacting_pairs > 0:
+            for (child, _) in tree.children(node):
+                dp_pair_site_child = dp_pair_site[child]
+                max_ll_pair_site_child = dp_pair_site_child.max(axis=1, keepdims=True)
+                dp_pair_site_child -= max_ll_pair_site_child
+                dp_pair_site[node] += \
+                    np.log(
+                        pair_site_transition_mats[child]
+                        @ (
+                            np.exp(dp_pair_site_child)
+                            * node_observations_pair_site[child]
+                        )
+                    ) + max_ll_pair_site_child
 
-    dp_single_site_root = dp_single_site[tree.root()]
-    max_ll_single_site_root = dp_single_site_root.max(axis=1, keepdims=True)
-    dp_single_site_root -= max_ll_single_site_root
-    res_single_site = np.log(
-        pi_1.reshape(1, 1, -1) @ (
-            np.exp(dp_single_site_root)
-            * node_observations_single_site[tree.root()]
-        )
-    ) + max_ll_single_site_root
+    if n_independent_sites > 0:
+        dp_single_site_root = dp_single_site[tree.root()]
+        max_ll_single_site_root = dp_single_site_root.max(axis=1, keepdims=True)
+        dp_single_site_root -= max_ll_single_site_root
+        res_single_site = np.log(
+            pi_1.reshape(1, 1, -1) @ (
+                np.exp(dp_single_site_root)
+                * node_observations_single_site[tree.root()]
+            )
+        ) + max_ll_single_site_root
 
-    dp_pair_site_root = dp_pair_site[tree.root()]
-    max_ll_pair_site_root = dp_pair_site_root.max(axis=1, keepdims=True)
-    dp_pair_site_root -= max_ll_pair_site_root
-    res_pair_site = np.log(
-        pi_2.reshape(1, 1, -1) @ (
-            np.exp(dp_pair_site_root)
-            * node_observations_pair_site[tree.root()]
-        )
-    ) + max_ll_pair_site_root
+    if n_contacting_pairs > 0:
+        dp_pair_site_root = dp_pair_site[tree.root()]
+        max_ll_pair_site_root = dp_pair_site_root.max(axis=1, keepdims=True)
+        dp_pair_site_root -= max_ll_pair_site_root
+        res_pair_site = np.log(
+            pi_2.reshape(1, 1, -1) @ (
+                np.exp(dp_pair_site_root)
+                * node_observations_pair_site[tree.root()]
+            )
+        ) + max_ll_pair_site_root
 
     lls = [0] * num_sites
-    for (i, site_id) in enumerate(independent_sites):
-        lls[site_id] = res_single_site[i, 0, 0]
-    for (i, (site_id_1, site_id_2)) in enumerate(contacting_pairs):
-        lls[site_id_1] = res_pair_site[i, 0, 0] / 2.0
-        lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
+    if n_independent_sites > 0:
+        for (i, site_id) in enumerate(independent_sites):
+            lls[site_id] = res_single_site[i, 0, 0]
+    if n_contacting_pairs > 0:
+        for (i, (site_id_1, site_id_2)) in enumerate(contacting_pairs):
+            lls[site_id_1] = res_pair_site[i, 0, 0] / 2.0
+            lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
 
     print(f"Time for dp = {time.time() - st}")
     # assert(False)  # Uncomment to see timing results when running tests

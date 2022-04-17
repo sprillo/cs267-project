@@ -672,7 +672,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
-    @pytest.mark.slow
     def test_small_wag_x_wag_2_seqs_many_sites(self):
         """
         This was manually verified with FastTree.
@@ -735,7 +734,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
-    @pytest.mark.slow
     def test_small_wag_x_wag_2_seqs_many_sites_and_gaps(self):
         """
         This was manually verified with FastTree.
