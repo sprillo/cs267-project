@@ -20,7 +20,18 @@ def compute_stationary_distribution(rate_matrix: np.array) -> np.array:
 
 def matrix_exponential(rate_matrix: np.array) -> np.array:
     if torch.cuda.is_available():
-        return torch.matrix_exp(torch.tensor(rate_matrix, device='cuda')).cpu().numpy()
+        if len(rate_matrix.shape) == 3:
+            # Use striding since tensor might be too large to fit in GPU.
+            # Also, striding by 64 does not seem to degrade runtime more than 10%
+            # wrt no striding at all.
+            res = np.zeros(shape=rate_matrix.shape)
+            stride = 64
+            for i in range(0, rate_matrix.shape[0], stride):
+                res[i : (i + stride), :, :] = \
+                    torch.matrix_exp(torch.tensor(rate_matrix[i : (i + stride), :, :], device='cuda')).cpu().numpy()
+            return res
+        else:
+            return torch.matrix_exp(torch.tensor(rate_matrix, device='cuda')).cpu().numpy()
     else:
         # TODO: This will use all CPUs by default I think, which is terrible for fast testing on a cluster!
         # Use torch.set_num_threads() before?
