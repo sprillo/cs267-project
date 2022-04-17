@@ -250,16 +250,22 @@ def dp_likelihood_computation(
     # Strategy: compute all matrix exponentials up front with a 3D matrix stack.
     def populate_transition_mats():
         non_root_nodes = [node for node in tree.nodes() if not tree.is_root(node)]
+        unique_site_rates = sorted(list(set(site_rates)))
+        num_cats = len(unique_site_rates)
+        site_rate_to_cat = {site_rate: cat for (cat, site_rate) in enumerate(unique_site_rates)}
 
         if n_independent_sites > 0:
-            single_site_3d_stack = np.zeros(shape=(len(non_root_nodes) * n_independent_sites, len(amino_acids), len(amino_acids)))
+            single_site_3d_stack = np.zeros(shape=(len(non_root_nodes) * num_cats, len(amino_acids), len(amino_acids)))
             for (i, node) in enumerate(non_root_nodes):
                 (_, length) = tree.parent(node)
-                for (j, site_id) in enumerate(independent_sites):
-                    single_site_3d_stack[i * n_independent_sites + j] = Q_1 * length * site_rates[site_id]
+                for (j, site_rate) in enumerate(unique_site_rates):
+                    single_site_3d_stack[i * num_cats + j] = Q_1 * length * site_rate
             single_site_transition_mats_3d = matrix_exponential(single_site_3d_stack)
             for (i, node) in enumerate(non_root_nodes):
-                single_site_transition_mats[node] = single_site_transition_mats_3d[(i * n_independent_sites) : ((i + 1) * n_independent_sites), :, :]
+                single_site_transition_mats_node = np.zeros(shape=(n_independent_sites, len(amino_acids), len(amino_acids)))
+                for (j, site_id) in enumerate(independent_sites):
+                    single_site_transition_mats_node[j, :, :] = single_site_transition_mats_3d[(i * num_cats) + site_rate_to_cat[site_rates[site_id]], :, :]
+                single_site_transition_mats[node] = single_site_transition_mats_node
 
         if n_contacting_pairs > 0:
             pair_site_3d_stack = np.zeros(shape=(len(non_root_nodes), len(pairs_of_amino_acids), len(pairs_of_amino_acids)))
