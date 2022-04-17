@@ -866,7 +866,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             Q_2=wag_x_wag,
             method="python",
         )
-        np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
+        np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
 
     # @parameterized.expand(
     #     [("3 processes", 3)]
