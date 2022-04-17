@@ -31,6 +31,8 @@ def dp_likelihood_computation(
     """
     Compute the data log-likelihood with dynamic programming.
     """
+    st_all = time.time()
+    st = time.time()
     # These are just binary vectors that encode the observation sets
     node_observations_single_site = {}  # type: Dict[str, np.array]
     node_observations_pair_site = {}  # type: Dict[str, np.array]
@@ -119,11 +121,11 @@ def dp_likelihood_computation(
             )
 
     populate_internal_node_observation_arrays()
+    print(f"Time populate internal node obs: {time.time() - st}")
 
+    st_all_expms = time.time()
     single_site_transition_mats = {}
     pair_site_transition_mats = {}
-
-    st = time.time()
     # Strategy: compute all matrix exponentials up front with a 3D matrix stack.
 
     def populate_transition_mats():
@@ -136,6 +138,7 @@ def dp_likelihood_computation(
             site_rate: cat for (cat, site_rate) in enumerate(unique_site_rates)
         }
 
+        st = time.time()
         if n_independent_sites > 0:
             single_site_3d_stack = np.zeros(
                 shape=(
@@ -172,7 +175,9 @@ def dp_likelihood_computation(
                 single_site_transition_mats[
                     node
                 ] = single_site_transition_mats_node
+        print(f"\tTime for single-site expms: {time.time() - st}")
 
+        st = time.time()
         if n_contacting_pairs > 0:
             pair_site_3d_stack = np.zeros(
                 shape=(
@@ -191,9 +196,10 @@ def dp_likelihood_computation(
                 pair_site_transition_mats[node] = pair_site_transition_mats_3d[
                     i, :, :
                 ][None, :, :]
+        print(f"\tTime for pair-site expms: {time.time() - st}")
 
     populate_transition_mats()
-    print(f"Time to populate_transition_mats: {time.time() - st}")
+    print(f"Time to populate_transition_mats: {time.time() - st_all_expms}")
     # assert(False)
 
     dp_single_site = {}
@@ -284,6 +290,7 @@ def dp_likelihood_computation(
             lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
 
     print(f"Time for dp = {time.time() - st}")
+    print(f"Total time = {time.time() - st_all}")
     # assert(False)  # Uncomment to see timing results when running tests
     return sum(lls), lls
 
