@@ -1,13 +1,3 @@
-"""
-TODO:
-/ ABORTED (too hard; I will just do some large test using whatever tree FastTree likes to estimate to test my Python Felsenstein Implementation's total LL. Then, I will just rely on comparisson against brute force method for smaller trees with site-level resolution):
-    Running FastTree with a fixed Tree:
-    Need to try to turn off branch length estimation with a fixed topology... Apparently line 2331
-    LL gets printed in line 2418. 2423 writes to the provided logfile.
-    Alignment gets read and printed in 2089.
-    All the interesting stuff in main seems to happen in 2128 if statement, the alternative to 2110 which happens when make_matrix=false (always the case unless -makematrix is specified as a command line arg)
-    2188 (2193) reads the input tree if provided
-"""
 import os
 import tempfile
 import unittest

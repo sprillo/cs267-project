@@ -1,10 +1,3 @@
-"""
-To test this, compare the single-site likelihood against what is obtained from
-FastTree. Then, we will change to co-evolution model, and see how much the
-likelihood improves. To test the co-evolution computation, we compare it
-against FastTree ran with 1 site rate category only (i.e. no site rates)
-and a product rate matrix.
-"""
 import os
 import time
 from typing import Dict, List, Tuple
@@ -174,7 +167,7 @@ def dp_likelihood_computation(
 
     pairs_of_amino_acids = [
         aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
-    ]  # TODO: Make sure that changing the concatenation order here fails the tests
+    ]
 
     num_sites = len(site_rates)
 
@@ -219,7 +212,7 @@ def dp_likelihood_computation(
             for i in range(len(amino_acids)):
                 res[aa2_id + i * len(amino_acids)] = 1.0
         if aa1 in amino_acids and aa2 in amino_acids:
-            res[aa_pair_to_int[aa1 + aa2]] = 1.0  # TODO: Make sure that changing the concatenation order here fails the tests
+            res[aa_pair_to_int[aa1 + aa2]] = 1.0
         return res
 
     def populate_leaf_observation_arrays():
@@ -413,8 +406,7 @@ def compute_log_likelihoods(
     if use_cpp_implementation:
         raise NotImplementedError
 
-    # TODO: Start by calling the brute force implementation! Then actually implement Felsenstein's. This way we make sure that the io code is correct (all reading and writing)
-    for family in families:  # TODO: Use Python multiprocessing
+    for family in families:  # I don't use Python multiprocessing bc GPU seems to be the bottleneck.
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")

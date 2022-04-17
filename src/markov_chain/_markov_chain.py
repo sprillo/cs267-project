@@ -33,8 +33,6 @@ def matrix_exponential(rate_matrix: np.array) -> np.array:
         else:
             return torch.matrix_exp(torch.tensor(rate_matrix, device='cuda')).cpu().numpy()
     else:
-        # TODO: This will use all CPUs by default I think, which is terrible for fast testing on a cluster!
-        # Use torch.set_num_threads() before?
         return torch.matrix_exp(torch.tensor(rate_matrix, device='cpu')).numpy()
 
 
