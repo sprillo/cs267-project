@@ -16,7 +16,7 @@ from src.evaluation import compute_log_likelihoods
 from tests.utils import create_synthetic_contact_map
 from src.markov_chain import matrix_exponential, wag_matrix, wag_stationary_distribution, chain_product, compute_stationary_distribution,\
     equ_matrix
-from src.evaluation import compute_log_likelihoods, brute_force_likelihood_computation
+from src.evaluation import compute_log_likelihoods
 
 from src.io import Tree
 import src

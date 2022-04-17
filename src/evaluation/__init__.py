@@ -1,1 +1,1 @@
-from ._likelihood import compute_log_likelihoods, brute_force_likelihood_computation
+from ._likelihood import compute_log_likelihoods
