@@ -874,7 +874,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
     @pytest.mark.slow
     def test_real_data_pair_site(self, name, num_cats, ll_expected):
         """
-        Test on family 1a92_1_A using only WAG (no co-evolution model).
+        Test on family 1a92_1_A using Wag x WAG co-evolution model!
         """
         tree = read_tree(os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt"))
         msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a92_1_A.txt"))
@@ -895,7 +895,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             k = places_with_median_site_rate[2 * i + 1]
             contact_map[j, k] = 1
             contact_map[k, j] = 1
-            print(f"Making ({j}, {k}) in contact")
+            # print(f"Making ({j}, {k}) in contact")
 
         # Now rescale the rates and the tree, since co-evolution uses a universal rate of 1
         tree_scaled = Tree()
@@ -927,67 +927,61 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         )
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
-    # @parameterized.expand(
-    #     [("3 processes", 3)]
-    # )
-    # def test_2(self, name, num_processes):
-    #     tree = Tree()
-    #     tree.add_nodes(["r", "i1", "l1", "l2", "l3"])
-    #     tree.add_edges(
-    #         [
-    #             ("r", "i1", 0.14),
-    #             ("i1", "l1", 1.14),
-    #             ("i1", "l2", 0.71),
-    #             ("r", "l3", 3.14),
-    #         ]
-    #     )
-    #     amino_acids = ["G", "P"]
-    #     msa, contact_map, site_rates = \
-    #         create_fake_msa_and_contact_map_and_site_rates(
-    #             tree=tree,
-    #             amino_acids=amino_acids,
-    #             random_seed=1,
-    #             num_rate_categories=3
-    #         )
+    @parameterized.expand(
+        [("20_cat", 20, -264605.0691)]
+    )
+    @pytest.mark.slow
+    def test_real_data_pair_site_huge(self, name, num_cats, ll_expected):
+        """
+        Test on family 13gs_1_A using Wag x WAG co-evolution model!
+        """
+        tree = read_tree(os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/13gs_1_A.txt"))
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/13gs_1_A.txt"))
 
-    #     ll, lls = likelihood_computation_wrapper(
-    #         tree=tree,
-    #         msa=msa,
-    #         contact_map=contact_map,
-    #         site_rates=site_rates,
-    #         amino_acids=amino_acids,
-    #         pi_1=np.array(
-    #             [0.75, 0.25]
-    #         ),
-    #         Q_1=np.array(
-    #             [
-    #                 [-1, 1],
-    #                 [3, -3]
-    #             ],
-    #             dtype=float
-    #         ),
-    #         pi_2=None,
-    #         Q_2=None,
-    #         method="python",
-    #     )
-    #     print(f"lls = {lls}")
+        site_rates = read_site_rates(os.path.join(DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/13gs_1_A.txt"))
+        median_site_rate = np.median(site_rates)
+        # print(f"Appears {sum([x == median_site_rate for x in site_rates])} times")
+        # print(f"median_site_rate = {median_site_rate}")
+        places_with_median_site_rate = [i for (i, site_rate) in enumerate(site_rates) if site_rate == median_site_rate]
+        np.random.seed(1)
+        np.random.shuffle(places_with_median_site_rate)
+        # print(f"places_with_median_site_rate = {places_with_median_site_rate}")
 
-    #     assert(False)
+        # Let's make half of these sites evolve coupled
+        contact_map = np.eye(len(site_rates))
+        for i in range(len(places_with_median_site_rate) // 4):
+            j = places_with_median_site_rate[2 * i]
+            k = places_with_median_site_rate[2 * i + 1]
+            contact_map[j, k] = 1
+            contact_map[k, j] = 1
+            # print(f"Making ({j}, {k}) in contact")
 
-    # def test_1(self):
-    #     tree = Tree()
-    #     tree.add_nodes(["r", "i1", "l1", "l2"])
-    #     tree.add_edges(
-    #         [
-    #             ("r", "i1", 0.14),
-    #             ("i1", "l1", 1.14),
-    #             ("i1", "l2", 0.71),
-    #         ]
-    #     )
-    #     msa, contact_map, site_rates = \
-    #         create_fake_msa_and_contact_map_and_site_rates(
-    #             tree=tree,
-    #             amino_acids=["G", "P"],
-    #             random_seed=1
-    #         )
-    #     assert(False)
+        # Now rescale the rates and the tree, since co-evolution uses a universal rate of 1
+        tree_scaled = Tree()
+        tree_scaled.add_nodes(tree.nodes())
+        for (u, v, length) in tree.edges():
+            tree_scaled.add_edge(u, v, length * median_site_rate)
+        site_rates_scaled = [site_rate / median_site_rate for site_rate in site_rates]
+        # assert(False)
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        np.testing.assert_almost_equal(
+            matrix_exponential(wag_x_wag)[0, 0],
+            matrix_exponential(wag)[0, 0] ** 2
+        )
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll, lls = likelihood_computation_wrapper(
+            tree=tree_scaled,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates_scaled,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            method="python",
+        )
+        np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
