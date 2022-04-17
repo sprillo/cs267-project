@@ -19,7 +19,10 @@ def compute_stationary_distribution(rate_matrix: np.array) -> np.array:
 
 
 def matrix_exponential(rate_matrix: np.array) -> np.array:
-    return torch.matrix_exp(torch.tensor(rate_matrix)).numpy()
+    if torch.cuda.is_available():
+        return torch.matrix_exp(torch.tensor(rate_matrix, device='cuda')).cpu().numpy()
+    else:
+        return torch.matrix_exp(torch.tensor(rate_matrix, device='cpu')).numpy()
 
 
 def wag_matrix() -> pd.DataFrame():
