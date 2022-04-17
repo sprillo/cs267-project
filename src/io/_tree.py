@@ -171,6 +171,6 @@ def read_tree(
                 f" tree, but the nodes are: {tree.nodes()}"
             )
         tree.add_edge(u, v, length)
-    assert(tree.num_nodes() == n)
-    assert(tree.num_edges() == m)
+    assert tree.num_nodes() == n
+    assert tree.num_edges() == m
     return tree

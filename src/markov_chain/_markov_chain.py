@@ -22,26 +22,44 @@ def matrix_exponential(rate_matrix: np.array) -> np.array:
     if torch.cuda.is_available():
         if len(rate_matrix.shape) == 3:
             # Use striding since tensor might be too large to fit in GPU.
-            # Also, striding by 64 does not seem to degrade runtime more than 10%
-            # wrt no striding at all.
+            # Also, striding by 64 does not seem to degrade runtime more than
+            # 10% wrt no striding at all.
             res = np.zeros(shape=rate_matrix.shape)
             stride = 64
             for i in range(0, rate_matrix.shape[0], stride):
-                res[i : (i + stride), :, :] = \
-                    torch.matrix_exp(torch.tensor(rate_matrix[i : (i + stride), :, :], device='cuda')).cpu().numpy()
+                res[i : (i + stride), :, :] = (
+                    torch.matrix_exp(
+                        torch.tensor(
+                            rate_matrix[i : (i + stride), :, :], device="cuda"
+                        )
+                    )
+                    .cpu()
+                    .numpy()
+                )
             return res
         else:
-            return torch.matrix_exp(torch.tensor(rate_matrix, device='cuda')).cpu().numpy()
+            return (
+                torch.matrix_exp(torch.tensor(rate_matrix, device="cuda"))
+                .cpu()
+                .numpy()
+            )
     else:
-        return torch.matrix_exp(torch.tensor(rate_matrix, device='cpu')).numpy()
+        return torch.matrix_exp(torch.tensor(rate_matrix, device="cpu")).numpy()
 
 
 def wag_matrix() -> pd.DataFrame():
-    wag = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_rate_matrices/_WAG.txt"), index_col=0, sep="\t")
+    wag = pd.read_csv(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "_rate_matrices/_WAG.txt",
+        ),
+        index_col=0,
+        sep="\t",
+    )
     pi = compute_stationary_distribution(wag)
     wag_rate = np.dot(-np.diag(wag), pi)
     res = wag / wag_rate
-    assert(res.shape == (20, 20))
+    assert res.shape == (20, 20)
     return res
 
 
@@ -53,7 +71,14 @@ def wag_stationary_distribution() -> pd.DataFrame():
 
 
 def equ_matrix() -> pd.DataFrame():
-    equ = pd.read_csv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "_rate_matrices/_Equ.txt"), index_col=0, sep="\t")
+    equ = pd.read_csv(
+        os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "_rate_matrices/_Equ.txt",
+        ),
+        index_col=0,
+        sep="\t",
+    )
     return equ
 
 
@@ -68,15 +93,26 @@ def _composite_index(i: int, j: int, num_states: int):
 
 
 def chain_product(rate_matrix_1: np.array, rate_matrix_2: np.array) -> np.array:
-    assert(rate_matrix_1.shape == rate_matrix_2.shape)
+    assert rate_matrix_1.shape == rate_matrix_2.shape
     num_states = rate_matrix_1.shape[0]
-    product_matrix = np.zeros((num_states ** 2, num_states ** 2))
+    product_matrix = np.zeros((num_states**2, num_states**2))
     for i in range(num_states):
         for j in range(num_states):
             for k in range(num_states):
-                product_matrix[_composite_index(i, k, num_states), _composite_index(i, j, num_states)] = rate_matrix_2[k, j]
-                product_matrix[_composite_index(k, j, num_states), _composite_index(i, j, num_states)] = rate_matrix_1[k, i]
+                product_matrix[
+                    _composite_index(i, k, num_states),
+                    _composite_index(i, j, num_states),
+                ] = rate_matrix_2[k, j]
+                product_matrix[
+                    _composite_index(k, j, num_states),
+                    _composite_index(i, j, num_states),
+                ] = rate_matrix_1[k, i]
     for i in range(num_states):
         for j in range(num_states):
-            product_matrix[_composite_index(i, j, num_states), _composite_index(i, j, num_states)] = rate_matrix_1[i, i] + rate_matrix_2[j, j]
+            product_matrix[
+                _composite_index(i, j, num_states),
+                _composite_index(i, j, num_states),
+            ] = (
+                rate_matrix_1[i, i] + rate_matrix_2[j, j]
+            )
     return product_matrix

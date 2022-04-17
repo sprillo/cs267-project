@@ -1,5 +1,4 @@
 import os
-
 from typing import List
 
 import numpy as np
@@ -11,11 +10,17 @@ def write_probability_distribution(
     states: List[str],
     probability_distribution_path: str,
 ) -> None:
-    probability_distribution_dir = os.path.dirname(probability_distribution_path)
+    probability_distribution_dir = os.path.dirname(
+        probability_distribution_path
+    )
     if not os.path.exists(probability_distribution_dir):
         os.makedirs(probability_distribution_dir)
     if len(states) != probability_distribution.shape[0]:
-        raise Exception(f"probability_distribution has shape {probability_distribution.shape}, inconsistent with states: {states}")
+        raise Exception(
+            f"probability_distribution has shape "
+            f"{probability_distribution.shape}, inconsistent with states: "
+            f"{states}"
+        )
     probability_distribution_df = pd.DataFrame(
         probability_distribution.reshape(-1),
         index=states,
@@ -55,7 +60,7 @@ def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
         delim_whitespace=True,
         index_col=0,
         keep_default_na=False,
-        na_values=['_'],
+        na_values=["_"],
         # dtype=float,
     ).astype(float)
     # TODO: Assert that it is a rate matrix
@@ -70,7 +75,7 @@ def read_probability_distribution(
         delim_whitespace=True,
         index_col=0,
         keep_default_na=False,
-        na_values=['_'],
+        na_values=["_"],
     ).astype(float)
     if res.shape[1] != 1:
         raise Exception(

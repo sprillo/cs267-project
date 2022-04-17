@@ -8,8 +8,7 @@ import pandas as pd
 import pytest
 from parameterized import parameterized
 
-from src.counting import count_co_transitions
-from src.counting import count_transitions
+from src.counting import count_co_transitions, count_transitions
 from src.io import read_count_matrices
 from src.utils import amino_acids
 
