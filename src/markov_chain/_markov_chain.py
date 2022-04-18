@@ -120,22 +120,34 @@ def matrix_exponential_reversible(
         expTD[i, :, :] = np.diag(np.exp(exponents[i] * fact.D))
 
     if device == "cuda":
+        # Use striding since tensor might be too large to fit in GPU.
+        stride = 64
+
+        expTQ = np.zeros(shape=(batch_size, num_states, num_states))
+
         P2_gpu = torch.tensor(P2[None, :, :], device="cuda")
         U_gpu = torch.tensor(U[None, :, :], device="cuda")
-        expTD_gpu = torch.tensor(expTD, device="cuda")
         U_t_gpu = torch.tensor(U.transpose()[None, :, :], device="cuda")
         P1_gpu = torch.tensor(P1[None, :, :], device="cuda")
-        expTQ_gpu = torch.matmul(
-            torch.matmul(P2_gpu, U_gpu),
-            torch.matmul(
-                expTD_gpu,
+
+        for i in range(0, expTQ.shape[0], stride):
+            expTD_gpu = torch.tensor(
+                expTD[i : (i + stride), :, :], device="cuda"
+            )
+            expTQ[i : (i + stride), :, :] = (
                 torch.matmul(
-                    U_t_gpu,
-                    P1_gpu,
-                ),
-            ),
-        )
-        expTQ = expTQ_gpu.cpu().numpy()
+                    torch.matmul(P2_gpu, U_gpu),
+                    torch.matmul(
+                        expTD_gpu,
+                        torch.matmul(
+                            U_t_gpu,
+                            P1_gpu,
+                        ),
+                    ),
+                )
+                .cpu()
+                .numpy()
+            )
     elif device == "cpu":
         expTQ = (P2[None, :, :] @ U[None, :, :]) @ (
             expTD @ (U_t[None, :, :] @ P1[None, :, :])

@@ -1297,10 +1297,17 @@ class Test_numerical_stability(unittest.TestCase):
 
 
 class Test_real_data_single_site_medium_multiprocess(unittest.TestCase):
-    @parameterized.expand([(False, "cuda"), (True, "cpu"), (True, "cuda")])
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
     @pytest.mark.slow
     def test_real_data_single_site_medium_multiprocess(
-        self, reversible, device
+        self, name, reversible, device
     ):
         """
         Test on family 1a92_1_A using only WAG (no co-evolution model).
@@ -1344,3 +1351,250 @@ class Test_real_data_single_site_medium_multiprocess(unittest.TestCase):
         for ll in ll_list:
             ll_expected = -4307.0638
             np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
+
+
+class Test_real_data_pair_site_medium_multiprocess(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
+    @pytest.mark.slow
+    def test_real_data_pair_site_medium_multiprocess(
+        self, name, reversible, device
+    ):
+        """
+        Test on family 1a92_1_A using WAG x WAG co-evolution model!
+        """
+        num_cats = 20
+        tree = read_tree(
+            os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt")
+        )
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a92_1_A.txt"))
+
+        site_rates = read_site_rates(
+            os.path.join(
+                DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/1a92_1_A.txt"
+            )
+        )
+        median_site_rate = np.median(site_rates)
+        places_with_median_site_rate = [
+            i
+            for (i, site_rate) in enumerate(site_rates)
+            if site_rate == median_site_rate
+        ]
+        np.random.seed(1)
+        np.random.shuffle(places_with_median_site_rate)
+
+        # Let's make half of these sites evolve coupled
+        contact_map = np.eye(len(site_rates))
+        for i in range(len(places_with_median_site_rate) // 4):
+            j = places_with_median_site_rate[2 * i]
+            k = places_with_median_site_rate[2 * i + 1]
+            contact_map[j, k] = 1
+            contact_map[k, j] = 1
+
+        # Now rescale the rates and the tree, since co-evolution uses a
+        # universal rate of 1
+        tree_scaled = Tree()
+        tree_scaled.add_nodes(tree.nodes())
+        for (u, v, length) in tree.edges():
+            tree_scaled.add_edge(u, v, length * median_site_rate)
+        site_rates_scaled = [
+            site_rate / median_site_rate for site_rate in site_rates
+        ]
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll_list, lls_list = likelihood_computation_wrapper(
+            tree=tree_scaled,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates_scaled,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
+            method="python",
+            num_processes=3,
+            num_families=3,
+        )
+        for ll in ll_list:
+            ll_expected = -4307.0638
+            np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
+
+
+class Test_real_data_pair_site_large_multiprocess(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
+    @pytest.mark.slow
+    def test_real_data_pair_site_large_multiprocess(
+        self, name, reversible, device
+    ):
+        """
+        Test on family 13gs_1_A using WAG x WAG co-evolution model!
+        """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        num_cats = 20
+        tree = read_tree(
+            os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/13gs_1_A.txt")
+        )
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/13gs_1_A.txt"))
+
+        site_rates = read_site_rates(
+            os.path.join(
+                DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/13gs_1_A.txt"
+            )
+        )
+        median_site_rate = np.median(site_rates)
+        places_with_median_site_rate = [
+            i
+            for (i, site_rate) in enumerate(site_rates)
+            if site_rate == median_site_rate
+        ]
+        np.random.seed(1)
+        np.random.shuffle(places_with_median_site_rate)
+
+        # Let's make half of these sites evolve coupled
+        contact_map = np.eye(len(site_rates))
+        for i in range(len(places_with_median_site_rate) // 4):
+            j = places_with_median_site_rate[2 * i]
+            k = places_with_median_site_rate[2 * i + 1]
+            contact_map[j, k] = 1
+            contact_map[k, j] = 1
+
+        # Now rescale the rates and the tree, since co-evolution uses a
+        # universal rate of 1
+        tree_scaled = Tree()
+        tree_scaled.add_nodes(tree.nodes())
+        for (u, v, length) in tree.edges():
+            tree_scaled.add_edge(u, v, length * median_site_rate)
+        site_rates_scaled = [
+            site_rate / median_site_rate for site_rate in site_rates
+        ]
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll_list, lls_list = likelihood_computation_wrapper(
+            tree=tree_scaled,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates_scaled,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
+            method="python",
+            num_processes=3,
+            num_families=3,
+        )
+        for ll in ll_list:
+            ll_expected = -264605.0691
+            np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
+
+
+class Test_real_data_pair_site_huge_multiprocess(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
+    @pytest.mark.slow
+    def test_real_data_pair_site_huge_multiprocess(
+        self, name, reversible, device
+    ):
+        """
+        Test on family 1a8h_1_A using WAG x WAG co-evolution model!
+        """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        num_cats = 20
+        tree = read_tree(
+            os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a8h_1_A.txt")
+        )
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a8h_1_A.txt"))
+
+        site_rates = read_site_rates(
+            os.path.join(
+                DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/1a8h_1_A.txt"
+            )
+        )
+        median_site_rate = np.median(site_rates)
+        places_with_median_site_rate = [
+            i
+            for (i, site_rate) in enumerate(site_rates)
+            if site_rate == median_site_rate
+        ]
+        np.random.seed(1)
+        np.random.shuffle(places_with_median_site_rate)
+
+        # Let's make half of these sites evolve coupled
+        contact_map = np.eye(len(site_rates))
+        for i in range(len(places_with_median_site_rate) // 4):
+            j = places_with_median_site_rate[2 * i]
+            k = places_with_median_site_rate[2 * i + 1]
+            contact_map[j, k] = 1
+            contact_map[k, j] = 1
+
+        # Now rescale the rates and the tree, since co-evolution uses a
+        # universal rate of 1
+        tree_scaled = Tree()
+        tree_scaled.add_nodes(tree.nodes())
+        for (u, v, length) in tree.edges():
+            tree_scaled.add_edge(u, v, length * median_site_rate)
+        site_rates_scaled = [
+            site_rate / median_site_rate for site_rate in site_rates
+        ]
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll_list, lls_list = likelihood_computation_wrapper(
+            tree=tree_scaled,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates_scaled,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
+            method="python",
+            num_processes=3,
+            num_families=3,
+        )
+        for ll in ll_list:
+            ll_expected = -561001.0635
+            np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
