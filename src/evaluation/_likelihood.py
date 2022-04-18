@@ -1,8 +1,10 @@
+import multiprocessing
 import os
 import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import tqdm
 
 from src.io import (
     Tree,
@@ -15,6 +17,7 @@ from src.io import (
     write_log_likelihood,
 )
 from src.markov_chain import FactorizedReversibleModel, matrix_exponential
+from src.utils import get_process_args
 
 
 def dp_likelihood_computation(
@@ -289,85 +292,27 @@ def dp_likelihood_computation(
     return sum(lls), lls
 
 
-def compute_log_likelihoods(
-    tree_dir: str,
-    msa_dir: str,
-    site_rates_dir: str,
-    contact_map_dir: str,
-    families: List[str],
-    amino_acids: List[str],
-    pi_1_path: str,
-    Q_1_path: str,
-    reversible_1: bool,
-    device_1: str,
-    pi_2_path: str,
-    Q_2_path: str,
-    reversible_2: bool,
-    device_2: str,
-    output_likelihood_dir: str,
-    num_processes: int,
-    use_cpp_implementation: bool = False,
-) -> None:
+def _map_func(args: Dict):
     """
-    Compute log-likelihoods under the given model.
-
-    Given trees, MSAs, site rates, contact maps, and models for the evolution
-    of contacting sites and non-contacting sites, the log-likelihood of each
-    tree is computed, at the resolution of single-sites and contacting pairs.
-    The model is given by the state distribution of the root node, and the rate
-    matrix which describes the evolution of states.
-
-    Details:
-    - For each position, it must be either in contact with exactly 1 other
-        position, or not be in contact with any other position. The diagonal
-        of the contact matrix is ignored.
-    - The Q_2 matrix is sparse: only 2 * len(amino_acids) - 1 entries in each
-        row are non-zero, since only one amino acid in a contacting pair
-        can mutate at a time.
-
-    Args:
-        tree_dir: Directory to the trees stored in friendly format.
-        msa_dir: Directory to the multiple sequence alignments in FASTA format.
-        site_rates_dir: Directory to the files containing the rates at which
-            each site evolves. Rates for sites that co-evolve are ignored.
-        contact_map_dir: Directory to the contact maps stored as
-            space-separated binary matrices.
-        families: The protein families for which to perform the computation.
-        amino_acids: The list of amino acids.
-        pi_1_path: Path to an array of length len(amino_acids). It indicates,
-            for sites that evolve independently (i.e. that are not in contact
-            with any other site), the probabilities for the root state.
-        Q_1_path: Path to an array of size len(amino_acids) x len(amino_acids),
-            the rate matrix describing the evolution of sites that evolve
-            independently (i.e. that are not in contact with any other site).
-        reversible_1: Whether to use reversibility of Q_1 to compute the
-            matrix exponential faster.
-        device_1: Whether to use 'cpu' or 'cuda' to compute the matrix
-            exponentials of Q_1.
-        pi_2_path: Path to an array of length len(amino_acids) ** 2. It
-            indicates, for sites that are in contact, the probabilities for
-            their root state.
-        Q_2_path: Path to an array of size (len(amino_acids) ** 2) x
-            (len(amino_acids) ** 2), the rate matrix describing the evolution
-            of sites that are in contact.
-        reversible_2: Whether to use reversibility of Q_2 to compute the
-            matrix exponential faster.
-        device_2: Whether to use 'cpu' or 'cuda' to compute the matrix
-            exponentials of Q_2.
-        output_likelihood_dir: Directory where to write the log-likelihoods,
-            with site-level resolution.
-        num_processes: Number of processes used to parallelize computation.
-        use_cpp_implementation: If to use efficient C++ implementation
-            instead of Python.
+    Version of compute_log_likelihoods run by an individual process.
     """
-    if use_cpp_implementation:
-        raise NotImplementedError
+    tree_dir = args[0]
+    msa_dir = args[1]
+    site_rates_dir = args[2]
+    contact_map_dir = args[3]
+    families = args[4]
+    amino_acids = args[5]
+    pi_1_path = args[6]
+    Q_1_path = args[7]
+    reversible_1 = args[8]
+    device_1 = args[9]
+    pi_2_path = args[10]
+    Q_2_path = args[11]
+    reversible_2 = args[12]
+    device_2 = args[13]
+    output_likelihood_dir = args[14]
 
-    for (
-        family
-    ) in (
-        families
-    ):
+    for family in families:
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
@@ -447,3 +392,106 @@ def compute_log_likelihoods(
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)
+
+
+def compute_log_likelihoods(
+    tree_dir: str,
+    msa_dir: str,
+    site_rates_dir: str,
+    contact_map_dir: str,
+    families: List[str],
+    amino_acids: List[str],
+    pi_1_path: str,
+    Q_1_path: str,
+    reversible_1: bool,
+    device_1: str,
+    pi_2_path: str,
+    Q_2_path: str,
+    reversible_2: bool,
+    device_2: str,
+    output_likelihood_dir: str,
+    num_processes: int,
+    use_cpp_implementation: bool = False,
+) -> None:
+    """
+    Compute log-likelihoods under the given model.
+
+    Given trees, MSAs, site rates, contact maps, and models for the evolution
+    of contacting sites and non-contacting sites, the log-likelihood of each
+    tree is computed, at the resolution of single-sites and contacting pairs.
+    The model is given by the state distribution of the root node, and the rate
+    matrix which describes the evolution of states.
+
+    Details:
+    - For each position, it must be either in contact with exactly 1 other
+        position, or not be in contact with any other position. The diagonal
+        of the contact matrix is ignored.
+    - The Q_2 matrix is sparse: only 2 * len(amino_acids) - 1 entries in each
+        row are non-zero, since only one amino acid in a contacting pair
+        can mutate at a time.
+
+    Args:
+        tree_dir: Directory to the trees stored in friendly format.
+        msa_dir: Directory to the multiple sequence alignments in FASTA format.
+        site_rates_dir: Directory to the files containing the rates at which
+            each site evolves. Rates for sites that co-evolve are ignored.
+        contact_map_dir: Directory to the contact maps stored as
+            space-separated binary matrices.
+        families: The protein families for which to perform the computation.
+        amino_acids: The list of amino acids.
+        pi_1_path: Path to an array of length len(amino_acids). It indicates,
+            for sites that evolve independently (i.e. that are not in contact
+            with any other site), the probabilities for the root state.
+        Q_1_path: Path to an array of size len(amino_acids) x len(amino_acids),
+            the rate matrix describing the evolution of sites that evolve
+            independently (i.e. that are not in contact with any other site).
+        reversible_1: Whether to use reversibility of Q_1 to compute the
+            matrix exponential faster.
+        device_1: Whether to use 'cpu' or 'cuda' to compute the matrix
+            exponentials of Q_1.
+        pi_2_path: Path to an array of length len(amino_acids) ** 2. It
+            indicates, for sites that are in contact, the probabilities for
+            their root state.
+        Q_2_path: Path to an array of size (len(amino_acids) ** 2) x
+            (len(amino_acids) ** 2), the rate matrix describing the evolution
+            of sites that are in contact.
+        reversible_2: Whether to use reversibility of Q_2 to compute the
+            matrix exponential faster.
+        device_2: Whether to use 'cpu' or 'cuda' to compute the matrix
+            exponentials of Q_2.
+        output_likelihood_dir: Directory where to write the log-likelihoods,
+            with site-level resolution.
+        num_processes: Number of processes used to parallelize computation.
+        use_cpp_implementation: If to use efficient C++ implementation
+            instead of Python.
+    """
+    if use_cpp_implementation:
+        raise NotImplementedError
+
+    map_args = [
+        [
+            tree_dir,
+            msa_dir,
+            site_rates_dir,
+            contact_map_dir,
+            get_process_args(process_rank, num_processes, families),
+            amino_acids,
+            pi_1_path,
+            Q_1_path,
+            reversible_1,
+            device_1,
+            pi_2_path,
+            Q_2_path,
+            reversible_2,
+            device_2,
+            output_likelihood_dir,
+        ]
+        for process_rank in range(num_processes)
+    ]
+
+    # Map step (distribute families among processes)
+    if num_processes > 1:
+        with multiprocessing.Pool(num_processes) as pool:
+            list(tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args)))
+    else:
+        list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))

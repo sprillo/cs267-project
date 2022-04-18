@@ -129,30 +129,39 @@ def likelihood_computation_wrapper(
     reversible_2: bool,
     device_2: str,
     method: str,
+    num_processes: int = 1,
+    num_families: int = 1,
 ) -> Tuple[float, List[float]]:
     """
     Compute data loglikelihood by one of several methods
+
+    TODO: Generalize to many families! And add a test to make sure that when
+    multiprocessing, there is no contention for resources (e.g. GPU); and env
+    vars are set correctly.
     """
     if method == "python" or method == "C++":
-        family = "fam1"
-        families = [family]
+        families = [f"fam-{i}" for i in range(num_families)]
         cpp = method == "C++"
         with tempfile.TemporaryDirectory() as tree_dir:
-            tree_path = os.path.join(tree_dir, family + ".txt")
-            write_tree(tree, tree_path)
+            for family in families:
+                tree_path = os.path.join(tree_dir, family + ".txt")
+                write_tree(tree, tree_path)
             with tempfile.TemporaryDirectory() as msa_dir:
-                msa_path = os.path.join(msa_dir, family + ".txt")
-                write_msa(msa, msa_path)
+                for family in families:
+                    msa_path = os.path.join(msa_dir, family + ".txt")
+                    write_msa(msa, msa_path)
                 with tempfile.TemporaryDirectory() as contact_map_dir:
-                    contact_map_path = os.path.join(
-                        contact_map_dir, family + ".txt"
-                    )
-                    write_contact_map(contact_map, contact_map_path)
-                    with tempfile.TemporaryDirectory() as site_rates_dir:
-                        site_rates_path = os.path.join(
-                            site_rates_dir, family + ".txt"
+                    for family in families:
+                        contact_map_path = os.path.join(
+                            contact_map_dir, family + ".txt"
                         )
-                        write_site_rates(site_rates, site_rates_path)
+                        write_contact_map(contact_map, contact_map_path)
+                    with tempfile.TemporaryDirectory() as site_rates_dir:
+                        for family in families:
+                            site_rates_path = os.path.join(
+                                site_rates_dir, family + ".txt"
+                            )
+                            write_site_rates(site_rates, site_rates_path)
                         with tempfile.NamedTemporaryFile("w") as pi_1_file:
                             pi_1_path = pi_1_file.name
                             # pi_1_path = "./pi_1_path.txt"
@@ -201,17 +210,27 @@ def likelihood_computation_wrapper(
                                                 reversible_2=reversible_2,
                                                 device_2=device_2,
                                                 output_likelihood_dir=d,
-                                                num_processes=1,
+                                                num_processes=num_processes,
                                                 use_cpp_implementation=cpp,
                                             )
-                                            log_likelihood_path = os.path.join(
-                                                d,
-                                                family + ".txt",
-                                            )
-                                            ll, lls = read_log_likelihood(
-                                                log_likelihood_path
-                                            )
-                                            return ll, lls
+                                            ll_list = []
+                                            lls_list = []
+                                            for family in families:
+                                                log_likelihood_path = (
+                                                    os.path.join(
+                                                        d,
+                                                        family + ".txt",
+                                                    )
+                                                )
+                                                ll, lls = read_log_likelihood(
+                                                    log_likelihood_path
+                                                )
+                                                ll_list.append(ll)
+                                                lls_list.append(lls)
+                                            if num_families > 1:
+                                                return ll_list, lls_list
+                                            else:
+                                                return ll_list[0], lls_list[0]
     else:
         raise NotImplementedError(f"Unknown method: {method}")
 
@@ -1275,3 +1294,53 @@ class Test_numerical_stability(unittest.TestCase):
         )
         np.testing.assert_almost_equal(ll, -1.199186 * 2, decimal=4)
         np.testing.assert_almost_equal(lls, [-1.199186, -1.199186], decimal=4)
+
+
+class Test_real_data_single_site_medium_multiprocess(unittest.TestCase):
+    @parameterized.expand([(False, "cuda"), (True, "cpu"), (True, "cuda")])
+    @pytest.mark.slow
+    def test_real_data_single_site_medium_multiprocess(
+        self, reversible, device
+    ):
+        """
+        Test on family 1a92_1_A using only WAG (no co-evolution model).
+        """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        num_cats = 20
+        tree = read_tree(
+            os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt")
+        )
+        msa = read_msa(os.path.join(DATA_DIR, "msa_dir/1a92_1_A.txt"))
+        site_rates = read_site_rates(
+            os.path.join(
+                DATA_DIR, f"site_rates_dir_{num_cats}_cat_wag/1a92_1_A.txt"
+            )
+        )
+        contact_map = np.eye(len(site_rates))
+
+        wag = wag_matrix().to_numpy()
+        pi = compute_stationary_distribution(wag)
+        wag_x_wag = chain_product(wag, wag)
+        pi_x_pi = compute_stationary_distribution(wag_x_wag)
+        ll_list, lls_list = likelihood_computation_wrapper(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=src.utils.amino_acids,
+            pi_1=pi,
+            Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
+            pi_2=pi_x_pi,
+            Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
+            method="python",
+            num_processes=3,
+            num_families=3,
+        )
+        for ll in ll_list:
+            ll_expected = -4307.0638
+            np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
