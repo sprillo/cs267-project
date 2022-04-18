@@ -1,8 +1,9 @@
 import os
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 
 from src.io import (
     Tree,
@@ -14,7 +15,7 @@ from src.io import (
     read_tree,
     write_log_likelihood,
 )
-from src.markov_chain import matrix_exponential
+from src.markov_chain import FactorizedReversibleModel, matrix_exponential
 
 
 def dp_likelihood_computation(
@@ -25,8 +26,14 @@ def dp_likelihood_computation(
     amino_acids: List[str],
     pi_1: np.array,
     Q_1: np.array,
+    fact_1: Optional[FactorizedReversibleModel],
+    reversible_1: bool,
+    device_1: bool,
     pi_2: np.array,
     Q_2: np.array,
+    fact_2: Optional[FactorizedReversibleModel],
+    reversible_2: bool,
+    device_2: bool,
 ) -> Tuple[float, List[float]]:
     """
     Compute the data log-likelihood with dynamic programming.
@@ -140,22 +147,20 @@ def dp_likelihood_computation(
 
         st = time.time()
         if n_independent_sites > 0:
-            single_site_3d_stack = np.zeros(
-                shape=(
-                    len(non_root_nodes) * num_cats,
-                    len(amino_acids),
-                    len(amino_acids),
-                )
-            )
+            exponents = []
             for (i, node) in enumerate(non_root_nodes):
                 (_, length) = tree.parent(node)
                 for (j, site_rate) in enumerate(unique_site_rates):
-                    single_site_3d_stack[i * num_cats + j] = (
-                        Q_1 * length * site_rate
-                    )
-            single_site_transition_mats_3d = matrix_exponential(
-                single_site_3d_stack
+                    exponents.append(length * site_rate)
+
+            expTQ_1 = matrix_exponential(
+                exponents,
+                Q_1,
+                fact_1,
+                reversible_1,
+                device_1,
             )
+
             for (i, node) in enumerate(non_root_nodes):
                 single_site_transition_mats_node = np.zeros(
                     shape=(
@@ -165,9 +170,7 @@ def dp_likelihood_computation(
                     )
                 )
                 for (j, site_id) in enumerate(independent_sites):
-                    single_site_transition_mats_node[
-                        j, :, :
-                    ] = single_site_transition_mats_3d[
+                    single_site_transition_mats_node[j, :, :] = expTQ_1[
                         (i * num_cats) + site_rate_to_cat[site_rates[site_id]],
                         :,
                         :,
@@ -179,23 +182,22 @@ def dp_likelihood_computation(
 
         st = time.time()
         if n_contacting_pairs > 0:
-            pair_site_3d_stack = np.zeros(
-                shape=(
-                    len(non_root_nodes),
-                    len(pairs_of_amino_acids),
-                    len(pairs_of_amino_acids),
-                )
-            )
+            exponents = []
             for (i, node) in enumerate(non_root_nodes):
                 (_, length) = tree.parent(node)
-                pair_site_3d_stack[i, :, :] = Q_2 * length
-            pair_site_transition_mats_3d = matrix_exponential(
-                pair_site_3d_stack
+                exponents.append(length)
+
+            expTQ_2 = matrix_exponential(
+                exponents,
+                Q_2,
+                fact_2,
+                reversible_2,
+                device_2,
             )
+
             for (i, node) in enumerate(non_root_nodes):
-                pair_site_transition_mats[node] = pair_site_transition_mats_3d[
-                    i, :, :
-                ][None, :, :]
+                pair_site_transition_mats[node] = expTQ_2[i, :, :][None, :, :]
+
         print(f"\tTime for pair-site expms: {time.time() - st}")
 
     populate_transition_mats()
@@ -222,15 +224,15 @@ def dp_likelihood_computation(
                     axis=1, keepdims=True
                 )
                 dp_single_site_child -= max_ll_single_site_child
+
+                log_arg = single_site_transition_mats[child] @ (
+                    np.exp(dp_single_site_child)
+                    * node_observations_single_site[child]
+                )
+                log_arg[log_arg < 0] = 0.0
+
                 dp_single_site[node] += (
-                    np.log(
-                        single_site_transition_mats[child]
-                        @ (
-                            np.exp(dp_single_site_child)
-                            * node_observations_single_site[child]
-                        )
-                    )
-                    + max_ll_single_site_child
+                    np.log(log_arg) + max_ll_single_site_child
                 )
         if n_contacting_pairs > 0:
             for (child, _) in tree.children(node):
@@ -239,46 +241,39 @@ def dp_likelihood_computation(
                     axis=1, keepdims=True
                 )
                 dp_pair_site_child -= max_ll_pair_site_child
-                dp_pair_site[node] += (
-                    np.log(
-                        pair_site_transition_mats[child]
-                        @ (
-                            np.exp(dp_pair_site_child)
-                            * node_observations_pair_site[child]
-                        )
-                    )
-                    + max_ll_pair_site_child
+
+                log_arg = pair_site_transition_mats[child] @ (
+                    np.exp(dp_pair_site_child)
+                    * node_observations_pair_site[child]
                 )
+                log_arg[log_arg < 0] = 0.0
+
+                dp_pair_site[node] += np.log(log_arg) + max_ll_pair_site_child
 
     if n_independent_sites > 0:
         dp_single_site_root = dp_single_site[tree.root()]
         max_ll_single_site_root = dp_single_site_root.max(axis=1, keepdims=True)
         dp_single_site_root -= max_ll_single_site_root
-        res_single_site = (
-            np.log(
-                pi_1.reshape(1, 1, -1)
-                @ (
-                    np.exp(dp_single_site_root)
-                    * node_observations_single_site[tree.root()]
-                )
-            )
-            + max_ll_single_site_root
+
+        log_arg = pi_1.reshape(1, 1, -1) @ (
+            np.exp(dp_single_site_root)
+            * node_observations_single_site[tree.root()]
         )
+        log_arg[log_arg < 0] = 0.0
+
+        res_single_site = np.log(log_arg) + max_ll_single_site_root
 
     if n_contacting_pairs > 0:
         dp_pair_site_root = dp_pair_site[tree.root()]
         max_ll_pair_site_root = dp_pair_site_root.max(axis=1, keepdims=True)
         dp_pair_site_root -= max_ll_pair_site_root
-        res_pair_site = (
-            np.log(
-                pi_2.reshape(1, 1, -1)
-                @ (
-                    np.exp(dp_pair_site_root)
-                    * node_observations_pair_site[tree.root()]
-                )
-            )
-            + max_ll_pair_site_root
+
+        log_arg = pi_2.reshape(1, 1, -1) @ (
+            np.exp(dp_pair_site_root) * node_observations_pair_site[tree.root()]
         )
+        log_arg[log_arg < 0] = 0.0
+
+        res_pair_site = np.log(log_arg) + max_ll_pair_site_root
 
     lls = [0] * num_sites
     if n_independent_sites > 0:
@@ -304,8 +299,12 @@ def compute_log_likelihoods(
     amino_acids: List[str],
     pi_1_path: str,
     Q_1_path: str,
+    reversible_1: bool,
+    device_1: str,
     pi_2_path: str,
     Q_2_path: str,
+    reversible_2: bool,
+    device_2: str,
     output_likelihood_dir: str,
     num_processes: int,
     use_cpp_implementation: bool = False,
@@ -342,12 +341,20 @@ def compute_log_likelihoods(
         Q_1_path: Path to an array of size len(amino_acids) x len(amino_acids),
             the rate matrix describing the evolution of sites that evolve
             independently (i.e. that are not in contact with any other site).
+        reversible_1: Whether to use reversibility of Q_1 to compute the
+            matrix exponential faster.
+        device_1: Whether to use 'cpu' or 'cuda' to compute the matrix
+            exponentials of Q_1.
         pi_2_path: Path to an array of length len(amino_acids) ** 2. It
             indicates, for sites that are in contact, the probabilities for
             their root state.
         Q_2_path: Path to an array of size (len(amino_acids) ** 2) x
             (len(amino_acids) ** 2), the rate matrix describing the evolution
             of sites that are in contact.
+        reversible_2: Whether to use reversibility of Q_2 to compute the
+            matrix exponential faster.
+        device_2: Whether to use 'cpu' or 'cuda' to compute the matrix
+            exponentials of Q_2.
         output_likelihood_dir: Directory where to write the log-likelihoods,
             with site-level resolution.
         num_processes: Number of processes used to parallelize computation.
@@ -361,7 +368,7 @@ def compute_log_likelihoods(
         family
     ) in (
         families
-    ):  # I don't use Python multiprocessing bc GPU seems to be the bottleneck.
+    ):  # I don't use Python multiprocessing bc GPU seems to be the bottleneck. # UPDATE: If the SVD trick is fast enough on 1 cpu, we are back in business! We can use CPU instead of GPU.
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
@@ -411,6 +418,17 @@ def compute_log_likelihoods(
                 f"pairs of amino acids:\n{pairs_of_amino_acids}"
             )
 
+        fact_1 = (
+            FactorizedReversibleModel(Q_1_df.to_numpy())
+            if reversible_1
+            else None
+        )
+        fact_2 = (
+            FactorizedReversibleModel(Q_2_df.to_numpy())
+            if reversible_1
+            else None
+        )
+
         ll, lls = dp_likelihood_computation(
             tree=tree,
             msa=msa,
@@ -419,8 +437,14 @@ def compute_log_likelihoods(
             amino_acids=amino_acids,
             pi_1=pi_1_df.to_numpy(),
             Q_1=Q_1_df.to_numpy(),
+            fact_1=fact_1,
+            reversible_1=reversible_1,
+            device_1=device_1,
             pi_2=pi_2_df.to_numpy(),
             Q_2=Q_2_df.to_numpy(),
+            fact_2=fact_2,
+            reversible_2=reversible_2,
+            device_2=device_2,
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)

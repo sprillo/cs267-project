@@ -4,9 +4,20 @@ import tempfile
 import unittest
 from typing import Dict, List, Tuple
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"  # torch uses this as num threads!
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import numpy as np
 import pytest
+import torch
 from parameterized import parameterized
+
+if torch.get_num_threads() != 1:
+    raise Exception("Could not set torch to use only 1 thread.")
+
 
 import src
 from src.evaluation import compute_log_likelihoods
@@ -24,6 +35,7 @@ from src.io import (
     write_tree,
 )
 from src.markov_chain import (
+    FactorizedReversibleModel,
     chain_product,
     compute_stationary_distribution,
     equ_matrix,
@@ -110,8 +122,12 @@ def likelihood_computation_wrapper(
     amino_acids: List[str],
     pi_1: np.array,
     Q_1: np.array,
+    reversible_1: bool,
+    device_1: str,
     pi_2: np.array,
     Q_2: np.array,
+    reversible_2: bool,
+    device_2: str,
     method: str,
 ) -> Tuple[float, List[float]]:
     """
@@ -178,8 +194,12 @@ def likelihood_computation_wrapper(
                                                 amino_acids=amino_acids,
                                                 pi_1_path=pi_1_path,
                                                 Q_1_path=Q_1_path,
+                                                reversible_1=reversible_1,
+                                                device_1=device_1,
                                                 pi_2_path=pi_2_path,
                                                 Q_2_path=Q_2_path,
+                                                reversible_2=reversible_2,
+                                                device_2=device_2,
                                                 output_likelihood_dir=d,
                                                 num_processes=1,
                                                 use_cpp_implementation=cpp,
@@ -196,11 +216,16 @@ def likelihood_computation_wrapper(
         raise NotImplementedError(f"Unknown method: {method}")
 
 
-class TestComputeLogLikelihoods(unittest.TestCase):
-    def test_small_wag_3_seqs(self):
+class Test_small_wag_3_seqs(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_3_seqs(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -228,17 +253,28 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         np.testing.assert_almost_equal(ll, -7.343870, decimal=4)
         np.testing.assert_almost_equal(lls, [-7.343870], decimal=4)
 
-    def test_small_wag_4_seqs_1_site(self):
+
+class Test_small_wag_4_seqs_1_site(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_4_seqs_1_site(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "i1", "l1", "l2", "l3", "l4"])
         tree.add_edges(
@@ -264,17 +300,28 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         np.testing.assert_almost_equal(ll, -10.091868, decimal=4)
         np.testing.assert_almost_equal(lls, [-10.091868], decimal=4)
 
-    def test_small_wag_4_seqs_2_sites_and_gaps(self):
+
+class Test_small_wag_4_seqs_2_sites_and_gaps(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_4_seqs_2_sites_and_gaps(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "i1", "l1", "l2", "l3", "l4"])
         tree.add_edges(
@@ -300,17 +347,28 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=wag_stationary_distribution().to_numpy(),
             Q_1=wag_matrix().to_numpy(),
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         np.testing.assert_almost_equal(ll, -17.436349, decimal=4)
         np.testing.assert_almost_equal(lls, [-10.092142, -7.344207], decimal=4)
 
-    def test_small_equ_x_equ_3_seqs(self):
+
+class Test_small_equ_x_equ_3_seqs(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_equ_x_equ_3_seqs(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -332,10 +390,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         pi = compute_stationary_distribution(equ)
         equ_x_equ = chain_product(equ, equ)
         pi_x_pi = compute_stationary_distribution(equ_x_equ)
-        np.testing.assert_almost_equal(
-            matrix_exponential(equ_x_equ)[0, 0],
-            matrix_exponential(equ)[0, 0] ** 2,
-        )
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
             msa=msa,
@@ -344,17 +398,28 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=equ,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         np.testing.assert_almost_equal(ll, -9.382765 * 2, decimal=4)
         np.testing.assert_almost_equal(lls, [-9.382765, -9.382765], decimal=4)
 
-    def test_small_equ_x_wag_3_seqs(self):
+
+class Test_small_equ_x_wag_3_seqs(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_equ_x_wag_3_seqs(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -375,10 +440,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         equ = equ_matrix().to_numpy()
         wag = wag_matrix().to_numpy()
         equ_x_wag = chain_product(equ, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(equ_x_wag)[0, 0],
-            matrix_exponential(equ)[0, 0] * matrix_exponential(wag)[0, 0],
-        )
         pi_2 = compute_stationary_distribution(equ_x_wag)
         pi = compute_stationary_distribution(equ)
         ll, lls = likelihood_computation_wrapper(
@@ -389,8 +450,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=equ,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_2,
             Q_2=equ_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         epected_ll = -9.382765 + -9.714873
@@ -399,10 +464,17 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             lls, [epected_ll / 2, epected_ll / 2], decimal=4
         )
 
-    def test_small_wag_x_equ_3_seqs(self):
+
+class Test_small_wag_x_equ_3_seqs(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_equ_3_seqs(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -424,10 +496,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         wag_x_equ = chain_product(wag, equ)
         pi_2 = compute_stationary_distribution(wag_x_equ)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_equ)[0, 0],
-            matrix_exponential(wag)[0, 0] * matrix_exponential(equ)[0, 0],
-        )
         pi = compute_stationary_distribution(equ)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -436,9 +504,13 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             site_rates=site_rates,
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
-            Q_1=equ,
+            Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_2,
             Q_2=wag_x_equ,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         epected_ll = -9.714873 + -9.382765
@@ -447,10 +519,17 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             lls, [epected_ll / 2, epected_ll / 2], decimal=4
         )
 
-    def test_small_wag_x_wag_3_seqs(self):
+
+class Test_small_wag_x_wag_3_seqs(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_wag_3_seqs(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -471,10 +550,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -484,8 +559,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         ll_expected = -7.343870 + -9.714873
@@ -494,10 +573,17 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             lls, [ll_expected / 2, ll_expected / 2], decimal=4
         )
 
-    def test_small_wag_x_wag_3_seqs_many_sites(self):
+
+class Test_small_wag_x_wag_3_seqs_many_sites(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_wag_3_seqs_many_sites(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -535,10 +621,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -548,8 +630,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         lls_expected = [
@@ -564,10 +650,19 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
-    def test_small_wag_x_wag_3_seqs_many_sites_and_gaps(self):
+
+class Test_small_wag_x_wag_3_seqs_many_sites_and_gaps(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_wag_3_seqs_many_sites_and_gaps(
+        self, reversible, device
+    ):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "l1", "l2", "l3"])
         tree.add_edges(
@@ -606,10 +701,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -619,8 +710,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         lls_expected = [
@@ -635,10 +730,17 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
-    def test_small_wag_x_wag_2_seqs_many_sites(self):
+
+class Test_small_wag_x_wag_2_seqs_many_sites(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_wag_2_seqs_many_sites(self, reversible, device):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "i1", "l1", "l2"])
         tree.add_edges(
@@ -676,10 +778,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -689,8 +787,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         lls_expected = [
@@ -705,10 +807,19 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
-    def test_small_wag_x_wag_2_seqs_many_sites_and_gaps(self):
+
+class Test_small_wag_x_wag_2_seqs_many_sites_and_gaps(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_small_wag_x_wag_2_seqs_many_sites_and_gaps(
+        self, reversible, device
+    ):
         """
         This was manually verified with FastTree.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         tree = Tree()
         tree.add_nodes(["r", "i1", "l1", "l2"])
         tree.add_edges(
@@ -746,10 +857,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -759,8 +866,12 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
         lls_expected = [
@@ -775,6 +886,8 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         np.testing.assert_almost_equal(lls, lls_expected, decimal=4)
         np.testing.assert_almost_equal(ll, sum(lls_expected), decimal=4)
 
+
+class Test_real_data_single_site_medium(unittest.TestCase):
     @parameterized.expand(
         [
             ("1_cat", 1, -4649.6146),
@@ -783,8 +896,7 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             ("20_cat", 20, -4307.0638),
         ]
     )
-    @pytest.mark.slow
-    def test_real_data_single_site(self, name, num_cats, ll_expected):
+    def test_real_data_single_site_medium(self, name, num_cats, ll_expected):
         """
         Test on family 1a92_1_A using only WAG (no co-evolution model).
         """
@@ -802,10 +914,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -815,15 +923,21 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=True,
+            device_1="cpu",
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=True,
+            device_2="cpu",
             method="python",
         )
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
+
+class Test_real_data_single_site_large(unittest.TestCase):
     @parameterized.expand([("20_cat", 20, -264605.0691)])
     @pytest.mark.slow
-    def test_real_data_single_site_huge(self, name, num_cats, ll_expected):
+    def test_real_data_single_site_large(self, name, num_cats, ll_expected):
         """
         Test on family 13gs_1_A using only WAG (no co-evolution model).
         """
@@ -841,10 +955,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree,
@@ -854,12 +964,18 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=True,
+            device_1="cpu",
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=True,
+            device_2="cpu",
             method="python",
         )
         np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
 
+
+class Test_real_data_pair_site_medium(unittest.TestCase):
     @parameterized.expand(
         [
             ("1_cat", 1, -4649.6146),
@@ -869,9 +985,9 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         ]
     )
     @pytest.mark.slow
-    def test_real_data_pair_site(self, name, num_cats, ll_expected):
+    def test_real_data_pair_site_medium(self, name, num_cats, ll_expected):
         """
-        Test on family 1a92_1_A using Wag x WAG co-evolution model!
+        Test on family 1a92_1_A using WAG x WAG co-evolution model!
         """
         tree = read_tree(
             os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt")
@@ -913,10 +1029,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree_scaled,
@@ -926,18 +1038,34 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=True,
+            device_1="cpu",
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=True,
+            device_2="cpu",
             method="python",
         )
         np.testing.assert_almost_equal(ll, ll_expected, decimal=4)
 
-    @parameterized.expand([("20_cat", 20, -264605.0691)])
+
+class Test_real_data_pair_site_large(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
     @pytest.mark.slow
-    def test_real_data_pair_site_huge(self, name, num_cats, ll_expected):
+    def test_real_data_pair_site_large(self, name, reversible, device):
         """
-        Test on family 13gs_1_A using Wag x WAG co-evolution model!
+        Test on family 13gs_1_A using WAG x WAG co-evolution model!
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        num_cats = 20
         tree = read_tree(
             os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/13gs_1_A.txt")
         )
@@ -978,10 +1106,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree_scaled,
@@ -991,18 +1115,35 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
+        ll_expected = -264605.0691
         np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
 
-    @parameterized.expand([("20_cat", 20, -561001.0635)])
+
+class Test_real_data_pair_site_huge(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("rev_cuda", True, "cuda"),
+            ("rev_cpu", True, "cpu"),
+            ("irrev_cuda", False, "cuda"),
+            # ("irrev_cpu", False, "cpu"),  # OOM
+        ]
+    )
     @pytest.mark.slow
-    def test_real_data_pair_site_huge2(self, name, num_cats, ll_expected):
+    def test_real_data_pair_site_huge(self, name, reversible, device):
         """
-        Test on family 1a8h_1_A using Wag x WAG co-evolution model!
+        Test on family 1a8h_1_A using WAG x WAG co-evolution model!
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        num_cats = 20
         tree = read_tree(
             os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a8h_1_A.txt")
         )
@@ -1043,10 +1184,6 @@ class TestComputeLogLikelihoods(unittest.TestCase):
         wag = wag_matrix().to_numpy()
         pi = compute_stationary_distribution(wag)
         wag_x_wag = chain_product(wag, wag)
-        np.testing.assert_almost_equal(
-            matrix_exponential(wag_x_wag)[0, 0],
-            matrix_exponential(wag)[0, 0] ** 2,
-        )
         pi_x_pi = compute_stationary_distribution(wag_x_wag)
         ll, lls = likelihood_computation_wrapper(
             tree=tree_scaled,
@@ -1056,8 +1193,85 @@ class TestComputeLogLikelihoods(unittest.TestCase):
             amino_acids=src.utils.amino_acids,
             pi_1=pi,
             Q_1=wag,
+            reversible_1=reversible,
+            device_1=device,
             pi_2=pi_x_pi,
             Q_2=wag_x_wag,
+            reversible_2=reversible,
+            device_2=device,
             method="python",
         )
+        ll_expected = -561001.0635
         np.testing.assert_almost_equal(ll, ll_expected, decimal=2)
+
+
+class Test_numerical_stability(unittest.TestCase):
+    @parameterized.expand(
+        [(False, "cpu"), (False, "cuda"), (True, "cpu"), (True, "cuda")]
+    )
+    def test_numerical_stability(self, reversible, device):
+        """
+        Th matrix exponential on very small branches produces near-0 entries
+        in the transition matrix, which can cause issues.
+        """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+        tree = Tree()
+        tree.add_nodes(["r", "l1", "l2", "l3"])
+        tree.add_edges(
+            [
+                ("r", "l1", 0.0),
+                ("r", "l2", 1.120547166),
+                ("r", "l3", 3.402392896),
+            ]
+        )
+        msa = {
+            "l1": "AA",
+            "l2": "AA",
+            "l3": "AA",
+        }
+        contact_map = np.ones((2, 2))
+        # contact_map = np.eye(2)
+        site_rates = [1.0, 1.0]
+        equ = np.array(
+            [
+                [-1.0, 1.0],
+                [2.0, -2.0],
+            ]
+        )
+        pi = compute_stationary_distribution(equ)
+        fact_1 = FactorizedReversibleModel(equ)
+        equ_x_equ = chain_product(equ, equ)
+        pi_x_pi = compute_stationary_distribution(equ_x_equ)
+        fact_2 = FactorizedReversibleModel(equ_x_equ)
+        np.testing.assert_almost_equal(
+            matrix_exponential(
+                [1.0],
+                equ_x_equ,
+                fact=fact_2,
+                reversible=reversible,
+                device="cpu",
+            )[0, 0, 0],
+            matrix_exponential(
+                [1.0], equ, fact=fact_1, reversible=reversible, device="cpu"
+            )[0, 0, 0]
+            ** 2,
+        )
+        ll, lls = likelihood_computation_wrapper(
+            tree=tree,
+            msa=msa,
+            contact_map=contact_map,
+            site_rates=site_rates,
+            amino_acids=["A", "S"],
+            pi_1=pi,
+            Q_1=equ,
+            reversible_1=reversible,
+            device_1=device,
+            pi_2=pi_x_pi,
+            Q_2=equ_x_equ,
+            reversible_2=reversible,
+            device_2=device,
+            method="python",
+        )
+        np.testing.assert_almost_equal(ll, -1.199186 * 2, decimal=4)
+        np.testing.assert_almost_equal(lls, [-1.199186, -1.199186], decimal=4)
