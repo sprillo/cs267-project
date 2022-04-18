@@ -1,10 +1,10 @@
-import multiprocessing
 import os
 import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import tqdm
+from torch import multiprocessing
 
 from src.io import (
     Tree,
@@ -18,6 +18,11 @@ from src.io import (
 )
 from src.markov_chain import FactorizedReversibleModel, matrix_exponential
 from src.utils import get_process_args
+
+try:
+    multiprocessing.set_start_method("spawn")
+except RuntimeError:
+    pass
 
 
 def dp_likelihood_computation(
