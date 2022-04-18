@@ -3,7 +3,6 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
 
 from src.io import (
     Tree,
@@ -368,7 +367,7 @@ def compute_log_likelihoods(
         family
     ) in (
         families
-    ):  # I don't use Python multiprocessing bc GPU seems to be the bottleneck. # UPDATE: If the SVD trick is fast enough on 1 cpu, we are back in business! We can use CPU instead of GPU.
+    ):
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
