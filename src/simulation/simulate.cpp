@@ -11,8 +11,8 @@
  * module load openmpi
  * Compile the code:
  * mpicxx -o simulate simulate.cpp
- * An example testing command use for developing and checking if the file compiles:
- * ./simulate ./../../tests/simulation_tests/test_input_data/tree_dir
+ * An example testing command use for developing and checking if the file compiles can be found in the test_simulate.sh file.
+ * 
  * 
  * Below shows the testing arguments during development:
  * (This is a sample version of the test_simulate_msas_normal_model)
@@ -43,10 +43,53 @@
 #include <mpi.h>
 
 int main(int argc, char *argv[]) {
+    // Start execution
     std::cout << "This is the start of this testing file ..." << std::endl;
+    
+    // Read in all the arguments
     std::string tree_dir = argv[1];
     std::string site_rates_dir = argv[2];
     std::string contact_map_dir = argv[3];
-    int num_family = argv[4]
-    std::cout << tree_dir << std::endl;
+    int num_of_families = atoi(argv[4]);
+    int num_of_amino_acids = atoi(argv[5]);
+    std::string pi_1_path = argv[6];
+    std::string Q_1_path = argv[7];
+    std::string pi_2_path = argv[8];
+    std::string Q_2_path = argv[9];
+    std::string strategy = argv[10];
+    std::string output_msa_dir = argv[11];
+    int random_seed = atoi(argv[12]);
+    std::string families[num_of_families] = {};
+    for (int i = 0; i < num_of_families; i++) {
+        families[i] = argv[13 + i];
+    }
+    std::string amino_acids[num_of_amino_acids] = {};
+    for (int i = 0; i < num_of_amino_acids; i++) {
+        amino_acids[i] = argv[13 + num_of_families + i];
+    }
+    
+
+
+    // Below is just for testing the proper arg parsing
+    std::cout << "Reading arguments ..." << std::endl;
+    std::cout << "The tree_dir is " << tree_dir << std::endl;
+    std::cout << "The site_rates_dir is " << site_rates_dir << std::endl;
+    std::cout << "The contact_map_dir is " << contact_map_dir << std::endl;
+    std::cout << "The number of families is " << num_of_families << " and they are: " << std::endl;
+    for (std::string s : families) {
+        std::cout << s << std::endl;
+    }
+    std::cout << "The number of amino acids is " << num_of_amino_acids << " and they are: " << std::endl;
+    for (std::string s : amino_acids) {
+        std::cout << s << std::endl;
+    }
+    std::cout << "The pi_1_path is " << pi_1_path << std::endl;
+    std::cout << "The Q_1_path is " << Q_1_path << std::endl;
+    std::cout << "The pi_2_path is " << pi_2_path << std::endl;
+    std::cout << "The Q_2_path is " << Q_2_path << std::endl;
+    std::cout << "The strategy is " << strategy << std::endl;
+    std::cout << "The output_msa_dir is " << output_msa_dir << std::endl;
+    std::cout << "The strategy is " << strategy << std::endl;
+    std::cout << "The random_seed is " << random_seed << std::endl;
+
 }
