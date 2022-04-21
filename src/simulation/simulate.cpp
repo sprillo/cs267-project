@@ -37,13 +37,132 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <random>
 #include <vector>
+#include <unordered_map>
 #include <mpi.h>
 
-// Helper function to read the tree
-void read_tree(std::string tree_dir, std::string family) {
 
+
+// Adjacent value pairs
+typedef struct {
+    /* data */
+    std::string node;
+    float length;
+} adj_pair_t;
+
+// The tree class
+class Tree {
+    public:
+
+    int num_of_nodes;
+    std::unordered_map<std::string, std::vector<adj_pair_t>> adjacent_list;
+    int m;
+    std::unordered_map<std::string, int> out_deg;
+    std::unordered_map<std::string, int> in_deg;
+    std::unordered_map<std::string, adj_pair_t> parent_map;
+
+    Tree(int num_nodes) {
+        num_of_nodes = num_nodes;
+        adjacent_list.clear();
+        m = 0;
+        out_deg.clear();
+        in_deg.clear();
+        parent_map.clear();
+    }
+
+    void add_node(std::string v) {
+        std::vector<adj_pair_t> v_list;
+        adjacent_list[v] = v_list;
+        out_deg[v] = 0;
+        in_deg[v] = 0;
+    }
+
+    void add_edge(std::string u, std::string v, float length) {
+        adj_pair_t adjacent_pair;
+        adjacent_pair.node = v;
+        adjacent_pair.length = length;
+        adjacent_list[u].push_back(adjacent_pair);
+        m += 1;
+        out_deg[u] += 1;
+        in_deg[v] += 1;
+        if (parent_map.find(v) != parent_map.end()) {
+            std::cerr << "Node " << v << " already has a parent, graph is not a tree." << std::endl;
+        }
+        adj_pair_t parent_pair;
+        parent_pair.node = u;
+        parent_pair.length = length;
+        parent_map[v] = parent_pair;
+    }
+
+    bool is_node(std::string v) {
+        if (adjacent_list.find(v) != adjacent_list.end()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    std::vector<std::string> nodes() {
+        std::vector<std::string> nodes_vector;
+        for (auto const& kv : adjacent_list) {
+            nodes_vector.push_back(kv.first);
+        }
+        return nodes_vector;
+    }
+};
+
+
+// Helper function to read the tree
+Tree read_tree(std::string treefilename) {
+    int num_nodes;
+    int num_edges;
+    int edges_count = 0;
+    std::string tmp;
+
+    std::fstream treefile;
+    treefile.open(treefilename);
+
+    treefile >> tmp;
+    num_nodes = std::stoi(tmp);
+    treefile >> tmp;
+    if (tmp != "nodes") {
+        std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
+    }
+    Tree newTree(num_nodes);
+    for (int i = 0; i < num_nodes; i++) {
+        treefile >> tmp;
+        newTree.add_node(tmp);
+    }
+    treefile >> tmp;
+    num_edges = std::stoi(tmp);
+    treefile >> tmp;
+    if (tmp != "edges") {
+        std::cerr << "Tree file:" << treefilename << "should have line '[num_edges] edges' at position line " << num_nodes + 1 << std::endl;
+    }
+    getline(treefile, tmp); // Get rid of the empty line left by reading the word
+    while (treefile.peek() != EOF) {
+        edges_count += 1;
+        std::string u, v, l;
+        float length;
+
+        getline(treefile, tmp);
+        std::stringstream tmpstring(tmp);
+        tmpstring >> u;
+        tmpstring >> v;
+        tmpstring >> l;
+        length = std::stof(l);
+        // I didn't check the types at this point in the way python code does.
+        if (!newTree.is_node(u) || !newTree.is_node(v)) {
+            std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
+        }
+        newTree.add_edge(u, v, length);
+    }
+    if (num_edges != edges_count) {
+        std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
+    }
+    return newTree;
 }
 
 
@@ -54,11 +173,12 @@ void init_simulation() {
 }
 
 // Run simulation for all the families assigned to a certain process
-void run_simulation(std::vector<std::string> families) {
+void run_simulation(std::string tree_dir, std::vector<std::string> families) {
     // Iterate through all the families allocated:
-    for (std::string s : families) {
-        std::cout << "The current family is " << s << std::endl;
-
+    for (std::string family : families) {
+        std::cout << "The current family is " << family << std::endl;
+        std::string treefilepath = tree_dir + "/" + family + ".txt";
+        Tree currentTree = read_tree(treefilepath);
     }
 }
 
@@ -127,7 +247,7 @@ int main(int argc, char *argv[]) {
     init_simulation();
 
     // Run the simulation
-    run_simulation(families);
+    run_simulation(tree_dir, families);
 
 
     // MPI_Finalize();
