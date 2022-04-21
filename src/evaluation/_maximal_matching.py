@@ -24,7 +24,6 @@ def create_maximal_matching_contact_map(
         topology.add_edges_from(contacting_pairs)
         print(topology)
         match = nx.maximal_matching(topology)
-        g_match = nx.Graph()
         res = np.zeros(shape=contact_map.shape)
         for (u, v) in match:
             res[u, v] = res[v, u] = 1
