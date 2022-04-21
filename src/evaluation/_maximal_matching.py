@@ -21,7 +21,7 @@ def create_maximal_matching_contact_map(
     num_processes: int,
 ) -> None:
     if num_processes != 1:
-        raise NotImplementedError(f"Multiprocessing not yet implemented.")
+        raise NotImplementedError("Multiprocessing not yet implemented.")
     for family in families:
         topology = nx.Graph()
         i_contact_map_path = os.path.join(i_contact_map_dir, family + ".txt")
