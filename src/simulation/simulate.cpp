@@ -376,6 +376,26 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
     return result;
 }
 
+// Sample root state
+std::vector<int> sample_root_states(int num_independent_sites, int num_contacting_pairs) {
+    std::vector<int> result;
+
+    // First sample the independent sites
+    std::default_random_engine generator1;
+    std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
+    for (int i = 0; i < num_independent_sites; i++) {
+        result.push_back(distribution1(generator1));
+    }
+
+    // Then sample the contacting sites
+    std::default_random_engine generator2;
+    std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
+    for (int j = 0; j < num_contacting_pairs; j++) {
+        result.push_back(distribution2(generator2));
+    }
+
+    return result;
+}
 
 
 // Initialize simulation on each process
@@ -394,7 +414,7 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
 }
 
 // Run simulation for a family assigned to a certain process
-void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string family) {
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string family, int random_seed) {
     std::cout << "The current family is " << family << std::endl;
     std::string treefilepath = tree_dir + "/" + family + ".txt";
     std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
@@ -428,9 +448,39 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         }
     }
     int num_independent_sites = independent_sites.size();
-    int num_contacting_sites = contacting_sites.size();
+    int num_contacting_pairs = contacting_pairs.size();
     
+    // Generate random seeds, may generate a seed with current time if needed
+    std::hash<std::string> stringHasher;
+    size_t seed = stringHasher(family + std::to_string(random_seed));
+    std::srand(seed);
+    // int s = rand();
     
+
+    // Depth first search from root
+    std::vector<std::string> dfs_order = currentTree.preorder_traversal();
+    std::unordered_map<std::string, int> node_to_index_map;
+    std::vector<std::vector<int>> msa_int;
+    // Sample root state
+    std::vector<int> root_states = sample_root_states(num_independent_sites, num_contacting_pairs);
+    msa_int.push_back(root_states);
+    // Sample other nodes
+    for (int i = 0; i < dfs_order.size(); i++) {
+        std::string node = dfs_order[i];
+        node_to_index_map[node] = i;
+        if (node == currentTree.root()) {
+            continue;
+        }
+        std::vector<int> node_states_int;
+        adj_pair_t parent_pair = currentTree.parent(node);
+        std::vector<int> parent_states_int = msa_int[node_to_index_map[parent_pair.node]];
+        // Do something: sample_transition
+
+        msa_int.push_back(node_states_int);
+
+        // std::cout << node << std::endl;
+    }
+
 
     
 }
@@ -501,7 +551,7 @@ int main(int argc, char *argv[]) {
 
     // Run the simulation for all the families assigned to the process
     for (std::string family : families) {
-        run_simulation(tree_dir, site_rates_dir, contact_map_dir, family);
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, family, random_seed);
     }
     
 
