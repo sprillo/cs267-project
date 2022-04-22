@@ -255,7 +255,7 @@ def simulate_msas(
     output_msa_dir: str,
     random_seed: int,
     num_processes: int,
-    use_cpp_implementation: bool = False,
+    use_cpp_implementation: bool = True,
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
@@ -308,7 +308,36 @@ def simulate_msas(
             instead of Python.
     """
     if use_cpp_implementation:
-        raise NotImplementedError
+        # check if the binary exists
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        cpp_path = os.path.join(dir_path, 'simulate.cpp')
+        bin_path = os.path.join(dir_path, 'simulate')
+        print(f"cpp_path = {cpp_path}")
+        if not os.path.exists(bin_path):
+            # load openmpi/openmp modules
+            command = f"mpicxx -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
+            os.system(command)
+            if not os.path.exists(bin_path):
+                raise Exception("Couldn't compile simulate.cpp")
+        command = ""
+        command += f"{bin_path}"
+        command += f" {tree_dir}"
+        command += f" {site_rates_dir}"
+        command += f" {contact_map_dir}"
+        command += f" {len(families)}"
+        command += f" {len(amino_acids)}"
+        command += f" {pi_1_path}"
+        command += f" {Q_1_path}"
+        command += f" {pi_2_path}"
+        command += f" {Q_2_path}"
+        command += f" {strategy}"
+        command += f" {output_msa_dir}"
+        command += f" {random_seed}"
+        command += " " + " ".join(families)
+        command += " " + " ".join(amino_acids)
+        print(f"Going to run:\n{command}")
+        os.system(command)
+        return
 
     map_args = [
         [
