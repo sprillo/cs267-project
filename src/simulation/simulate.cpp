@@ -111,6 +111,48 @@ class Tree {
         }
         return nodes_vector;
     }
+
+    std::string root() {
+        std::vector<std::string> roots;
+        for (auto const& kv : adjacent_list) {
+            if (in_deg[kv.first] == 0) {
+                roots.push_back(kv.first);
+            }
+        }
+        if (roots.size() != 1) {
+            std::cerr << "There should be only 1 root, but there is/are " << roots.size() << " root(s)." << std::endl;
+        }
+        return roots[0];
+    }
+    
+    std::vector<adj_pair_t> children(std::string u) {
+        return adjacent_list[u];
+    }
+
+    bool is_leaf(std::string u) {
+        if (out_deg[u] == 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    void dfs (std::vector<std::string>& result, std::string v) {
+        result.push_back(v);
+        for (auto kv : children(v)) {
+            dfs(result, kv.node);
+        }
+    }
+
+    std::vector<std::string> preorder_traversal() {
+        std::vector<std::string> result;
+        dfs(result, root());
+        return result;
+    }
+
+    adj_pair_t parent(std::string u) {
+        return parent_map[u];
+    }
 };
 
 
