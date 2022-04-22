@@ -41,6 +41,7 @@
 #include <random>
 #include <vector>
 #include <unordered_map>
+#include <set>
 #include <mpi.h>
 
 // global variables
@@ -403,6 +404,34 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::vector<float> site_rates = read_site_rates(siteratefilepath);
     std::vector<std::vector<int>> contact_map = read_contact_map(contactmapfilepath);
     int num_sites = site_rates.size();
+    
+    // Further process sites
+    std::set<int> independent_sites;
+    std::set<int> contacting_sites;
+    std::vector<std::vector<int>> contacting_pairs;
+    // Assume the contact map is symmetric
+    for (int i = 0; i < num_sites; i++) {
+        for (int j = i + 1; j < num_sites; j++) {
+            if (contact_map[i][j] == 1) {
+                std::vector<int> tmp;
+                tmp.push_back(i);
+                tmp.push_back(j);
+                contacting_pairs.push_back(tmp);
+                contacting_sites.insert(i);
+                contacting_sites.insert(j);
+            }
+        }
+    }
+    for (int k = 0; k < num_sites; k++) {
+        if (contacting_sites.find(k) == contacting_sites.end()) {
+            independent_sites.insert(k);
+        }
+    }
+    int num_independent_sites = independent_sites.size();
+    int num_contacting_sites = contacting_sites.size();
+    
+    
+
     
 }
 
