@@ -42,6 +42,7 @@
 #include <vector>
 #include <unordered_map>
 #include <set>
+#include <map>
 #include <mpi.h>
 
 // global variables
@@ -265,9 +266,6 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
                 row[i] = 1;
             }
         }
-        // if (row.size() != 1000) {
-        //     std::cerr << "Error " << row.size() << " at line " << std::endl;
-        // }
         result.push_back(row);
     }
     if (num_sites != line_count) {
@@ -359,21 +357,24 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
         std::cerr << "Rate matrix file" << filename << " use a different (order of) alphabet." << std::endl;
     }
 
-    // for (auto state : states1) {
-    //     std::cout << state << " ";
-    // }
-    // std::cout << " " << std::endl;
-    // for (auto state : states2) {
-    //     std::cout << state << std::endl;
-    // }
-    // for (auto p : result) {
-    //     for (auto q : p) {
-    //         std::cout << q << " ";
-    //     }
-    //     std::cout << "" << std::endl;
-    // }
-
     return result;
+}
+
+// Write msa files
+void write_msa(std::string filename, std::map<std::string, std::vector<std::string>> msa) {
+    std::ofstream outfile;
+    outfile.open(filename);
+
+    for (auto key_value : msa) {
+        outfile << ">" << key_value.first << std::endl;
+        std::string tmp = "";
+        for (std::string s : key_value.second) {
+            tmp = tmp + s;
+        }
+        outfile <<tmp << std::endl;
+    }
+
+    outfile.close();
 }
 
 // Sample root state
@@ -381,14 +382,14 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
     std::vector<int> result;
 
     // First sample the independent sites
-    std::default_random_engine generator1;
+    std::default_random_engine generator1(std::rand());
     std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
     for (int i = 0; i < num_independent_sites; i++) {
         result.push_back(distribution1(generator1));
     }
 
     // Then sample the contacting sites
-    std::default_random_engine generator2;
+    std::default_random_engine generator2(std::rand());
     std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
     for (int j = 0; j < num_contacting_pairs; j++) {
         result.push_back(distribution2(generator2));
@@ -397,6 +398,47 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
     return result;
 }
 
+// Sample a transition
+int sample_transition(int starting_state, float elapsed_time, std::string strategy, bool if_independent) {
+    if (strategy != "all_transitions") {
+        std::cerr << "Unknown strategy: " << strategy << std::endl;
+        return -1;
+    }
+    int current_state = starting_state;
+    float current_time = 0;
+    while (true) {
+        float current_rate;
+        if (if_independent) {
+            current_rate = - Q1_rate_matrix[current_state][current_state];
+        } else {
+            current_rate = - Q2_rate_matrix[current_state][current_state];
+        }
+        // See when the next transition happens
+        std::default_random_engine generator1(std::rand());
+        std::exponential_distribution<float> distribution1(current_rate);
+        float waiting_time = distribution1(generator1);
+        current_time += waiting_time;
+        if (current_time >= elapsed_time) {
+            // We reached the end of the process
+            return current_state;
+        }
+        // Update the current_state;
+        std::vector<float> rate_vector;
+        if (if_independent) {
+            rate_vector = Q1_rate_matrix[current_state];
+        } else {
+            rate_vector = Q2_rate_matrix[current_state];
+        }
+        rate_vector.erase(rate_vector.begin() + current_state);
+        std::default_random_engine generator2(std::rand());
+        std::discrete_distribution distribution2(cbegin(rate_vector), cend(rate_vector));
+        int new_state = distribution2(generator2);
+        if (new_state >= current_state) {
+            new_state += 1;
+        }
+        current_state = new_state;
+    }
+}
 
 // Initialize simulation on each process
 void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
@@ -414,7 +456,7 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
 }
 
 // Run simulation for a family assigned to a certain process
-void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string family, int random_seed) {
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, std::string strategy) {
     std::cout << "The current family is " << family << std::endl;
     std::string treefilepath = tree_dir + "/" + family + ".txt";
     std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
@@ -426,7 +468,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     int num_sites = site_rates.size();
     
     // Further process sites
-    std::set<int> independent_sites;
+    std::vector<int> independent_sites;
     std::set<int> contacting_sites;
     std::vector<std::vector<int>> contacting_pairs;
     // Assume the contact map is symmetric
@@ -444,7 +486,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     }
     for (int k = 0; k < num_sites; k++) {
         if (contacting_sites.find(k) == contacting_sites.end()) {
-            independent_sites.insert(k);
+            independent_sites.push_back(k);
         }
     }
     int num_independent_sites = independent_sites.size();
@@ -474,15 +516,50 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         std::vector<int> node_states_int;
         adj_pair_t parent_pair = currentTree.parent(node);
         std::vector<int> parent_states_int = msa_int[node_to_index_map[parent_pair.node]];
-        // Do something: sample_transition
-
+        // Sample all the transitions for this node
+        // First sample the independent sites
+        for (int i = 0; i < num_independent_sites; i++) {
+            int starting_state = parent_states_int[i];
+            float elapsed_time = parent_pair.length * site_rates[independent_sites[i]];
+            node_states_int.push_back(sample_transition(starting_state, elapsed_time, strategy, true));
+        }
+        // Then sample the contacting sites
+        for (int j = 0; j < num_contacting_pairs; j++) {
+            int starting_state = parent_states_int[num_independent_sites + j];
+            float elapsed_time = parent_pair.length;
+            node_states_int.push_back(sample_transition(starting_state, elapsed_time, strategy, false));
+        }
         msa_int.push_back(node_states_int);
-
-        // std::cout << node << std::endl;
     }
 
+    // Now translate the integer states back to amino acids
+    std::map<std::string, std::vector<std::string>> msa;
+    for (int k = 0; k < dfs_order.size(); k++) {
+        std::string node = dfs_order[k];
+        std::vector<int> states_int = msa_int[k];
+        std::vector<std::string> states(num_sites, "");
+        for (int i = 0; i < num_independent_sites; i++) {
+            int state_int = states_int[i];
+            std::string state_str = amino_acids_alphabet[state_int];
+            states[independent_sites[i]] = state_str;
+        }
+        for (int j = 0; j < num_contacting_pairs; j++) {
+            int state_int = states_int[num_independent_sites + j];
+            std::string state_str = amino_acids_pairs[state_int];
+            states[contacting_pairs[j][0]] = state_str[0];
+            states[contacting_pairs[j][1]] = state_str[1];
+        }
+        for (std::string s : states) {
+            if (s == "") {
+                std::cerr << "Error mapping integer states to amino acids." << std::endl;
+            }
+        }
+        msa[node] = states;
+    }
 
-    
+    // Write back to files
+    std::string msafilepath =  output_msa_dir + "/" + family + ".txt";
+    write_msa(msafilepath, msa);
 }
 
 
@@ -551,7 +628,7 @@ int main(int argc, char *argv[]) {
 
     // Run the simulation for all the families assigned to the process
     for (std::string family : families) {
-        run_simulation(tree_dir, site_rates_dir, contact_map_dir, family, random_seed);
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed, strategy);
     }
     
 
