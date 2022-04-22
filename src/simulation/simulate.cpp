@@ -43,7 +43,13 @@
 #include <unordered_map>
 #include <mpi.h>
 
-
+// global variables
+std::vector<float> p1_probability_distribution;
+std::vector<float> p2_probability_distribution;
+std::vector<std::vector<float>> Q1_rate_matrix;
+std::vector<std::vector<float>> Q2_rate_matrix;
+std::vector<std::string> amino_acids_alphabet;
+std::vector<std::string> amino_acids_pairs;
 
 // Adjacent value pairs
 typedef struct {
@@ -250,42 +256,154 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
     
     while (contactmapfile >> tmp) {
         line_count += 1;
-        std::vector<int> row;
+        std::vector<int> row(num_sites, 0);
         for (int i = 0; i < num_sites; i++) {
-            row.push_back(std::atoi(&tmp[i]));
+            char a = tmp[i];
+            int c = std::atoi(&a);
+            if (c != 0) {
+                row[i] = 1;
+            }
         }
+        // if (row.size() != 1000) {
+        //     std::cerr << "Error " << row.size() << " at line " << std::endl;
+        // }
         result.push_back(row);
     }
     if (num_sites != line_count) {
         std::cerr << "Contact map file: " << filename << " should have " << num_sites << " rows, but has " << line_count << "." << std::endl;
     }
+    return result;
+}
 
+// Read the probability distribution
+std::vector<float> read_probability_distribution(std::string filename, std::vector<std::string> element_list) {
+    std::vector<float> result;
+    std::vector<std::string> states;
+    std::string tmp, tmp2;
+    float sum = 0;
+
+    std::fstream pfile;
+    pfile.open(filename);
+
+    getline(pfile, tmp);
+    std::stringstream tmpstring(tmp);
+    tmpstring >> tmp2;
+    if (tmp2 != "state") {
+        std::cerr << "Probability distribution file" << filename << "should have state here but have " << tmp << " instead." << std::endl;
+    }
+    tmpstring >> tmp2;
+    if (tmp2 != "prob") {
+        std::cerr << "Probability distribution file" << filename << "should have prob here but have " << tmp << " instead." << std::endl;
+    }
+    
+    while(pfile.peek() != EOF) {
+        std::string s;
+        float p;
+
+        getline(pfile, tmp);
+        std::stringstream tmpstring(tmp);
+        tmpstring >> s;
+        states.push_back(s);
+        tmpstring >> tmp2;
+        p = std::stof(tmp2);
+        sum += p;
+        result.push_back(p);
+    }
+    
+    float diff = std::abs(sum - 1.0);
+    if (diff > 0.000001) {
+        std::cout << "Probability distribution at " << filename << " should add to 1.0, with a tolerance of 1e-6." << std::endl;
+    }
+
+    if (states != element_list) {
+        std::cerr << "Probability distribution file" << filename << " use a different (order of) alphabet." << std::endl;
+    }
+    return result;
+}
+
+// Read the rate matrix
+std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vector<std::string> element_list) {
+    std::vector<std::vector<float>> result;
+    std::vector<std::string> states1;
+    std::vector<std::string> states2;
+    std::string tmp, tmp2;
+
+    std::fstream qfile;
+    qfile.open(filename);
+
+    getline(qfile, tmp);
+    std::stringstream tmpstring(tmp);
+    while (tmpstring >> tmp2) {
+        states1.push_back(tmp2);
+    }
+    
+    while(qfile.peek() != EOF) {
+        std::vector<float> row;
+        getline(qfile, tmp);
+        std::stringstream tmpstring(tmp);
+        tmpstring >> tmp2;
+        states2.push_back(tmp2);
+        while (tmpstring >> tmp2) {
+            float p = std::stof(tmp2);
+            row.push_back(p);
+        }
+        result.push_back(row);
+    }
+
+    if (states1 != element_list) {
+        std::cerr << "Rate matrix file" << filename << " use a different (order of) alphabet." << std::endl;
+    }
+
+    if (states2 != element_list) {
+        std::cerr << "Rate matrix file" << filename << " use a different (order of) alphabet." << std::endl;
+    }
+
+    // for (auto state : states1) {
+    //     std::cout << state << " ";
+    // }
+    // std::cout << " " << std::endl;
+    // for (auto state : states2) {
+    //     std::cout << state << std::endl;
+    // }
+    // for (auto p : result) {
+    //     for (auto q : p) {
+    //         std::cout << q << " ";
+    //     }
+    //     std::cout << "" << std::endl;
+    // }
 
     return result;
 }
 
 
 
-
-
-
 // Initialize simulation on each process
-void init_simulation() {
-    
+void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
+    amino_acids_alphabet = amino_acids;  
+    for (std::string aa1 : amino_acids_alphabet) {
+        for (std::string aa2 : amino_acids_alphabet) {
+            amino_acids_pairs.push_back(aa1 + aa2);
+        }
+    }
+
+    p1_probability_distribution = read_probability_distribution(pi_1_path, amino_acids_alphabet);
+    p2_probability_distribution = read_probability_distribution(pi_2_path, amino_acids_pairs);
+    Q1_rate_matrix = read_rate_matrix(Q_1_path, amino_acids_alphabet);
+    Q2_rate_matrix = read_rate_matrix(Q_2_path, amino_acids_pairs);
 }
 
-// Run simulation for all the families assigned to a certain process
-void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::vector<std::string> families) {
-    // Iterate through all the families allocated:
-    for (std::string family : families) {
-        std::cout << "The current family is " << family << std::endl;
-        std::string treefilepath = tree_dir + "/" + family + ".txt";
-        Tree currentTree = read_tree(treefilepath);
-        std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
-        std::vector<float> site_rates = read_site_rates(siteratefilepath);
-        std::string contactmapfilepath = site_rates_dir + "/" + family + ".txt";
-        read_contact_map(contactmapfilepath);
-    }
+// Run simulation for a family assigned to a certain process
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string family) {
+    std::cout << "The current family is " << family << std::endl;
+    std::string treefilepath = tree_dir + "/" + family + ".txt";
+    std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
+    std::string contactmapfilepath = contact_map_dir + "/" + family + ".txt";
+    
+    Tree currentTree = read_tree(treefilepath);
+    std::vector<float> site_rates = read_site_rates(siteratefilepath);
+    std::vector<std::vector<int>> contact_map = read_contact_map(contactmapfilepath);
+    int num_sites = site_rates.size();
+    
 }
 
 
@@ -350,10 +468,13 @@ int main(int argc, char *argv[]) {
     // std::cout << "The random_seed is " << random_seed << std::endl;
 
     // Initialize simulation
-    init_simulation();
+    init_simulation(amino_acids, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
 
-    // Run the simulation
-    run_simulation(tree_dir, site_rates_dir, contact_map_dir, families);
+    // Run the simulation for all the families assigned to the process
+    for (std::string family : families) {
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, family);
+    }
+    
 
 
     // MPI_Finalize();
