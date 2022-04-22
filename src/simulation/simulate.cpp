@@ -207,20 +207,84 @@ Tree read_tree(std::string treefilename) {
     return newTree;
 }
 
+// Read the site rates file
+std::vector<float> read_site_rates(std::string filename) {
+    int num_sites;
+    std::string tmp;
+    std::vector<float> result;
+
+    std::fstream siteratefile;
+    siteratefile.open(filename);
+
+    siteratefile >> tmp;
+    num_sites = std::stoi(tmp);
+    siteratefile >> tmp;
+    if (tmp != "sites") {
+        std::cerr << "Site rates file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
+    }
+    while (siteratefile >> tmp) {
+        result.push_back(std::stof(tmp));
+    }
+    if (result.size() != num_sites) {
+        std::cerr << "Site rates file: " << filename << " was supposed to have " << num_sites << " sites, but it has " << result.size() << "." << std::endl;
+    }
+    return result;
+}
+
+// Read the contact map
+std::vector<std::vector<int>> read_contact_map(std::string filename) {
+    int num_sites;
+    std::string tmp;
+    std::vector<std::vector<int>> result;
+    int line_count = 0;
+
+    std::fstream contactmapfile;
+    contactmapfile.open(filename);
+
+    contactmapfile >> tmp;
+    num_sites = std::stoi(tmp);
+    contactmapfile >> tmp;
+    if (tmp != "sites") {
+        std::cerr << "Contact map file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
+    }
+    
+    while (contactmapfile >> tmp) {
+        line_count += 1;
+        std::vector<int> row;
+        for (int i = 0; i < num_sites; i++) {
+            row.push_back(std::atoi(&tmp[i]));
+        }
+        result.push_back(row);
+    }
+    if (num_sites != line_count) {
+        std::cerr << "Contact map file: " << filename << " should have " << num_sites << " rows, but has " << line_count << "." << std::endl;
+    }
+
+
+    return result;
+}
+
+
+
+
 
 
 // Initialize simulation on each process
 void init_simulation() {
-
+    
 }
 
 // Run simulation for all the families assigned to a certain process
-void run_simulation(std::string tree_dir, std::vector<std::string> families) {
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::vector<std::string> families) {
     // Iterate through all the families allocated:
     for (std::string family : families) {
         std::cout << "The current family is " << family << std::endl;
         std::string treefilepath = tree_dir + "/" + family + ".txt";
         Tree currentTree = read_tree(treefilepath);
+        std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
+        std::vector<float> site_rates = read_site_rates(siteratefilepath);
+        std::string contactmapfilepath = site_rates_dir + "/" + family + ".txt";
+        read_contact_map(contactmapfilepath);
     }
 }
 
@@ -243,15 +307,15 @@ int main(int argc, char *argv[]) {
     std::string tree_dir = argv[1];
     std::string site_rates_dir = argv[2];
     std::string contact_map_dir = argv[3];
-    int num_of_families = atoi(argv[4]);
-    int num_of_amino_acids = atoi(argv[5]);
+    int num_of_families = std::atoi(argv[4]);
+    int num_of_amino_acids = std::atoi(argv[5]);
     std::string pi_1_path = argv[6];
     std::string Q_1_path = argv[7];
     std::string pi_2_path = argv[8];
     std::string Q_2_path = argv[9];
     std::string strategy = argv[10];
     std::string output_msa_dir = argv[11];
-    int random_seed = atoi(argv[12]);
+    int random_seed = std::atoi(argv[12]);
     std::vector<std::string> families;
     families.reserve(num_of_families);
     for (int i = 0; i < num_of_families; i++) {
@@ -289,7 +353,7 @@ int main(int argc, char *argv[]) {
     init_simulation();
 
     // Run the simulation
-    run_simulation(tree_dir, families);
+    run_simulation(tree_dir, site_rates_dir, contact_map_dir, families);
 
 
     // MPI_Finalize();
