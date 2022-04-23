@@ -1,3 +1,4 @@
+ete3
 flake8
 networkx
 numpy

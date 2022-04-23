@@ -11,6 +11,7 @@ setup(
     version=version,
     packages=find_packages(),
     install_requires=[
+        'ete3',
         'flake8',
         'networkx',
         'numpy',
