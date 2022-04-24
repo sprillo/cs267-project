@@ -315,12 +315,14 @@ def simulate_msas(
         print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
+            # Currently it should run on the interactive node
             command = f"mpicxx -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         command = ""
-        command += f"{bin_path}"
+        command += "srun -N 1 --ntasks-per-node=3"
+        command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {site_rates_dir}"
         command += f" {contact_map_dir}"

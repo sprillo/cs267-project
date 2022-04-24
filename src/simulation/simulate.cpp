@@ -457,7 +457,13 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
 
 // Run simulation for a family assigned to a certain process
 void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, std::string strategy) {
-    std::cout << "The current family is " << family << std::endl;
+    std::ofstream outfamproffile;
+    std::string outfamproffilename = output_msa_dir + "/" + family + ".profiling";
+    outfamproffile.open(outfamproffilename);
+    outfamproffile << "The current family is " << family << std::endl;
+
+    auto start_fam_sim = std::chrono::high_resolution_clock::now();
+
     std::string treefilepath = tree_dir + "/" + family + ".txt";
     std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
     std::string contactmapfilepath = contact_map_dir + "/" + family + ".txt";
@@ -466,6 +472,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::vector<float> site_rates = read_site_rates(siteratefilepath);
     std::vector<std::vector<int>> contact_map = read_contact_map(contactmapfilepath);
     int num_sites = site_rates.size();
+
+    auto end_reading = std::chrono::high_resolution_clock::now();
     
     // Further process sites
     std::vector<int> independent_sites;
@@ -491,13 +499,13 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     }
     int num_independent_sites = independent_sites.size();
     int num_contacting_pairs = contacting_pairs.size();
-    
+
     // Generate random seeds, may generate a seed with current time if needed
     std::hash<std::string> stringHasher;
     size_t seed = stringHasher(family + std::to_string(random_seed));
     std::srand(seed);
-    // int s = rand();
-    
+
+    auto end_processing_sites = std::chrono::high_resolution_clock::now();
 
     // Depth first search from root
     std::vector<std::string> dfs_order = currentTree.preorder_traversal();
@@ -532,6 +540,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         msa_int.push_back(node_states_int);
     }
 
+    auto end_sampling = std::chrono::high_resolution_clock::now();
+
     // Now translate the integer states back to amino acids
     std::map<std::string, std::vector<std::string>> msa;
     for (int k = 0; k < dfs_order.size(); k++) {
@@ -557,26 +567,46 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         msa[node] = states;
     }
 
+    auto end_translating = std::chrono::high_resolution_clock::now();
+
     // Write back to files
     std::string msafilepath =  output_msa_dir + "/" + family + ".txt";
     write_msa(msafilepath, msa);
+
+    auto end_fam_sim = std::chrono::high_resolution_clock::now();
+
+    double reading_time = std::chrono::duration<double>(end_reading - start_fam_sim).count();
+    outfamproffile << "Finish reading all the input files in " << reading_time << " seconds." << std::endl;
+    double processing_time = std::chrono::duration<double>(end_processing_sites - end_reading).count();
+    outfamproffile << "Finish processing the data and other initialization in " << processing_time << " seconds." << std::endl;
+    double sampling_time = std::chrono::duration<double>(end_sampling - end_processing_sites).count();
+    outfamproffile << "Finish sampling in " << sampling_time << " seconds." << std::endl;
+    double translating_time = std::chrono::duration<double>(end_translating - end_sampling).count();
+    outfamproffile << "Finish translation in " << translating_time << " seconds." << std::endl;
+    double writing_time = std::chrono::duration<double>(end_fam_sim - end_translating).count();
+    outfamproffile << "Finish writing to the output file in " << writing_time << " seconds." << std::endl;
+    double fam_time = std::chrono::duration<double>(end_fam_sim - start_fam_sim).count();
+    outfamproffile << "Finish Simulation of " << family << " in " << fam_time << " seconds." << std::endl;
+    outfamproffile.close();
 }
 
 
 int main(int argc, char *argv[]) {
-    // Start execution
-    std::cout << "This is the start of this testing file ..." << std::endl;
-    
     // Init MPI
-    // int num_procs, rank;
-    // MPI_Init(&argc, &argv);
-    // MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    // MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int num_procs, rank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    // Print MPI parameters
-    // std::cout << "The number of process is " << num_procs << std::endl;
-    // std::cout << "The current rank is " << rank << std::endl;
-    
+    if (rank == 0) {
+        // Start execution
+        std::cout << "This is the start of this testing file ..." << std::endl;
+        std::cout << "The number of process is " << num_procs << std::endl;
+    }
+
+    // Start the timer
+    auto start = std::chrono::high_resolution_clock::now();
+
     // Read in all the arguments
     std::string tree_dir = argv[1];
     std::string site_rates_dir = argv[2];
@@ -601,6 +631,8 @@ int main(int argc, char *argv[]) {
         amino_acids.push_back(argv[13 + num_of_families + i]);
     }
 
+    std::ofstream outprofilingfile;
+
     // Below is just for testing the proper arg parsing
     // std::cout << "Reading arguments ..." << std::endl;
     // std::cout << "The tree_dir is " << tree_dir << std::endl;
@@ -623,15 +655,50 @@ int main(int argc, char *argv[]) {
     // std::cout << "The strategy is " << strategy << std::endl;
     // std::cout << "The random_seed is " << random_seed << std::endl;
 
+
     // Initialize simulation
     init_simulation(amino_acids, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
 
-    // Run the simulation for all the families assigned to the process
-    for (std::string family : families) {
-        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed, strategy);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    auto end_init = std::chrono::high_resolution_clock::now();
+    double init_time = std::chrono::duration<double>(end_init - start).count();
+    if (rank == 0) {
+        std::cout << "Finish Initializing in " << init_time << " seconds." << std::endl;
+        std::string outputfilename =  output_msa_dir + "/" + "profiling.txt";
+        outprofilingfile.open(outputfilename);
+        outprofilingfile << "This is the start of this testing file ..." << std::endl;
+        outprofilingfile << "The number of process is " << num_procs << std::endl;
+        outprofilingfile << "Finish Initializing in " << init_time << " seconds." << std::endl;
     }
     
 
+    // Assign families to each rank
+    // Currently, we just statically "evenly" assign family to each rank before simulation
+    // There might be some dynamic load balancing techniques here.
+    std::vector<std::string> local_families;
+    for (int i = rank; i < num_of_families; i += num_procs) {
+        local_families.push_back(families[i]);
+    }
 
-    // MPI_Finalize();
+
+    // Run the simulation for all the families assigned to the process
+    for (std::string family : local_families) {
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
+    }
+    
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    auto end_sim = std::chrono::high_resolution_clock::now();
+    double sim_time = std::chrono::duration<double>(end_sim - end_init).count();
+    double entire_time = std::chrono::duration<double>(end_sim - start).count();
+    if (rank == 0) {
+        std::cout << "Finish Simulation in " << sim_time << " seconds." << std::endl;
+        std::cout << "Finish the entire program in " << entire_time << " seconds." << std::endl;
+        outprofilingfile << "Finish Simulation in " << sim_time << " seconds." << std::endl;
+        outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
+        outprofilingfile.close();
+    }
+
+    MPI_Finalize();
 }
