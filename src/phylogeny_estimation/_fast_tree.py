@@ -1,4 +1,5 @@
 import logging
+import multiprocessing
 import os
 import tempfile
 import time
@@ -6,10 +7,12 @@ from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
+import tqdm
 from ete3 import Tree
 
 from src.io import read_rate_matrix
 from src.markov_chain import compute_stationary_distribution
+from src.utils import get_process_args
 
 
 def get_rate_categories(
@@ -242,6 +245,24 @@ def post_process_fast_tree_log(outlog: str):
         outfile.flush()
 
 
+def _map_func(args: List):
+    msa_dir = args[0]
+    families = args[1]
+    rate_matrix_path = args[2]
+    num_rate_categories = args[3]
+    output_tree_dir = args[4]
+
+    for family in families:
+        msa_path = os.path.join(msa_dir, family + ".txt")
+        run_fast_tree_with_custom_rate_matrix(
+            msa_path=msa_path,
+            family=family,
+            rate_matrix_path=rate_matrix_path,
+            num_rate_categories=num_rate_categories,
+            output_tree_dir=output_tree_dir,
+        )
+
+
 # @cached_parallel_computation(
 #     exclude_args=["num_processes"],
 #     parallel_arg="families",
@@ -256,9 +277,6 @@ def fast_tree(
     num_processes: int,
 ) -> None:
     logger = logging.getLogger("rate_estimation.fast_tree")
-
-    if num_processes > 1:
-        raise NotImplementedError
 
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
@@ -278,13 +296,22 @@ def fast_tree(
         logger.info(f"Compiling FastTree with:\n{compile_command}")
         # See http://www.microbesonline.org/fasttree/#Install
         os.system(compile_command)
+        if not os.path.exists(bin_path):
+            raise Exception("Was not able to compile FastTree")
 
-    for family in families:  # TODO: Parallelize with Python multiprocessing!
-        msa_path = os.path.join(msa_dir, family + ".txt")
-        run_fast_tree_with_custom_rate_matrix(
-            msa_path=msa_path,
-            family=family,
-            rate_matrix_path=rate_matrix_path,
-            num_rate_categories=num_rate_categories,
-            output_tree_dir=output_tree_dir,
-        )
+    map_args = [
+        [
+            msa_dir,
+            get_process_args(process_rank, num_processes, families),
+            rate_matrix_path,
+            num_rate_categories,
+            output_tree_dir,
+        ]
+        for process_rank in range(num_processes)
+    ]
+
+    if num_processes > 1:
+        with multiprocessing.Pool(num_processes) as pool:
+            list(tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args)))
+    else:
+        list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))

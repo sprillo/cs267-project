@@ -9,9 +9,7 @@ from src.phylogeny_estimation import fast_tree
 
 
 def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:
-    print(f"Going to read: {tree_true_path}")
     tree1 = Tree(tree_true_path)
-    print(f"Going to read: {tree_inferred_path}")
     tree2 = Tree(tree_inferred_path)
 
     def dfs_branch_length_l1_error(v1, v2) -> float:
@@ -26,7 +24,7 @@ def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:
 
 
 class TestFastTree(unittest.TestCase):
-    @parameterized.expand([("single-process", 1)])
+    @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_basic_regression(self, name, num_processes):
         """
         Test that FastTree runs and its output matches the expected output.
@@ -53,7 +51,7 @@ class TestFastTree(unittest.TestCase):
                 )
                 assert l1_error < 0.02  # Redundant, but just in case
 
-    @parameterized.expand([("single-process", 1)])
+    @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_custom_rate_matrix_runs_regression(self, name, num_processes):
         """
         Tests the use of a custom rate matrix in FastTree.
@@ -79,9 +77,7 @@ class TestFastTree(unittest.TestCase):
                 )
                 assert l1_error < 0.02  # Redundant, but just in case
 
-    @parameterized.expand(
-        [("single-process", 1)]
-    )  # TODO: Test multiprocess too
+    @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_custom_rate_matrix_unnormalized_runs_regression(
         self, name, num_processes
     ):
@@ -109,7 +105,7 @@ class TestFastTree(unittest.TestCase):
                 )
                 assert l1_error < 0.02  # Redundant, but just in case
 
-    @parameterized.expand([("single-process", 1)])
+    @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_inexistent_rate_matrix_raises_error(self, name, num_processes):
         """
         If the rate matrix passed to FastTree does not exist, we should error out.
@@ -127,7 +123,7 @@ class TestFastTree(unittest.TestCase):
                     num_processes=num_processes,
                 )
 
-    @parameterized.expand([("single-process", 1)])
+    @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_malformed_a3m_file_raises_error(self, name, num_processes):
         """
         If the a3m data is corrupted, an error should be raised.
