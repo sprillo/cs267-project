@@ -43,6 +43,8 @@
 #include <unordered_map>
 #include <set>
 #include <map>
+
+#include <omp.h>
 #include <mpi.h>
 
 // global variables
@@ -379,20 +381,26 @@ void write_msa(std::string filename, std::map<std::string, std::vector<std::stri
 
 // Sample root state
 std::vector<int> sample_root_states(int num_independent_sites, int num_contacting_pairs) {
-    std::vector<int> result;
+    std::vector<int> result(num_independent_sites + num_contacting_pairs, 0);
 
-    // First sample the independent sites
-    std::default_random_engine generator1(std::rand());
-    std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
-    for (int i = 0; i < num_independent_sites; i++) {
-        result.push_back(distribution1(generator1));
-    }
+    #pragma omp parallel
+    {
+        int threadnum = omp_get_thread_num();
+        int numthreads = omp_get_num_threads();
+        // First sample the independent sites
+        std::default_random_engine generator1(std::rand() + threadnum * threadnum);
+        std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
+        for (int i = threadnum; i < num_independent_sites; i += numthreads) {
+            result[i] = distribution1(generator1);
+        }
 
-    // Then sample the contacting sites
-    std::default_random_engine generator2(std::rand());
-    std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
-    for (int j = 0; j < num_contacting_pairs; j++) {
-        result.push_back(distribution2(generator2));
+        // Then sample the contacting sites
+        std::default_random_engine generator2(std::rand() + threadnum);
+        std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
+        for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
+            result[num_independent_sites + j] = distribution2(generator2);
+        }
+
     }
 
     return result;
@@ -461,6 +469,13 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::string outfamproffilename = output_msa_dir + "/" + family + ".profiling";
     outfamproffile.open(outfamproffilename);
     outfamproffile << "The current family is " << family << std::endl;
+    
+    int numthreads;
+    #pragma omp parallel
+    {
+        numthreads = omp_get_num_threads();
+    }
+    outfamproffile << "The total number of threads is " << numthreads << std::endl;
 
     auto start_fam_sim = std::chrono::high_resolution_clock::now();
 
@@ -514,6 +529,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     // Sample root state
     std::vector<int> root_states = sample_root_states(num_independent_sites, num_contacting_pairs);
     msa_int.push_back(root_states);
+
     // Sample other nodes
     for (int i = 0; i < dfs_order.size(); i++) {
         std::string node = dfs_order[i];
@@ -521,22 +537,26 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         if (node == currentTree.root()) {
             continue;
         }
-        std::vector<int> node_states_int;
+        std::vector<int> node_states_int(num_independent_sites + num_contacting_pairs, 0);
         adj_pair_t parent_pair = currentTree.parent(node);
         std::vector<int> parent_states_int = msa_int[node_to_index_map[parent_pair.node]];
+
         // Sample all the transitions for this node
         // First sample the independent sites
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int starting_state = parent_states_int[i];
             float elapsed_time = parent_pair.length * site_rates[independent_sites[i]];
-            node_states_int.push_back(sample_transition(starting_state, elapsed_time, strategy, true));
+            node_states_int[i] = sample_transition(starting_state, elapsed_time, strategy, true);
         }
         // Then sample the contacting sites
+        #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
             float elapsed_time = parent_pair.length;
-            node_states_int.push_back(sample_transition(starting_state, elapsed_time, strategy, false));
+            node_states_int[num_independent_sites + j] = sample_transition(starting_state, elapsed_time, strategy, false);
         }
+
         msa_int.push_back(node_states_int);
     }
 
@@ -548,17 +568,20 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         std::string node = dfs_order[k];
         std::vector<int> states_int = msa_int[k];
         std::vector<std::string> states(num_sites, "");
+        #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int state_int = states_int[i];
             std::string state_str = amino_acids_alphabet[state_int];
             states[independent_sites[i]] = state_str;
         }
+        #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int state_int = states_int[num_independent_sites + j];
             std::string state_str = amino_acids_pairs[state_int];
             states[contacting_pairs[j][0]] = state_str[0];
             states[contacting_pairs[j][1]] = state_str[1];
         }
+        #pragma omp parallel for schedule(dynamic)
         for (std::string s : states) {
             if (s == "") {
                 std::cerr << "Error mapping integer states to amino acids." << std::endl;
@@ -633,28 +656,6 @@ int main(int argc, char *argv[]) {
 
     std::ofstream outprofilingfile;
 
-    // Below is just for testing the proper arg parsing
-    // std::cout << "Reading arguments ..." << std::endl;
-    // std::cout << "The tree_dir is " << tree_dir << std::endl;
-    // std::cout << "The site_rates_dir is " << site_rates_dir << std::endl;
-    // std::cout << "The contact_map_dir is " << contact_map_dir << std::endl;
-    // std::cout << "The number of families is " << num_of_families << " and they are: " << std::endl;
-    // for (std::string s : families) {
-    //     std::cout << s << std::endl;
-    // }
-    // std::cout << "The number of amino acids is " << num_of_amino_acids << " and they are: " << std::endl;
-    // for (std::string s : amino_acids) {
-    //     std::cout << s << std::endl;
-    // }
-    // std::cout << "The pi_1_path is " << pi_1_path << std::endl;
-    // std::cout << "The Q_1_path is " << Q_1_path << std::endl;
-    // std::cout << "The pi_2_path is " << pi_2_path << std::endl;
-    // std::cout << "The Q_2_path is " << Q_2_path << std::endl;
-    // std::cout << "The strategy is " << strategy << std::endl;
-    // std::cout << "The output_msa_dir is " << output_msa_dir << std::endl;
-    // std::cout << "The strategy is " << strategy << std::endl;
-    // std::cout << "The random_seed is " << random_seed << std::endl;
-
 
     // Initialize simulation
     init_simulation(amino_acids, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
@@ -671,7 +672,7 @@ int main(int argc, char *argv[]) {
         outprofilingfile << "The number of process is " << num_procs << std::endl;
         outprofilingfile << "Finish Initializing in " << init_time << " seconds." << std::endl;
     }
-    
+
 
     // Assign families to each rank
     // Currently, we just statically "evenly" assign family to each rank before simulation

@@ -321,7 +321,7 @@ def simulate_msas(
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         command = ""
-        command += "srun -N 1 --ntasks-per-node=3"
+        command += "srun -N 1 --ntasks-per-node=3 --cpus-per-task=4"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {site_rates_dir}"
