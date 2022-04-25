@@ -36,13 +36,16 @@ class TestFastTree(unittest.TestCase):
             fast_tree(
                 msa_dir="tests/test_input_data/a3m_small_fast_tree",
                 families=families,
-                rate_matrix_path="data/rate_matrices/jtt.txt",  # TODO: Add JTT to GitHub!
+                rate_matrix_path="data/rate_matrices/jtt.txt",
                 num_rate_categories=20,
                 output_tree_dir=output_tree_dir,
                 num_processes=num_processes,
             )
             for protein_family_name in families:
-                tree_true_path = f"tests/test_input_data/trees_small/{protein_family_name}.newick"
+                tree_true_path = (
+                    "tests/test_input_data/trees_small"
+                    f"/{protein_family_name}.newick"
+                )
                 tree_inferred_path = os.path.join(
                     output_tree_dir, protein_family_name + ".newick"
                 )
@@ -62,13 +65,16 @@ class TestFastTree(unittest.TestCase):
             fast_tree(
                 msa_dir="tests/test_input_data/a3m_small_fast_tree",
                 families=families,
-                rate_matrix_path="data/rate_matrices/equ.txt",  # TODO: Add EQU to GitHub!
+                rate_matrix_path="data/rate_matrices/equ.txt",
                 num_rate_categories=20,
                 output_tree_dir=output_tree_dir,
                 num_processes=num_processes,
             )
             for protein_family_name in families:
-                tree_true_path = f"tests/test_input_data/trees_small_Q1_uniform/{protein_family_name}.newick"
+                tree_true_path = (
+                    "tests/test_input_data/trees_small_Q1_uniform"
+                    f"/{protein_family_name}.newick"
+                )
                 tree_inferred_path = os.path.join(
                     output_tree_dir, protein_family_name + ".newick"
                 )
@@ -90,13 +96,17 @@ class TestFastTree(unittest.TestCase):
             fast_tree(
                 msa_dir="tests/test_input_data/a3m_small_fast_tree",
                 families=families,
-                rate_matrix_path="data/rate_matrices/equ_halved.txt",  # TODO: Add EQU_halved to GitHub!
+                rate_matrix_path="data/rate_matrices/equ_halved.txt",
                 num_rate_categories=20,
                 output_tree_dir=output_tree_dir,
                 num_processes=num_processes,
             )
             for protein_family_name in families:
-                tree_true_path = f"tests/test_input_data/trees_small_Q1_uniform_halved/{protein_family_name}.newick"
+                tree_true_path = (
+                    "tests/test_input_data"
+                    f"/trees_small_Q1_uniform_halved"
+                    f"/{protein_family_name}.newick"
+                )
                 tree_inferred_path = os.path.join(
                     output_tree_dir, protein_family_name + ".newick"
                 )
@@ -108,7 +118,8 @@ class TestFastTree(unittest.TestCase):
     @parameterized.expand([("multiprocess", 3), ("single-process", 1)])
     def test_inexistent_rate_matrix_raises_error(self, name, num_processes):
         """
-        If the rate matrix passed to FastTree does not exist, we should error out.
+        If the rate matrix passed to FastTree does not exist, we should error
+        out.
         """
         with tempfile.TemporaryDirectory() as output_tree_dir:
             # output_tree_dir = "fast_tree_trees_small"
@@ -132,8 +143,9 @@ class TestFastTree(unittest.TestCase):
             # output_tree_dir = "fast_tree_trees_small"
             families = ["1e7l_1_A", "5a0l_1_A", "6anz_1_B"]
             with self.assertRaises(Exception):
+                msa_dir = "tests/test_input_data/a3m_small_fast_tree_corrupted"
                 fast_tree(
-                    msa_dir="tests/test_input_data/a3m_small_fast_tree_corrupted",
+                    msa_dir=msa_dir,
                     families=families,
                     rate_matrix_path="data/rate_matrices/jtt.txt",
                     num_rate_categories=20,

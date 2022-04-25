@@ -3,6 +3,7 @@ from ._count_matrices import read_count_matrices, write_count_matrices
 from ._log_likelihood import read_log_likelihood, write_log_likelihood
 from ._msa import read_msa, write_msa
 from ._rate_matrix import (
+    read_mask_matrix,
     read_probability_distribution,
     read_rate_matrix,
     write_probability_distribution,

@@ -61,9 +61,19 @@ def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
         index_col=0,
         keep_default_na=False,
         na_values=["_"],
-        # dtype=float,
     ).astype(float)
     # TODO: Assert that it is a rate matrix
+    return res
+
+
+def read_mask_matrix(mask_matrix_path: str) -> pd.DataFrame:
+    res = pd.read_csv(
+        mask_matrix_path,
+        delim_whitespace=True,
+        index_col=0,
+        keep_default_na=False,
+        na_values=["_"],
+    ).astype(float)
     return res
 
 

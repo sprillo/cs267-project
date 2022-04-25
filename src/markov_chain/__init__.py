@@ -4,6 +4,7 @@ from ._markov_chain import (
     compute_stationary_distribution,
     equ_matrix,
     matrix_exponential,
+    normalized,
     wag_matrix,
     wag_stationary_distribution,
 )
