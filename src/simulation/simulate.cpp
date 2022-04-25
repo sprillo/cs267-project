@@ -54,6 +54,7 @@ std::vector<std::vector<float>> Q1_rate_matrix;
 std::vector<std::vector<float>> Q2_rate_matrix;
 std::vector<std::string> amino_acids_alphabet;
 std::vector<std::string> amino_acids_pairs;
+std::default_random_engine* random_engines;
 
 // Adjacent value pairs
 typedef struct {
@@ -173,7 +174,7 @@ Tree read_tree(std::string treefilename) {
     int edges_count = 0;
     std::string tmp;
 
-    std::fstream treefile;
+    std::ifstream treefile;
     treefile.open(treefilename);
 
     treefile >> tmp;
@@ -223,7 +224,7 @@ std::vector<float> read_site_rates(std::string filename) {
     std::string tmp;
     std::vector<float> result;
 
-    std::fstream siteratefile;
+    std::ifstream siteratefile;
     siteratefile.open(filename);
 
     siteratefile >> tmp;
@@ -248,7 +249,7 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
     std::vector<std::vector<int>> result;
     int line_count = 0;
 
-    std::fstream contactmapfile;
+    std::ifstream contactmapfile;
     contactmapfile.open(filename);
 
     contactmapfile >> tmp;
@@ -283,7 +284,7 @@ std::vector<float> read_probability_distribution(std::string filename, std::vect
     std::string tmp, tmp2;
     float sum = 0;
 
-    std::fstream pfile;
+    std::ifstream pfile;
     pfile.open(filename);
 
     getline(pfile, tmp);
@@ -329,7 +330,7 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
     std::vector<std::string> states2;
     std::string tmp, tmp2;
 
-    std::fstream qfile;
+    std::ifstream qfile;
     qfile.open(filename);
 
     getline(qfile, tmp);
@@ -388,26 +389,23 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
         int threadnum = omp_get_thread_num();
         int numthreads = omp_get_num_threads();
         // First sample the independent sites
-        std::default_random_engine generator1(std::rand() + threadnum * threadnum);
         std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
         for (int i = threadnum; i < num_independent_sites; i += numthreads) {
-            result[i] = distribution1(generator1);
+            result[i] = distribution1(random_engines[i]);
         }
 
         // Then sample the contacting sites
-        std::default_random_engine generator2(std::rand() + threadnum);
         std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
         for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
-            result[num_independent_sites + j] = distribution2(generator2);
+            result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
         }
-
     }
 
     return result;
 }
 
 // Sample a transition
-int sample_transition(int starting_state, float elapsed_time, std::string strategy, bool if_independent) {
+int sample_transition(int index, int starting_state, float elapsed_time, std::string strategy, bool if_independent) {
     if (strategy != "all_transitions") {
         std::cerr << "Unknown strategy: " << strategy << std::endl;
         return -1;
@@ -422,9 +420,8 @@ int sample_transition(int starting_state, float elapsed_time, std::string strate
             current_rate = - Q2_rate_matrix[current_state][current_state];
         }
         // See when the next transition happens
-        std::default_random_engine generator1(std::rand());
         std::exponential_distribution<float> distribution1(current_rate);
-        float waiting_time = distribution1(generator1);
+        float waiting_time = distribution1(random_engines[index]);
         current_time += waiting_time;
         if (current_time >= elapsed_time) {
             // We reached the end of the process
@@ -438,9 +435,8 @@ int sample_transition(int starting_state, float elapsed_time, std::string strate
             rate_vector = Q2_rate_matrix[current_state];
         }
         rate_vector.erase(rate_vector.begin() + current_state);
-        std::default_random_engine generator2(std::rand());
         std::discrete_distribution distribution2(cbegin(rate_vector), cend(rate_vector));
-        int new_state = distribution2(generator2);
+        int new_state = distribution2(random_engines[index]);
         if (new_state >= current_state) {
             new_state += 1;
         }
@@ -519,6 +515,13 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::hash<std::string> stringHasher;
     size_t seed = stringHasher(family + std::to_string(random_seed));
     std::srand(seed);
+    int local_seed = std::rand();
+    random_engines = new std::default_random_engine[num_independent_sites + num_contacting_pairs];
+    #pragma omp parallel for schedule(dynamic)
+    for (int i = 0; i < num_independent_sites + num_contacting_pairs; i++) {
+        std::default_random_engine generator_site(local_seed + i);
+        random_engines[i] = generator_site;
+    }
 
     auto end_processing_sites = std::chrono::high_resolution_clock::now();
 
@@ -547,14 +550,14 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         for (int i = 0; i < num_independent_sites; i++) {
             int starting_state = parent_states_int[i];
             float elapsed_time = parent_pair.length * site_rates[independent_sites[i]];
-            node_states_int[i] = sample_transition(starting_state, elapsed_time, strategy, true);
+            node_states_int[i] = sample_transition(i, starting_state, elapsed_time, strategy, true);
         }
         // Then sample the contacting sites
         #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
             float elapsed_time = parent_pair.length;
-            node_states_int[num_independent_sites + j] = sample_transition(starting_state, elapsed_time, strategy, false);
+            node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, strategy, false);
         }
 
         msa_int.push_back(node_states_int);
