@@ -3,7 +3,6 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
 import tqdm
 from threadpoolctl import threadpool_limits
 from torch import multiprocessing
@@ -424,7 +423,6 @@ def compute_log_likelihoods(
     # MKL_NUM_THREADS: Optional[int] = 1,
     # VECLIB_MAXIMUM_THREADS: Optional[int] = 1,
     # NUMEXPR_NUM_THREADS: Optional[int] = 1,
-    torch_num_threads: Optional[int] = 1,
 ) -> None:
     """
     Compute log-likelihoods under the given model.
@@ -505,7 +503,6 @@ def compute_log_likelihoods(
     ]
 
     # Map step (distribute families among processes)
-    torch.set_num_threads(torch_num_threads)
     with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
         with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
             if num_processes > 1:
