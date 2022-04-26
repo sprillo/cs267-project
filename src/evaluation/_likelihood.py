@@ -3,7 +3,9 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+import torch
 import tqdm
+from threadpoolctl import threadpool_limits
 from torch import multiprocessing
 
 from src.io import (
@@ -417,6 +419,12 @@ def compute_log_likelihoods(
     output_likelihood_dir: str,
     num_processes: int,
     use_cpp_implementation: bool = False,
+    OMP_NUM_THREADS: Optional[int] = 1,
+    OPENBLAS_NUM_THREADS: Optional[int] = 1,
+    # MKL_NUM_THREADS: Optional[int] = 1,
+    # VECLIB_MAXIMUM_THREADS: Optional[int] = 1,
+    # NUMEXPR_NUM_THREADS: Optional[int] = 1,
+    torch_num_threads: Optional[int] = 1,
 ) -> None:
     """
     Compute log-likelihoods under the given model.
@@ -469,6 +477,8 @@ def compute_log_likelihoods(
         num_processes: Number of processes used to parallelize computation.
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
+        torch_num_threads: Number of threads to use in Pytorch. Pytorch is
+            only used for irreversible models.
     """
     if use_cpp_implementation:
         raise NotImplementedError
@@ -495,8 +505,15 @@ def compute_log_likelihoods(
     ]
 
     # Map step (distribute families among processes)
-    if num_processes > 1:
-        with multiprocessing.Pool(num_processes) as pool:
-            list(tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args)))
-    else:
-        list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))
+    torch.set_num_threads(torch_num_threads)
+    with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
+        with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
+            if num_processes > 1:
+                with multiprocessing.Pool(num_processes) as pool:
+                    list(
+                        tqdm.tqdm(
+                            pool.imap(_map_func, map_args), total=len(map_args)
+                        )
+                    )
+            else:
+                list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))

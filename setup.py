@@ -18,6 +18,7 @@ setup(
         'pandas',
         'parameterized',
         'pytest',
+        'threadpoolctl',
         'torch',
         'tqdm',
     ],

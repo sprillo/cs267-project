@@ -4,20 +4,10 @@ import tempfile
 import unittest
 from typing import Dict, List, Tuple
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"  # torch uses this as num threads!
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
 import numpy as np
 import pytest
 import torch
 from parameterized import parameterized
-
-if torch.get_num_threads() != 1:
-    raise Exception("Could not set torch to use only 1 thread.")
-
 
 import src
 from src.evaluation import compute_log_likelihoods
