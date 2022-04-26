@@ -48,8 +48,6 @@ def matrix_exponential_pytorch(
             )
         return res
     elif device == "cpu":
-        if torch.get_num_threads() != 1:
-            raise Exception("Could not set torch to use only 1 thread.")
         return torch.matrix_exp(torch.tensor(TQ, device="cpu")).numpy()
     else:
         raise Exception(f"Unknown device: {device}")
