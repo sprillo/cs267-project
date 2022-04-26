@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.distributions as db
+import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm.auto import tqdm
-import torch.nn as nn
 
 
 def generate_data(
@@ -18,7 +18,7 @@ def generate_data(
     alpha: float = 0.05,
     exact_matrix_exp: bool = True,
     device="cuda",
-    pi = None
+    pi=None,
 ):
     """Generate triplet observations associated to a given rate matrix
 
@@ -46,7 +46,8 @@ def generate_data(
     assert Q_true.ndim == 2
     num_states = Q_true.shape[-1]
     print(
-        f"Generating {m} synthetic datapoints of the form (starting_state, ending_state, branch_length)"
+        f"Generating {m} synthetic datapoints of the form "
+        "(starting_state, ending_state, branch_length)"
     )
     # branch_lengths = 0.05 * torch.rand(m)
     if distribution == "exp":
@@ -54,9 +55,13 @@ def generate_data(
         print("rate", rate)
         branch_lengths = db.Exponential(rate).sample((m,))
     elif distribution == "unif":
-        branch_lengths = db.Uniform(low=lower_unif, high=upper_unif).sample((m,))
+        branch_lengths = db.Uniform(low=lower_unif, high=upper_unif).sample(
+            (m,)
+        )
     elif distribution == "logunif":
-        branch_lengths = db.Uniform(low=lower_unif, high=upper_unif).sample((m,)).exp()
+        branch_lengths = (
+            db.Uniform(low=lower_unif, high=upper_unif).sample((m,)).exp()
+        )
     elif distribution == "constant":
         branch_lengths = quantile * torch.ones(m).long()
     else:
@@ -80,7 +85,16 @@ def generate_data(
             transition_probs_from_starting_state2 = torch.matrix_exp(
                 branch_length_[:, None, None] * Q_true
             )
-            err = (transition_probs_from_starting_state2 - transition_probs_from_starting_state).abs().max(1).values.max(1).values
+            err = (
+                (
+                    transition_probs_from_starting_state2
+                    - transition_probs_from_starting_state
+                )
+                .abs()
+                .max(1)
+                .values.max(1)
+                .values
+            )
             id_branch_max = err.argmax()
             id_branch_min = err.argmin()
             print("max", branch_length_[id_branch_max], err.max())
@@ -90,20 +104,33 @@ def generate_data(
             transition_probs_from_starting_state = torch.matrix_exp(
                 branch_length_[:, None, None] * Q_true
             )
-        transition_probs_from_starting_state = transition_probs_from_starting_state[
-            torch.arange(len(starting_state_)), starting_state_
-        ]
-        transition_probs_from_starting_state = nn.ReLU()(transition_probs_from_starting_state)
-        ending_state_ = db.Categorical(transition_probs_from_starting_state).sample()
+        transition_probs_from_starting_state = (
+            transition_probs_from_starting_state[
+                torch.arange(len(starting_state_)), starting_state_
+            ]
+        )
+        transition_probs_from_starting_state = nn.ReLU()(
+            transition_probs_from_starting_state
+        )
+        ending_state_ = db.Categorical(
+            transition_probs_from_starting_state
+        ).sample()
         ending_state.append(ending_state_.cpu())
     ending_state = torch.cat(ending_state)
     tdata = torch.cat(
-        [starting_state[:, None], ending_state[:, None], branch_lengths[:, None]], 1
+        [
+            starting_state[:, None],
+            ending_state[:, None],
+            branch_lengths[:, None],
+        ],
+        1,
     )
     return tdata
 
 
-def convert_triplet_to_quantized(tdata: torch.Tensor, num_states: int, q: int = 100):
+def convert_triplet_to_quantized(
+    tdata: torch.Tensor, num_states: int, q: int = 100
+):
     """Converts an observational dataset to a quantized representation
 
     Parameters
@@ -132,14 +159,16 @@ def convert_triplet_to_quantized(tdata: torch.Tensor, num_states: int, q: int = 
 
     def get_cmatrix(my_df: pd.DataFrame):
         """Construct frequency matrix"""
-        idx_vals = my_df.groupby(["idx1", "idx2"]).size().to_frame("val").reset_index()
+        idx_vals = (
+            my_df.groupby(["idx1", "idx2"]).size().to_frame("val").reset_index()
+        )
         idx1 = torch.tensor(idx_vals.idx1.values)
         idx2 = torch.tensor(idx_vals.idx2.values)
         idx = torch.cat([idx1[None], idx2[None]], 0)
         vals = torch.tensor(idx_vals.val)
-        cmat = torch.sparse_coo_tensor(idx, vals, (num_states, num_states)).to_dense()[
-            None
-        ]
+        cmat = torch.sparse_coo_tensor(
+            idx, vals, (num_states, num_states)
+        ).to_dense()[None]
         return cmat
 
     # Second step: Compute frequency matrices

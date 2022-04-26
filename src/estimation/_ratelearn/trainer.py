@@ -2,7 +2,6 @@ import time
 
 import pandas as pd
 import torch
-import torch.distributions as db
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
@@ -52,9 +51,13 @@ def train_sgd(
                     .unsqueeze(-1)
                     .long()
                 )
-                mats = torch.log(torch.matrix_exp(branch_length[:, None, None] * Q))
+                mats = torch.log(
+                    torch.matrix_exp(branch_length[:, None, None] * Q)
+                )
                 mats = mats.gather(-1, idx1).squeeze(-1)
-                mats = mats.gather(1, starting_state.unsqueeze(1).long()).squeeze()
+                mats = mats.gather(
+                    1, starting_state.unsqueeze(1).long()
+                ).squeeze()
 
                 # loss = -1.0 / m * mats.mean()
                 loss = -1.0 / m * mats.sum()
@@ -137,7 +140,9 @@ def train_quantization(
                 cmat = cmat.to(device=device)
 
                 branch_length_ = branch_length
-                mats = torch.log(torch.matrix_exp(branch_length_[:, None, None] * Q))
+                mats = torch.log(
+                    torch.matrix_exp(branch_length_[:, None, None] * Q)
+                )
                 mats = mats * cmat
                 loss += -1 / m * mats.sum()
             # Take a gradient step.
@@ -190,7 +195,9 @@ def train_quantization_N(
     """
     Quantization baseline
     """
-    optimizer = torch.optim.LBFGS(rate_module.parameters(), lr=lr, max_iter=max_iter)
+    optimizer = torch.optim.LBFGS(
+        rate_module.parameters(), lr=lr, max_iter=max_iter
+    )
 
     print(f"Training for {num_epochs} epochs")
     dlb = DataLoader(quantized_dataset, batch_size=1000, shuffle=False)
@@ -211,7 +218,9 @@ def train_quantization_N(
                 branch_length = branch_length.to(device=device)
                 cmat = cmat.to(device=device)
                 branch_length_ = branch_length
-                mats = torch.log(torch.matrix_exp(branch_length_[:, None, None] * Q))
+                mats = torch.log(
+                    torch.matrix_exp(branch_length_[:, None, None] * Q)
+                )
                 mats = mats * cmat
                 loss += -1 / m * mats.sum()
             loss.backward(retain_graph=True)
@@ -225,7 +234,9 @@ def train_quantization_N(
             cmat = cmat.to(device=device)
 
             branch_length_ = branch_length
-            mats = torch.log(torch.matrix_exp(branch_length_[:, None, None] * Q))
+            mats = torch.log(
+                torch.matrix_exp(branch_length_[:, None, None] * Q)
+            )
             mats = mats * cmat
             loss += -1 / m * mats.sum()
         # Take a gradient step.
@@ -272,8 +283,6 @@ def train_diag_param(
         offdiag_coeff += 1e-8 * torch.eye(num_states, device=d.device)
         offdiag_coeff = 1.0 / offdiag_coeff
         offdiag = offdiag * offdiag_coeff
-        offdiag2 = offdiag * (1.0 - torch.eye(num_states, device=d.device))
-        X1 = offdiag2 + diag
 
         d_diff = d[:, None] - d[None]
         d_diff += 1e-8 * torch.eye(num_states, device=d.device)
@@ -304,7 +313,6 @@ def train_diag_param(
             with torch.no_grad():
                 v, lambd, uh = torch.linalg.svd(Q, full_matrices=True)
             u = uh.T
-            vh = v.T
             # Now compute the loss
             loss = 0.0
             true_loss = 0.0
@@ -317,11 +325,8 @@ def train_diag_param(
 
                 with torch.no_grad():
                     X = construct_X(lambd, tau).float()
-                    # tmat = v @ torch.diag_embed(torch.expm1((tau.float() * lambd)) + 1.0) @ uh
                     tmat = torch.matrix_exp(tau.unsqueeze(-1) * Q).float()
                     d = cmat / tmat
-                    middle = (vh @ d @ u) * X
-                    Z = (u @ middle) @ vh
                 # subloss = (Q * Z).sum()
                 subloss = (d * (v @ ((uh @ Q @ v) * X) @ u.T)).sum()
                 # subloss = (
@@ -337,7 +342,9 @@ def train_diag_param(
                 print("cmat", cmat.min(), cmat.max())
                 print("tmat", tmat.min().item(), tmat.max().item())
                 # # print("tmat2", tmat2.min().item(), tmat2.max().item())
-                print("tmat log", tmat.log().min().item(), tmat.log().max().item())
+                print(
+                    "tmat log", tmat.log().min().item(), tmat.log().max().item()
+                )
                 true_loss -= 1.0 / m * (cmat * (tmat.log())).sum()
                 # mats = mats * cmat
                 # loss += -1 / m * mats.sum()

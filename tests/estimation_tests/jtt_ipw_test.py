@@ -22,7 +22,6 @@ class TestJTT(unittest.TestCase):
                     )
                     jtt_ipw(
                         count_matrices_path=count_matrices_path,
-                        normalize_rate_matrix=False,
                         mask_path=None,
                         use_ipw=use_ipw,
                         output_rate_matrix_dir=output_rate_matrix_dir,
@@ -55,7 +54,6 @@ class TestJTT(unittest.TestCase):
                     )
                     jtt_ipw(
                         count_matrices_path=count_matrices_path,
-                        normalize_rate_matrix=False,
                         mask_path="tests/test_input_data/3x3_mask.txt",
                         use_ipw=use_ipw,
                         output_rate_matrix_dir=output_rate_matrix_dir,

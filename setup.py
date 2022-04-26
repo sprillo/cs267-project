@@ -13,6 +13,7 @@ setup(
     install_requires=[
         'ete3',
         'flake8',
+        'matplotlib',
         'networkx',
         'numpy',
         'pandas',

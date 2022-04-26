@@ -1,7 +1,12 @@
 from .rate import RateMatrix
-from .simulate import convert_triplet_to_quantized, generate_data
-from .trainer import train_quantization, estimate_likelihood, train_quantization_N, train_diag_param
 from .ratelearner import RateMatrixLearner
+from .simulate import convert_triplet_to_quantized, generate_data
+from .trainer import (
+    estimate_likelihood,
+    train_diag_param,
+    train_quantization,
+    train_quantization_N,
+)
 
 __version__ = "0.1.0"
 __all__ = [

@@ -1,22 +1,30 @@
+import logging
 import os
+from typing import Optional
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import matplotlib.pyplot as plt
 from torch.utils.data import TensorDataset
-import logging
-from typing import Optional
 
-from . import RateMatrix, train_quantization
-from src.utils import verify_integrity
+from .rate import RateMatrix
+from .trainer import train_quantization
 
-import sys
-sys.path.append("../")
-import Phylo_util
+
+def solve_stationery_dist(rate_matrix):
+    eigvals, eigvecs = np.linalg.eig(rate_matrix.transpose())
+    eigvals = eigvals.real
+    eigvecs = eigvecs.real
+    eigvals = np.abs(eigvals)
+    index = np.argmin(eigvals)
+    stationery_dist = eigvecs[:, index]
+    stationery_dist = stationery_dist / sum(stationery_dist)
+    return stationery_dist
 
 
 def normalized(Q):
-    pi = Phylo_util.solve_stationery_dist(Q)
+    pi = solve_stationery_dist(Q)
     mutation_rate = pi @ -np.diag(Q)
     return Q / mutation_rate
 
@@ -31,7 +39,6 @@ class RateMatrixLearner:
         mask: str = None,
         frequency_matrices_sep="\s",
         rate_matrix_parameterization="pande_reversible",
-        use_cached: bool = False,
         initialization: Optional[np.array] = None,
     ):
         self.frequency_matrices = frequency_matrices
@@ -46,11 +53,16 @@ class RateMatrixLearner:
         self.Qfinal = None
         self.trained_ = False
         self.device = device
-        self.use_cached = use_cached
         self.initialization = initialization
-        self._learned_matrix_path = os.path.join(self.output_dir, "learned_matrix.txt")
-        self._normalized_learned_matrix_path = os.path.join(self.output_dir, "learned_matrix_normalized.txt")
-        self._df_res_filepath = os.path.join(self.output_dir, "training_df.pickle")
+        self._learned_matrix_path = os.path.join(
+            self.output_dir, "learned_matrix.txt"
+        )
+        self._normalized_learned_matrix_path = os.path.join(
+            self.output_dir, "learned_matrix_normalized.txt"
+        )
+        self._df_res_filepath = os.path.join(
+            self.output_dir, "training_df.pickle"
+        )
         self._figpath = os.path.join(self.output_dir, "training_plot.pdf")
 
     def train(
@@ -65,18 +77,8 @@ class RateMatrixLearner:
         torch.manual_seed(0)
         device = self.device
         output_dir = self.output_dir
-        use_cached = self.use_cached
         initialization = self.initialization
 
-        # Create experiment directory
-        # Caching pattern
-        if os.path.exists(output_dir) and use_cached:
-            verify_integrity(self._learned_matrix_path)
-            verify_integrity(self._normalized_learned_matrix_path)
-            verify_integrity(self._df_res_filepath)
-            verify_integrity(self._figpath)
-            # logger.info(f"Skipping. Cached ratelearner results at {output_dir}")
-            return
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -86,7 +88,9 @@ class RateMatrixLearner:
         # Open stationnary distribution if necessary
         pi_path = self.stationnary_distribution
         if pi_path is not None:
-            pi = pd.read_csv(pi_path, header=None, index_col=None).values.squeeze()
+            pi = pd.read_csv(
+                pi_path, header=None, index_col=None
+            ).values.squeeze()
         else:
             pi = np.ones(self.n_states)
             pi = pi / pi.sum()
@@ -116,9 +120,13 @@ class RateMatrixLearner:
         self.do_adam = do_adam
 
         if self.do_adam:
-            optim = torch.optim.Adam(params=self.mat_module.parameters(), lr=self.lr)
+            optim = torch.optim.Adam(
+                params=self.mat_module.parameters(), lr=self.lr
+            )
         else:
-            optim = torch.optim.SGD(params=self.mat_module.parameters(), lr=self.lr)
+            optim = torch.optim.SGD(
+                params=self.mat_module.parameters(), lr=self.lr
+            )
 
         df_res, Q = train_quantization(
             rate_module=self.mat_module,
@@ -143,7 +151,9 @@ class RateMatrixLearner:
         separation_between_branches = np.unique(
             branch_indices[1:] - branch_indices[:-1]
         )
-        assert len(separation_between_branches) == 1, separation_between_branches
+        assert (
+            len(separation_between_branches) == 1
+        ), separation_between_branches
         n_features = len(matrices_file.columns)
         assert n_features == separation_between_branches[0] - 1
 
@@ -151,7 +161,9 @@ class RateMatrixLearner:
         mats = []
         for branch_idx in branch_indices:
             branch_len = matrices_file.iloc[branch_idx, 0]
-            mat = matrices_file.loc[branch_idx + 1 : branch_idx + n_features].values
+            mat = matrices_file.loc[
+                branch_idx + 1 : branch_idx + n_features
+            ].values
             branches.append(branch_len)
             mats.append(mat)
         qtimes = torch.tensor(branches)

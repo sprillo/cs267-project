@@ -4,12 +4,10 @@ from typing import Optional
 import numpy as np
 
 from src.io import read_count_matrices, read_mask_matrix, write_rate_matrix
-from src.markov_chain import normalized
 
 
 def jtt_ipw(
     count_matrices_path: str,
-    normalize_rate_matrix: bool,
     mask_path: Optional[str],
     use_ipw: bool,
     output_rate_matrix_dir: str,
@@ -66,9 +64,6 @@ def jtt_ipw(
     # JTT-IPW estimator
     res = np.diag(M) @ CTPs
     np.fill_diagonal(res, -M)
-
-    if normalize_rate_matrix:
-        res = normalized(res)
 
     write_rate_matrix(
         res, states, os.path.join(output_rate_matrix_dir, "result.txt")
