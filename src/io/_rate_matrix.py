@@ -73,7 +73,7 @@ def read_mask_matrix(mask_matrix_path: str) -> pd.DataFrame:
         index_col=0,
         keep_default_na=False,
         na_values=["_"],
-    ).astype(float)
+    ).astype(int)
     return res
 
 

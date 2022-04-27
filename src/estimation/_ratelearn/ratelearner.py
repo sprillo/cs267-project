@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Optional
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,17 +32,17 @@ def normalized(Q):
 class RateMatrixLearner:
     def __init__(
         self,
-        frequency_matrices: str,
+        branches: List[float],
+        mats: List[np.array],
         output_dir: str,
         stationnary_distribution: str,
         device: str,
         mask: str = None,
-        frequency_matrices_sep="\s",
         rate_matrix_parameterization="pande_reversible",
         initialization: Optional[np.array] = None,
     ):
-        self.frequency_matrices = frequency_matrices
-        self.frequency_matrices_sep = frequency_matrices_sep
+        self.branches = branches
+        self.mats = mats
         self.output_dir = output_dir
         self.stationnary_distribution = stationnary_distribution
         self.mask = mask
@@ -141,33 +141,9 @@ class RateMatrixLearner:
         self.process_results()
 
     def get_branch_to_mat(self):
-        sep = self.frequency_matrices_sep
-        matrices_file = pd.read_csv(
-            self.frequency_matrices, sep=sep, header=None, index_col=None
-        ).reset_index()
-        where_branch = matrices_file.isna().any(axis=1)
-        branch_indices = where_branch[where_branch].index
-
-        separation_between_branches = np.unique(
-            branch_indices[1:] - branch_indices[:-1]
-        )
-        assert (
-            len(separation_between_branches) == 1
-        ), separation_between_branches
-        n_features = len(matrices_file.columns)
-        assert n_features == separation_between_branches[0] - 1
-
-        branches = []
-        mats = []
-        for branch_idx in branch_indices:
-            branch_len = matrices_file.iloc[branch_idx, 0]
-            mat = matrices_file.loc[
-                branch_idx + 1 : branch_idx + n_features
-            ].values
-            branches.append(branch_len)
-            mats.append(mat)
-        qtimes = torch.tensor(branches)
-        cmats = torch.tensor(mats)
+        n_features = self.mats[0].shape[0]
+        qtimes = torch.tensor(self.branches)
+        cmats = torch.tensor(self.mats)
         quantized_data = TensorDataset(qtimes, cmats)
         return quantized_data, n_features
 
