@@ -7,8 +7,11 @@
 #include <unordered_map>
 #include <map>
 #include <utility> 
+#include <chrono>
 
 using namespace std;
+
+double total_time = 0;
 
 vector<string> pairs_of_amino_acids;
 map<string, int> aa_pair_to_int;;
@@ -306,7 +309,7 @@ vector<count_matrix> _map_func(
                     string leaf_1 = children[0].node;
                     float branch_length_1 = children[0].length;
                     string leaf_2 = children[1].node;
-                    float branch_length_2 = children[0].length;
+                    float branch_length_2 = children[1].length;
                     string leaf_seq_1 = msa[leaf_1];
                     string leaf_seq_2 = msa[leaf_2];
                     float branch_length_total = branch_length_1 + branch_length_2;
@@ -393,11 +396,12 @@ void count_co_transitions(
     
     vector<count_matrix> count_matrices = _map_func(tree_dir, msa_dir, contact_map_dir, families, 
             amino_acids, quantization_points, edge_or_cherry, minimum_distance_for_nontrivial_contact);
-    write_count_matrices(count_matrices, output_count_matrices_dir + "result.txt");
+    write_count_matrices(count_matrices, output_count_matrices_dir + "/result.txt");
 }
 
 int main(int argc, char *argv[]) {
     // Read in all the arguments
+    auto start_time = std::chrono::high_resolution_clock::now();
     string tree_dir = argv[1];
     string msa_dir = argv[2];
     string contact_map_dir = argv[3];
@@ -436,4 +440,8 @@ int main(int argc, char *argv[]) {
         output_count_matrices_dir,
         num_processes
     );
+    auto end_time = std::chrono::high_resolution_clock::now();
+    total_time += std::chrono::duration<double>(end_time - start_time).count();
+    cout << "Proliling:" << endl;
+    cout << "Total time: " << total_time << endl;
 }

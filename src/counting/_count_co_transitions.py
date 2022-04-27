@@ -135,11 +135,11 @@ def count_co_transitions(
     families: List[str],
     amino_acids: List[str],
     quantization_points: List[float],
-    edge_or_cherry: bool,
+    edge_or_cherry: str,
     minimum_distance_for_nontrivial_contact: int,
     output_count_matrices_dir: str,
     num_processes: int,
-    use_cpp_implementation: bool = False,
+    use_cpp_implementation: bool = True,
 ) -> None:
     """
     Count the number of co-transitions.
@@ -184,8 +184,45 @@ def count_co_transitions(
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
     """
+    if not os.path.exists(output_count_matrices_dir):
+        os.makedirs(output_count_matrices_dir)
+
     if use_cpp_implementation:
-        raise NotImplementedError
+        # check if the binary exists
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        cpp_path = os.path.join(dir_path, '_count_co_transitions.cpp')
+        bin_path = os.path.join(dir_path, 'count')
+        print(f"cpp_path = {cpp_path}")
+        if not os.path.exists(bin_path):
+            # load openmpi/openmp modules
+            # Currently it should run on the interactive node
+            command = f"mpicxx -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
+            os.system(command)
+            if not os.path.exists(bin_path):
+                raise Exception("Couldn't compile simulate.cpp")
+        # os.system("export OMP_NUM_THREADS=4")
+        command = ""
+        command += f"{bin_path}"
+        command += f" {tree_dir}"
+        command += f" {msa_dir}"
+        command += f" {contact_map_dir}"
+        command += f" {len(families)}"
+        command += f" {len(amino_acids)}"
+        command += f" {len(quantization_points)}"
+        command += " " + " ".join(families)
+        command += " " + " ".join(amino_acids)
+        command += " " + " ".join([str(p) for p in quantization_points])
+        command += f" {edge_or_cherry}"
+        # if edge_or_cherry:
+        #     command += f" edge"
+        # else:
+        #     command += f" cherry"
+        command += f" {minimum_distance_for_nontrivial_contact}"
+        command += f" {output_count_matrices_dir}"
+        command += f" {num_processes}"
+        print(f"Going to run:\n{command}")
+        os.system(command)
+        return
 
     map_args = [
         [
