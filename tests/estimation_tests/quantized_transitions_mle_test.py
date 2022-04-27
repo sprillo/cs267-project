@@ -3,16 +3,21 @@ import tempfile
 import unittest
 
 import numpy as np
+import torch
+from parameterized import parameterized
 
 from src.estimation import quantized_transitions_mle
 from src.io import read_mask_matrix, read_rate_matrix
 
 
 class TestQuantizedTransitionsMLE(unittest.TestCase):
-    def test_smoke_toy_matrix(self):
+    @parameterized.expand([("cpu",), ("cuda",)])
+    def test_smoke_toy_matrix(self, device):
         """
         Test that RateMatrixLearner runs on a very small input dataset.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         with tempfile.TemporaryDirectory() as output_rate_matrix_dir:
             initialization_path = (
                 "tests/test_input_data"
@@ -25,19 +30,22 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 output_rate_matrix_dir=output_rate_matrix_dir,
                 stationary_distribution_path=None,
                 rate_matrix_parameterization="pande_reversible",
-                device="cpu",
+                device=device,
                 learning_rate=1e-1,
                 num_epochs=3,
                 do_adam=True,
             )
 
+    @parameterized.expand([("cpu",), ("cuda",)])
     def test_smoke_toy_matrix_raises_if_mask_and_initialization_incompatible(
-        self,
+        self, device
     ):
         """
         Test that RateMatrixLearner raises error if mask and
         initialization are incompatible.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         with tempfile.TemporaryDirectory() as output_rate_matrix_dir:
             with self.assertRaises(ValueError):
                 count_matrices_path = "tests/test_input_data/matrices_toy.txt"
@@ -52,17 +60,20 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                     output_rate_matrix_dir=output_rate_matrix_dir,
                     stationary_distribution_path=None,
                     rate_matrix_parameterization="pande_reversible",
-                    device="cpu",
+                    device=device,
                     learning_rate=1e-1,
                     num_epochs=3,
                     do_adam=True,
                 )
 
-    def test_smoke_toy_matrix_mask(self):
+    @parameterized.expand([("cpu",), ("cuda",)])
+    def test_smoke_toy_matrix_mask(self, device):
         """
         Test that RateMatrixLearner runs on a very small input dataset,
         using masking.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         with tempfile.TemporaryDirectory() as output_rate_matrix_dir:
             initialization_path = (
                 "tests/test_input_data"
@@ -75,7 +86,7 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 output_rate_matrix_dir=output_rate_matrix_dir,
                 stationary_distribution_path=None,
                 rate_matrix_parameterization="pande_reversible",
-                device="cpu",
+                device=device,
                 learning_rate=1e-1,
                 num_epochs=3,
                 do_adam=True,
@@ -92,10 +103,13 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 mask == 1, learned_rate_matrix != 0.0
             )
 
-    def test_smoke_large_matrix(self):
+    @parameterized.expand([("cpu",), ("cuda",)])
+    def test_smoke_large_matrix(self, device):
         """
         Test that RateMatrixLearner runs on a large input dataset.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         with tempfile.TemporaryDirectory() as output_rate_matrix_dir:
             count_matrices_path = (
                 "tests/test_input_data/matrices_small"
@@ -108,7 +122,7 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 output_rate_matrix_dir=output_rate_matrix_dir,
                 stationary_distribution_path=None,
                 rate_matrix_parameterization="pande_reversible",
-                device="cpu",
+                device=device,
                 learning_rate=1e-1,
                 num_epochs=3,
                 do_adam=True,
@@ -124,10 +138,13 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 mask == 1, learned_rate_matrix != 0.0
             )
 
-    def test_smoke_huge_matrix(self):
+    @parameterized.expand([("cpu",), ("cuda",)])
+    def test_smoke_huge_matrix(self, device):
         """
         Test that RateMatrixLearner runs on a huge input dataset.
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
         with tempfile.TemporaryDirectory() as output_rate_matrix_dir:
             count_matrices_path = (
                 "tests/test_input_data/co_matrices_small"
@@ -143,7 +160,7 @@ class TestQuantizedTransitionsMLE(unittest.TestCase):
                 output_rate_matrix_dir=output_rate_matrix_dir,
                 stationary_distribution_path=None,
                 rate_matrix_parameterization="pande_reversible",
-                device="cpu",
+                device=device,
                 learning_rate=1e-1,
                 num_epochs=3,
                 do_adam=True,
