@@ -9,9 +9,24 @@
 #include <utility> 
 #include <chrono>
 
+#define PROFILE true
+
 using namespace std;
 
+// prifiling
 double total_time = 0;
+double time_parse_param = 0;
+double time_init_aa_pairs = 0;
+double time_init_count_matrices_data = 0;
+double time_read_dataset = 0;
+double time_compute_contacting_pairs = 0;
+double time_compute_count_matrices = 0;
+double time_create_count_matrices_datastructure = 0;
+double time_write_count_matrices = 0;
+auto start_ = std::chrono::high_resolution_clock::now();
+auto end_ = std::chrono::high_resolution_clock::now();
+auto start_time = std::chrono::high_resolution_clock::now();
+auto end_time = std::chrono::high_resolution_clock::now();
 
 vector<string> pairs_of_amino_acids;
 map<string, int> aa_pair_to_int;;
@@ -240,7 +255,6 @@ bool all_children_are_leafs(Tree & tree, const vector<adj_pair_t> & children){
     return true;
 }
 
-
 vector<count_matrix> _map_func(
     const string & tree_dir,
     const string & msa_dir,
@@ -251,6 +265,7 @@ vector<count_matrix> _map_func(
     const string & edge_or_cherry,
     int minimum_distance_for_nontrivial_contact
 ){
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     vector<count_matrix> count_matrices;
     vector<vector<vector<double>>> count_matrices_data;
     count_matrices_data.resize(quantization_points.size());
@@ -260,12 +275,19 @@ vector<count_matrix> _map_func(
             row.resize(pairs_of_amino_acids.size());
         }
     }
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
     for (const string & family : families){
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         Tree tree = read_tree(tree_dir + "/" + family + ".txt");
         map<string, string> msa = read_msa(msa_dir + "/" + family + ".txt");
         vector<vector<bool>> contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
         vector<pair<int, int>> contacting_pairs;
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_dataset += std::chrono::duration<double>(end_ - start_).count();
+
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         for (int i=0; i<contact_map.size(); i++){
             for (int j=i+1; j<contact_map[i].size(); j++){
                 if (contact_map[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
@@ -274,7 +296,11 @@ vector<count_matrix> _map_func(
                 }
             }
         }
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
 
+
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         for (string node : tree.nodes()){
             if (edge_or_cherry == "edge") {
                 string node_seq = msa[node];
@@ -338,10 +364,17 @@ vector<count_matrix> _map_func(
                 }
             }
         }
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_compute_count_matrices += std::chrono::duration<double>(end_ - start_).count();
     }
+    
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     for (int i=0; i<quantization_points.size(); i++){
         count_matrices.push_back(count_matrix{quantization_points[i], count_matrices_data[i]});
     }
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_create_count_matrices_datastructure += std::chrono::duration<double>(end_ - start_).count();
+
     return count_matrices;
 }
 
@@ -384,6 +417,8 @@ void count_co_transitions(
     const string & output_count_matrices_dir,
     int num_processes){
 
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+
     sort(quantization_points.begin(), quantization_points.end());
     for (const string& a1 : amino_acids){
         for (const string& a2 : amino_acids){
@@ -394,14 +429,23 @@ void count_co_transitions(
         aa_pair_to_int[pairs_of_amino_acids[i]] = i;
     }
     
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_init_aa_pairs += std::chrono::duration<double>(end_ - start_).count();
+
     vector<count_matrix> count_matrices = _map_func(tree_dir, msa_dir, contact_map_dir, families, 
             amino_acids, quantization_points, edge_or_cherry, minimum_distance_for_nontrivial_contact);
+
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     write_count_matrices(count_matrices, output_count_matrices_dir + "/result.txt");
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_write_count_matrices += std::chrono::duration<double>(end_ - start_).count();
 }
 
 int main(int argc, char *argv[]) {
     // Read in all the arguments
-    auto start_time = std::chrono::high_resolution_clock::now();
+    if (PROFILE) start_time = std::chrono::high_resolution_clock::now();
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+
     string tree_dir = argv[1];
     string msa_dir = argv[2];
     string contact_map_dir = argv[3];
@@ -428,6 +472,9 @@ int main(int argc, char *argv[]) {
     string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 2];
     int num_processes = atoi(argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 3]);
     
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_parse_param += std::chrono::duration<double>(end_ - start_).count();
+
     count_co_transitions(
         tree_dir,
         msa_dir,
@@ -440,8 +487,17 @@ int main(int argc, char *argv[]) {
         output_count_matrices_dir,
         num_processes
     );
-    auto end_time = std::chrono::high_resolution_clock::now();
-    total_time += std::chrono::duration<double>(end_time - start_time).count();
-    cout << "Proliling:" << endl;
-    cout << "Total time: " << total_time << endl;
+
+    if (PROFILE) end_time = std::chrono::high_resolution_clock::now();
+    if (PROFILE) total_time += std::chrono::duration<double>(end_time - start_time).count();
+    if (PROFILE) cout << "Proliling:" << endl;
+    if (PROFILE) cout << "time_parse_param: " << time_parse_param << endl;
+    if (PROFILE) cout << "time_init_aa_pairs: " << time_init_aa_pairs << endl;
+    if (PROFILE) cout << "time_init_count_matrices_data: " << time_init_count_matrices_data << endl;
+    if (PROFILE) cout << "time_read_dataset: " << time_read_dataset << endl;
+    if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
+    if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
+    if (PROFILE) cout << "time_create_count_matrices_datastructure: " << time_create_count_matrices_datastructure << endl;
+    if (PROFILE) cout << "time_write_count_matrices: " << time_write_count_matrices << endl;
+    if (PROFILE) cout << "Total time: " << total_time << endl;
 }
