@@ -35,10 +35,12 @@ map<string, int> aa_pair_to_int;;
 int num_of_amino_acids;
 map<string, string> msa;
 int num_sites;
+int count_matrix_size;
+int num_quantization_points;
 
 struct count_matrix{
     double q;
-    vector<vector<double>> matrix;
+    double* matrix;
 };
 
 typedef struct {
@@ -261,14 +263,10 @@ vector<count_matrix> _map_func(
 ){
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     vector<count_matrix> count_matrices;
-    vector<vector<vector<double>>> count_matrices_data;
-    count_matrices_data.resize(quantization_points.size());
-    for (auto & matrix : count_matrices_data){
-        matrix.resize(pairs_of_amino_acids.size());
-        for (auto & row : matrix){
-            row.resize(pairs_of_amino_acids.size());
-        }
-    }
+    num_quantization_points = quantization_points.size();
+    count_matrix_size = pairs_of_amino_acids.size();
+    int count_matrix_num_entries = count_matrix_size * count_matrix_size;
+    double* count_matrices_data = new double[num_quantization_points * count_matrix_num_entries];
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
@@ -322,10 +320,10 @@ vector<count_matrix> _map_func(
                                 && find(amino_acids.begin(), amino_acids.end(), string{child_seq[i]}) != amino_acids.end()
                                 && find(amino_acids.begin(), amino_acids.end(), string{child_seq[j]}) != amino_acids.end()
                             ){
-                                count_matrices_data[q_idx][aa_pair_to_int[start_state]][aa_pair_to_int[end_state]] += 0.5;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
                                 reverse(start_state.begin(), start_state.end());
                                 reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx][aa_pair_to_int[start_state]][aa_pair_to_int[end_state]] += 0.5;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
                             }
                         }
                     }
@@ -353,12 +351,12 @@ vector<count_matrix> _map_func(
                                 && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[i]}) != amino_acids.end()
                                 && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[j]}) != amino_acids.end()
                             ){
-                                count_matrices_data[q_idx][aa_pair_to_int[start_state]][aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx][aa_pair_to_int[end_state]][aa_pair_to_int[start_state]] += 0.25;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
                                 reverse(start_state.begin(), start_state.end());
                                 reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx][aa_pair_to_int[start_state]][aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx][aa_pair_to_int[end_state]][aa_pair_to_int[start_state]] += 0.25;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
                             }
                         }
                     }
@@ -371,7 +369,7 @@ vector<count_matrix> _map_func(
     
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     for (int i=0; i<quantization_points.size(); i++){
-        count_matrices.push_back(count_matrix{quantization_points[i], count_matrices_data[i]});
+        count_matrices.push_back(count_matrix{quantization_points[i], &(count_matrices_data[i * count_matrix_num_entries])});
     }
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_create_count_matrices_datastructure += std::chrono::duration<double>(end_ - start_).count();
@@ -382,9 +380,7 @@ vector<count_matrix> _map_func(
 void write_count_matrices(const vector<count_matrix> & count_matrices, const string & output_count_matrices_dir){
     std::ofstream myfile;
     myfile.open (output_count_matrices_dir);
-    int num_matrices = count_matrices.size();
-    int num_states = pairs_of_amino_acids.size();
-    myfile << num_matrices << " matrices\n" << num_states << " states\n";
+    myfile << num_quantization_points << " matrices\n" << count_matrix_size << " states\n";
     for (const count_matrix& cm : count_matrices){
         myfile << cm.q << "\n";
         myfile << "\t";
@@ -392,11 +388,11 @@ void write_count_matrices(const vector<count_matrix> & count_matrices, const str
             myfile << pair << "\t";
         }
         myfile << "\n";
-        for (int i=0; i<num_states; i++){
+        for (int i=0; i<count_matrix_size; i++){
             myfile << pairs_of_amino_acids[i] << "\t";
-            for (int j=0; j<num_states; j++){
-                myfile << cm.matrix[i][j];
-                if (j != num_states-1){
+            for (int j=0; j<count_matrix_size; j++){
+                myfile << cm.matrix[i * count_matrix_size + j];
+                if (j != count_matrix_size-1){
                     myfile << "\t";
                 }
             }
