@@ -215,8 +215,8 @@ map<string, string>* read_msa(const string & filename){
     return msa;
 }
 
-vector<vector<bool>>* read_contact_map(const string & filename){
-    vector<vector<bool>>* contact_map = new vector<vector<bool>>;
+vector<string>* read_contact_map(const string & filename){
+    vector<string>* contact_map = new vector<string>;
     std::string tmp;
     std::fstream file;
     file.open(filename, ios::in);
@@ -224,11 +224,8 @@ vector<vector<bool>>* read_contact_map(const string & filename){
     int num_sites = stoi(tmp.substr(0, tmp.find(' ')));
     contact_map->resize(num_sites);
     for (int i=0; i<num_sites; i++){ 
-        (*contact_map)[i].resize(num_sites);
         getline(file, tmp);
-        for (int j=0; j<num_sites; j++){
-            (*contact_map)[i][j] = tmp[j] == '1';
-        }
+        (*contact_map)[i] = tmp;
     }
     file.close();
     return contact_map;
@@ -291,7 +288,7 @@ vector<count_matrix> _map_func(
         if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        vector<vector<bool>>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        vector<string>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
 
@@ -299,7 +296,7 @@ vector<count_matrix> _map_func(
         vector<pair<int, int>> contacting_pairs;
         for (int i=0; i<contact_map->size(); i++){
             for (int j=i+1; j<contact_map->size(); j++){
-                if ((*contact_map)[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
+                if ((*contact_map)[i][j] == '1' && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
                     pair<int, int> temp(i, j);
                     contacting_pairs.push_back(temp);
                 }
