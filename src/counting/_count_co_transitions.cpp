@@ -18,7 +18,9 @@ double total_time = 0;
 double time_parse_param = 0;
 double time_init_aa_pairs = 0;
 double time_init_count_matrices_data = 0;
-double time_read_dataset = 0;
+double time_read_tree = 0;
+double time_read_msa = 0;
+double time_read_contact_map = 0;
 double time_compute_contacting_pairs = 0;
 double time_compute_count_matrices = 0;
 double time_create_count_matrices_datastructure = 0;
@@ -149,7 +151,7 @@ class Tree {
 
 
 // Helper function to read the tree
-Tree read_tree(std::string treefilename) {
+Tree* read_tree(std::string treefilename) {
     int num_nodes;
     int num_edges;
     int edges_count = 0;
@@ -163,10 +165,10 @@ Tree read_tree(std::string treefilename) {
     if (tmp != "nodes") {
         std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
     }
-    Tree newTree(num_nodes);
+    Tree* newTree = new Tree(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
         treefile >> tmp;
-        newTree.add_node(tmp);
+        newTree->add_node(tmp);
     }
     treefile >> tmp;
     num_edges = std::stoi(tmp);
@@ -187,10 +189,10 @@ Tree read_tree(std::string treefilename) {
         tmpstring >> l;
         length = std::stof(l);
         // I didn't check the types at this point in the way python code does.
-        if (!newTree.is_node(u) || !newTree.is_node(v)) {
+        if (!newTree->is_node(u) || !newTree->is_node(v)) {
             std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
         }
-        newTree.add_edge(u, v, length);
+        newTree->add_edge(u, v, length);
     }
     if (num_edges != edges_count) {
         std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
@@ -198,8 +200,8 @@ Tree read_tree(std::string treefilename) {
     return newTree;
 }
 
-map<string, string> read_msa(const string & filename){
-    map<string, string> msa;
+map<string, string>* read_msa(const string & filename){
+    map<string, string>* msa = new map<string, string>;
     std::string tmp;
     std::fstream file;
     file.open(filename);
@@ -207,25 +209,25 @@ map<string, string> read_msa(const string & filename){
         getline(file, tmp);
         string name = tmp.substr(1);
         getline(file, tmp);
-        msa[name] = tmp;
+        (*msa)[name] = tmp;
     }
     file.close();
     return msa;
 }
 
-vector<vector<bool>> read_contact_map(const string & filename){
-    vector<vector<bool>> contact_map;
+vector<vector<bool>>* read_contact_map(const string & filename){
+    vector<vector<bool>>* contact_map = new vector<vector<bool>>;
     std::string tmp;
     std::fstream file;
     file.open(filename, ios::in);
     getline(file, tmp);
     int num_sites = stoi(tmp.substr(0, tmp.find(' ')));
-    contact_map.resize(num_sites);
+    contact_map->resize(num_sites);
     for (int i=0; i<num_sites; i++){ 
-        contact_map[i].resize(num_sites);
+        (*contact_map)[i].resize(num_sites);
         getline(file, tmp);
         for (int j=0; j<num_sites; j++){
-            contact_map[i][j] = tmp[j] == '1';
+            (*contact_map)[i][j] = tmp[j] == '1';
         }
     }
     file.close();
@@ -247,9 +249,9 @@ int quantization_idx(float branch_length, const vector<float> & quantization_poi
     }
 }
 
-bool all_children_are_leafs(Tree & tree, const vector<adj_pair_t> & children){
+bool all_children_are_leafs(Tree* tree, const vector<adj_pair_t> & children){
     for (const adj_pair_t& p : children){
-        if (!tree.is_leaf(p.node)) return false;
+        if (!tree->is_leaf(p.node)) return false;
     }
     return true;
 }
@@ -279,17 +281,25 @@ vector<count_matrix> _map_func(
 
     for (const string & family : families){
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        Tree tree = read_tree(tree_dir + "/" + family + ".txt");
-        map<string, string> msa = read_msa(msa_dir + "/" + family + ".txt");
-        vector<vector<bool>> contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
-        vector<pair<int, int>> contacting_pairs;
+        Tree* tree = read_tree(tree_dir + "/" + family + ".txt");
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_read_dataset += std::chrono::duration<double>(end_ - start_).count();
+        if (PROFILE) time_read_tree += std::chrono::duration<double>(end_ - start_).count();
+        
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+        map<string, string>* msa = read_msa(msa_dir + "/" + family + ".txt");
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        for (int i=0; i<contact_map.size(); i++){
-            for (int j=i+1; j<contact_map[i].size(); j++){
-                if (contact_map[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
+        vector<vector<bool>>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
+
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+        vector<pair<int, int>> contacting_pairs;
+        for (int i=0; i<contact_map->size(); i++){
+            for (int j=i+1; j<contact_map->size(); j++){
+                if ((*contact_map)[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
                     pair<int, int> temp(i, j);
                     contacting_pairs.push_back(temp);
                 }
@@ -300,13 +310,13 @@ vector<count_matrix> _map_func(
 
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        for (string node : tree.nodes()){
+        for (string node : tree->nodes()){
             if (edge_or_cherry == "edge") {
-                string node_seq = msa[node];
-                for (adj_pair_t& edge : tree.children(node)){
+                string node_seq = (*msa)[node];
+                for (adj_pair_t& edge : tree->children(node)){
                     string child = edge.node;
                     float branch_length = edge.length;
-                    string child_seq = msa[child];
+                    string child_seq = (*msa)[child];
                     int q_idx = quantization_idx(branch_length, quantization_points);
                     if (q_idx != -1){
                         for (pair<int, int>& p : contacting_pairs){
@@ -329,14 +339,14 @@ vector<count_matrix> _map_func(
                     }
                 }
             } else { // cherry
-                vector<adj_pair_t> children = tree.children(node);
+                vector<adj_pair_t> children = tree->children(node);
                 if (children.size() == 2 && all_children_are_leafs(tree, children)){
                     string leaf_1 = children[0].node;
                     float branch_length_1 = children[0].length;
                     string leaf_2 = children[1].node;
                     float branch_length_2 = children[1].length;
-                    string leaf_seq_1 = msa[leaf_1];
-                    string leaf_seq_2 = msa[leaf_2];
+                    string leaf_seq_1 = (*msa)[leaf_1];
+                    string leaf_seq_2 = (*msa)[leaf_2];
                     float branch_length_total = branch_length_1 + branch_length_2;
                     int q_idx = quantization_idx(branch_length_total, quantization_points);
                     if (q_idx != -1){
@@ -493,7 +503,9 @@ int main(int argc, char *argv[]) {
     if (PROFILE) cout << "time_parse_param: " << time_parse_param << endl;
     if (PROFILE) cout << "time_init_aa_pairs: " << time_init_aa_pairs << endl;
     if (PROFILE) cout << "time_init_count_matrices_data: " << time_init_count_matrices_data << endl;
-    if (PROFILE) cout << "time_read_dataset: " << time_read_dataset << endl;
+    if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
+    if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
+    if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
     if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
     if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
     if (PROFILE) cout << "time_create_count_matrices_datastructure: " << time_create_count_matrices_datastructure << endl;

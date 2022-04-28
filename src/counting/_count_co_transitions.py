@@ -213,14 +213,9 @@ def count_co_transitions(
         command += " " + " ".join(amino_acids)
         command += " " + " ".join([str(p) for p in quantization_points])
         command += f" {edge_or_cherry}"
-        # if edge_or_cherry:
-        #     command += f" edge"
-        # else:
-        #     command += f" cherry"
         command += f" {minimum_distance_for_nontrivial_contact}"
         command += f" {output_count_matrices_dir}"
         command += f" {num_processes}"
-        print(f"Going to run:\n{command}")
         os.system(command)
         return
 
