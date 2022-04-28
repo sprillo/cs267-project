@@ -215,22 +215,26 @@ map<string, string>* read_msa(const string & filename){
     return msa;
 }
 
-vector<string>* read_contact_map(const string & filename){
-    vector<string>* contact_map = new vector<string>;
+vector<vector<bool>>* read_contact_map(const string & filename){
+    vector<vector<bool>>* contact_map = new vector<vector<bool>>;
     std::string tmp;
     std::fstream file;
     file.open(filename, ios::in);
     getline(file, tmp);
     int num_sites = stoi(tmp.substr(0, tmp.find(' ')));
+    char* buffer = new char[num_sites * (num_sites+1)];
+    file.read(buffer, num_sites * (num_sites+1));
     contact_map->resize(num_sites);
     for (int i=0; i<num_sites; i++){ 
+        (*contact_map)[i].resize(num_sites);
         getline(file, tmp);
-        (*contact_map)[i] = tmp;
+        for (int j=0; j<num_sites; j++){
+            (*contact_map)[i][j] = buffer[i*(num_sites+1) + j] == '1';
+        }
     }
     file.close();
     return contact_map;
 }
-
 
 int quantization_idx(float branch_length, const vector<float> & quantization_points_sorted){
     if (branch_length < quantization_points_sorted[0] || branch_length > quantization_points_sorted.back()) return -1;
@@ -288,7 +292,7 @@ vector<count_matrix> _map_func(
         if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        vector<string>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        vector<vector<bool>>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
 
@@ -296,7 +300,7 @@ vector<count_matrix> _map_func(
         vector<pair<int, int>> contacting_pairs;
         for (int i=0; i<contact_map->size(); i++){
             for (int j=i+1; j<contact_map->size(); j++){
-                if ((*contact_map)[i][j] == '1' && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
+                if ((*contact_map)[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
                     pair<int, int> temp(i, j);
                     contacting_pairs.push_back(temp);
                 }
