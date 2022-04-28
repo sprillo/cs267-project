@@ -34,6 +34,7 @@ vector<string> pairs_of_amino_acids;
 map<string, int> aa_pair_to_int;;
 int num_of_amino_acids;
 map<string, string> msa;
+int num_sites;
 
 struct count_matrix{
     double q;
@@ -215,25 +216,16 @@ map<string, string>* read_msa(const string & filename){
     return msa;
 }
 
-vector<vector<bool>>* read_contact_map(const string & filename){
-    vector<vector<bool>>* contact_map = new vector<vector<bool>>;
+char* read_contact_map(const string & filename){
     std::string tmp;
     std::fstream file;
     file.open(filename, ios::in);
     getline(file, tmp);
-    int num_sites = stoi(tmp.substr(0, tmp.find(' ')));
-    char* buffer = new char[num_sites * (num_sites+1)];
+    num_sites = stoi(tmp.substr(0, tmp.find(' ')));
+    char* buffer = (char *)malloc(num_sites * (num_sites+1) * sizeof(char));
     file.read(buffer, num_sites * (num_sites+1));
-    contact_map->resize(num_sites);
-    for (int i=0; i<num_sites; i++){ 
-        (*contact_map)[i].resize(num_sites);
-        getline(file, tmp);
-        for (int j=0; j<num_sites; j++){
-            (*contact_map)[i][j] = buffer[i*(num_sites+1) + j] == '1';
-        }
-    }
     file.close();
-    return contact_map;
+    return buffer;
 }
 
 int quantization_idx(float branch_length, const vector<float> & quantization_points_sorted){
@@ -292,15 +284,15 @@ vector<count_matrix> _map_func(
         if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        vector<vector<bool>>* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         vector<pair<int, int>> contacting_pairs;
-        for (int i=0; i<contact_map->size(); i++){
-            for (int j=i+1; j<contact_map->size(); j++){
-                if ((*contact_map)[i][j] && (i-j<=-minimum_distance_for_nontrivial_contact || i-j>=minimum_distance_for_nontrivial_contact)){
+        for (int i=0; i<num_sites; i++){
+            for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
+                if (contact_map[i*(num_sites+1)+j] == '1'){
                     pair<int, int> temp(i, j);
                     contacting_pairs.push_back(temp);
                 }
@@ -308,7 +300,6 @@ vector<count_matrix> _map_func(
         }
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
-
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         for (string node : tree->nodes()){
