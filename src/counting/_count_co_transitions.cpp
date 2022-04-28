@@ -156,8 +156,7 @@ Tree read_tree(std::string treefilename) {
     std::string tmp;
 
     std::fstream treefile;
-    treefile.open(treefilename);
-
+    treefile.open(treefilename, ios::in);
     treefile >> tmp;
     num_nodes = std::stoi(tmp);
     treefile >> tmp;
@@ -218,7 +217,7 @@ vector<vector<bool>> read_contact_map(const string & filename){
     vector<vector<bool>> contact_map;
     std::string tmp;
     std::fstream file;
-    file.open(filename);
+    file.open(filename, ios::in);
     getline(file, tmp);
     int num_sites = stoi(tmp.substr(0, tmp.find(' ')));
     contact_map.resize(num_sites);
