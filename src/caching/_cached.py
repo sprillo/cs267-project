@@ -88,11 +88,14 @@ def cached(
                     + [f"{func.__name__}"]
                     + [
                         _hash_all(
-                            [
-                                f"{arg}_{val}"
-                                for (arg, val) in binding.arguments.items()
-                                if not excluded(arg, val)
-                            ]
+                            sum(
+                                [
+                                    [f"{arg}", f"{val}"]
+                                    for (arg, val) in binding.arguments.items()
+                                    if not excluded(arg, val)
+                                ],
+                                [],
+                            )
                         )
                     ]
                     + ["result"]

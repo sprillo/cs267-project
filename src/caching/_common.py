@@ -94,11 +94,14 @@ def _get_func_caching_dir(
             + [f"{func.__name__}"]
             + [
                 _hash_all(
-                    [
-                        f"{key}_{val}"
-                        for (key, val) in binding.arguments.items()
-                        if (key not in unhashed_args)
-                    ]
+                    sum(
+                        [
+                            [f"{key}", f"{val}"]
+                            for (key, val) in binding.arguments.items()
+                            if (key not in unhashed_args)
+                        ],
+                        [],
+                    )
                 )
             ]
         )
