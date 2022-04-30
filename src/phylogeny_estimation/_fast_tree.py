@@ -15,6 +15,29 @@ from src.io import Tree, read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_amino_acids, get_process_args
 
+from ._common import name_internal_nodes, translate_tree
+
+
+def _install_fast_tree():
+    logger = logging.getLogger("rate_estimation.fast_tree")
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    c_path = os.path.join(dir_path, "FastTree.c")
+    bin_path = os.path.join(dir_path, "FastTree")
+    if not os.path.exists(bin_path):
+        os.system(
+            "wget http://www.microbesonline.org/fasttree/FastTree.c -P "
+            f"{dir_path}"
+        )
+        compile_command = (
+            "gcc -DNO_SSE -DUSE_DOUBLE -O3 -finline-functions -funroll-loops"
+            + f" -Wall -o {bin_path} {c_path} -lm"
+        )
+        logger.info(f"Compiling FastTree with:\n{compile_command}")
+        # See http://www.microbesonline.org/fasttree/#Install
+        os.system(compile_command)
+        if not os.path.exists(bin_path):
+            raise Exception("Was not able to compile FastTree")
+
 
 def to_fast_tree_format(rate_matrix: np.array, output_path: str, pi: np.array):
     r"""
@@ -32,34 +55,6 @@ def to_fast_tree_format(rate_matrix: np.array, output_path: str, pi: np.array):
         outfile.write("*\n")
         outfile.flush()
     rate_matrix_df.to_csv(output_path, sep="\t", header=False, mode="a")
-
-
-def name_internal_nodes(t: TreeETE) -> None:
-    r"""
-    Assigns names to the internal nodes of tree t if they don't already have a
-    name.
-    """
-
-    def node_name_generator():
-        """Generates unique node names for the tree."""
-        internal_node_id = 1
-        while True:
-            yield f"internal-{internal_node_id}"
-            internal_node_id += 1
-
-    names = node_name_generator()
-
-    def dfs_name_internal_nodes(p: Optional[Tree], v: Tree) -> None:
-        global internal_node_id
-        if v.name == "":
-            v.name = next(names)
-        if p:
-            # print(f"{p.name} -> {v.name}")
-            pass
-        for u in v.get_children():
-            dfs_name_internal_nodes(v, u)
-
-    dfs_name_internal_nodes(None, t)
 
 
 def translate_site_rates(
@@ -188,27 +183,14 @@ def run_fast_tree_with_custom_rate_matrix(
             name_internal_nodes(tree_ete)
 
             tree_ete.write(
-                format=2,
+                format=3,
                 outfile=os.path.join(output_tree_dir, family + ".newick"),
             )
             open(os.path.join(output_tree_dir, family + ".command"), "w").write(
                 command
             )
-            tree = Tree()
 
-            def dfs_translate_tree(p, v) -> None:
-                tree.add_node(v.name)
-                if p is not None:
-                    try:
-                        tree.add_edge(p.name, v.name, v.dist)
-                    except Exception:
-                        raise Exception(
-                            f"Could not translate tree from command:\n{command}"
-                        )
-                for u in v.get_children():
-                    dfs_translate_tree(v, u)
-
-            dfs_translate_tree(None, tree_ete)
+            tree = translate_tree(tree_ete)
 
             write_tree(tree, os.path.join(output_tree_dir, family + ".txt"))
 
@@ -287,30 +269,14 @@ def fast_tree(
     output_likelihood_dir: str,
     num_processes: int,
 ) -> None:
-    logger = logging.getLogger("rate_estimation.fast_tree")
-
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
     if not os.path.exists(output_site_rates_dir):
         os.makedirs(output_site_rates_dir)
+    if not os.path.exists(output_likelihood_dir):
+        os.makedirs(output_likelihood_dir)
 
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    c_path = os.path.join(dir_path, "FastTree.c")
-    bin_path = os.path.join(dir_path, "FastTree")
-    if not os.path.exists(bin_path):
-        os.system(
-            "wget http://www.microbesonline.org/fasttree/FastTree.c -P "
-            f"{dir_path}"
-        )
-        compile_command = (
-            "gcc -DNO_SSE -DUSE_DOUBLE -O3 -finline-functions -funroll-loops"
-            + f" -Wall -o {bin_path} {c_path} -lm"
-        )
-        logger.info(f"Compiling FastTree with:\n{compile_command}")
-        # See http://www.microbesonline.org/fasttree/#Install
-        os.system(compile_command)
-        if not os.path.exists(bin_path):
-            raise Exception("Was not able to compile FastTree")
+    _install_fast_tree()
 
     map_args = [
         [

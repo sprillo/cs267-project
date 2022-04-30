@@ -9,8 +9,8 @@ from src.phylogeny_estimation import fast_tree
 
 
 def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:
-    tree1 = Tree(tree_true_path)
-    tree2 = Tree(tree_inferred_path)
+    tree1 = Tree(tree_true_path, format=3)
+    tree2 = Tree(tree_inferred_path, format=3)
 
     def dfs_branch_length_l1_error(v1, v2) -> float:
         l1_error = 0
