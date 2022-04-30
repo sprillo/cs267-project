@@ -2,15 +2,15 @@ import os
 import tempfile
 import unittest
 
-from ete3 import Tree
+from ete3 import Tree as TreeETE
 from parameterized import parameterized
 
 from src.phylogeny_estimation import fast_tree
 
 
 def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:
-    tree1 = Tree(tree_true_path, format=3)
-    tree2 = Tree(tree_inferred_path, format=3)
+    tree1 = TreeETE(tree_true_path, format=3)
+    tree2 = TreeETE(tree_inferred_path, format=3)
 
     def dfs_branch_length_l1_error(v1, v2) -> float:
         l1_error = 0
@@ -150,7 +150,7 @@ class TestFastTree(unittest.TestCase):
                         fast_tree(
                             msa_dir="tests/test_input_data/a3m_small_fast_tree",
                             families=families,
-                            rate_matrix_path="data/rate_matrices/i-do-not-exist.txt",
+                            rate_matrix_path="data/rate_matrices/not-exist.txt",
                             num_rate_categories=20,
                             output_tree_dir=output_tree_dir,
                             output_site_rates_dir=output_site_rates_dir,
@@ -171,7 +171,10 @@ class TestFastTree(unittest.TestCase):
                     # output_likelihood_dir = "output_likelihood_dir"
                     families = ["1e7l_1_A", "5a0l_1_A", "6anz_1_B"]
                     with self.assertRaises(Exception):
-                        msa_dir = "tests/test_input_data/a3m_small_fast_tree_corrupted"
+                        msa_dir = (
+                            "tests/test_input_data"
+                            "/a3m_small_fast_tree_corrupted"
+                        )
                         fast_tree(
                             msa_dir=msa_dir,
                             families=families,

@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import tempfile
 import time
-from typing import List, Optional
+from typing import List
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import tqdm
 from ete3 import Tree as TreeETE
 
 from src.caching import cached_parallel_computation
-from src.io import Tree, read_rate_matrix, write_tree
+from src.io import read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_amino_acids, get_process_args
 
