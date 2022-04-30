@@ -196,6 +196,8 @@ def run_fast_tree_with_custom_rate_matrix(
                 o_site_rates_dir=output_site_rates_dir,
             )
 
+            os.remove(outlog)
+
 
 def post_process_fast_tree_log(outlog: str):
     """
