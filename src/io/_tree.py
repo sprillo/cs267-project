@@ -25,7 +25,8 @@ class Tree:
     def add_edge(self, u: str, v: str, length: float) -> None:
         if v in self._parent:
             raise Exception(
-                f"Node {v} already has a parent, graph is not a tree."
+                f"Node {v} already has a parent ({self._parent[v][0]}), cannot "
+                f"also have parent {u} - graph is not a tree."
             )
         self._adj_list[u].append((v, length))
         self._edges.append((u, v, length))

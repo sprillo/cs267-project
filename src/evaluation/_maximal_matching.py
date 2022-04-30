@@ -9,8 +9,8 @@ from src.io import read_contact_map, write_contact_map
 
 
 @cached_parallel_computation(
-    exclude_args=["num_processes"],
     parallel_arg="families",
+    exclude_args=["num_processes"],
     output_dirs=["o_contact_map_dir"],
 )
 def create_maximal_matching_contact_map(

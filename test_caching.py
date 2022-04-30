@@ -5,8 +5,8 @@ from src.caching import cached_parallel_computation, cached_computation, set_has
 
 def test_cached_parallel_computation():
     @cached_parallel_computation(
-        exclude_args=["num_processes"],
         parallel_arg="families",
+        exclude_args=["num_processes"],
         output_dirs=["output_msa_dir", "output_msa_dir2"],
     )
     def simulate_msas(

@@ -194,9 +194,9 @@ def _check_usefull_stuff_cached_parallel_computation(
 
 
 def cached_parallel_computation(
-    exclude_args: List,
     parallel_arg: str,
-    output_dirs: List,
+    exclude_args: List = [],
+    output_dirs: List = [],
 ):
     """
     Cache a parallel function's outputs.

@@ -1,11 +1,12 @@
 import multiprocessing
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import tqdm
 
+from src import caching
 from src.io import read_contact_map, read_msa, read_tree, write_count_matrices
 from src.utils import get_process_args, quantization_idx
 
@@ -128,13 +129,17 @@ def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
     return count_matrices
 
 
+@caching.cached_computation(
+    exclude_args=["num_processes", "use_cpp_implementation"],
+    output_dirs=["output_count_matrices_dir"],
+)
 def count_co_transitions(
     tree_dir: str,
     msa_dir: str,
     contact_map_dir: str,
     families: List[str],
     amino_acids: List[str],
-    quantization_points: List[float],
+    quantization_points: List[Union[str, float]],
     edge_or_cherry: bool,
     minimum_distance_for_nontrivial_contact: int,
     output_count_matrices_dir: str,
@@ -184,6 +189,8 @@ def count_co_transitions(
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
     """
+    quantization_points = [float(q) for q in quantization_points]
+
     if use_cpp_implementation:
         raise NotImplementedError
 

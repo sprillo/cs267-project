@@ -251,8 +251,8 @@ def _map_func(args: Dict):
 # TODO: I am not excluding use_cpp_implementation, since the way that Python and
 # C++ generate their randomness is different.
 @cached_parallel_computation(
-    exclude_args=["num_processes"],
     parallel_arg="families",
+    exclude_args=["num_processes"],
     output_dirs=["output_msa_dir"],
 )
 def simulate_msas(

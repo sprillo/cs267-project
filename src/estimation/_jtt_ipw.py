@@ -3,14 +3,20 @@ from typing import Optional
 
 import numpy as np
 
+from src import caching
 from src.io import read_count_matrices, read_mask_matrix, write_rate_matrix
+from src.markov_chain import normalized
 
 
+@caching.cached_computation(
+    output_dirs=["output_rate_matrix_dir"],
+)
 def jtt_ipw(
     count_matrices_path: str,
     mask_path: Optional[str],
     use_ipw: bool,
     output_rate_matrix_dir: str,
+    normalize: bool = False,
 ) -> None:
     # Open frequency matrices
     count_matrices = read_count_matrices(count_matrices_path)
@@ -28,7 +34,8 @@ def jtt_ipw(
     cmats = [cmat.to_numpy() for cmat in cmats]
 
     # Coalesce transitions a->b and b->a together
-    n_time_buckets = cmats[0].shape[0]
+    n_time_buckets = len(cmats)
+    assert cmats[0].shape == (num_states, num_states)
     for i in range(n_time_buckets):
         cmats[i] = (cmats[i] + np.transpose(cmats[i])) / 2.0
     # Apply masking
@@ -64,6 +71,9 @@ def jtt_ipw(
     # JTT-IPW estimator
     res = np.diag(M) @ CTPs
     np.fill_diagonal(res, -M)
+
+    if normalize:
+        res = normalized(res)
 
     write_rate_matrix(
         res, states, os.path.join(output_rate_matrix_dir, "result.txt")

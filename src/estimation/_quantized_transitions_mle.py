@@ -4,6 +4,7 @@ from typing import Optional
 
 import numpy as np
 
+from src import caching
 from src.io import (
     read_count_matrices,
     read_mask_matrix,
@@ -15,6 +16,9 @@ from src.io import (
 from ._ratelearn import RateMatrixLearner
 
 
+@caching.cached_computation(
+    output_dirs=["output_rate_matrix_dir"],
+)
 def quantized_transitions_mle(
     count_matrices_path: str,
     initialization_path: Optional[str],

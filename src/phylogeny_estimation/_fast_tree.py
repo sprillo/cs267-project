@@ -177,7 +177,12 @@ def run_fast_tree_with_custom_rate_matrix(
             def dfs_translate_tree(p, v) -> None:
                 tree.add_node(v.name)
                 if p is not None:
-                    tree.add_edge(p.name, v.name, v.dist)
+                    try:
+                        tree.add_edge(p.name, v.name, v.dist)
+                    except Exception:
+                        raise Exception(
+                            f"Could not translate tree from command:\n{command}"
+                        )
                 for u in v.get_children():
                     dfs_translate_tree(v, u)
 
@@ -232,8 +237,8 @@ def _map_func(args: List):
 
 
 @cached_parallel_computation(
-    exclude_args=["num_processes"],
     parallel_arg="families",
+    exclude_args=["num_processes"],
     output_dirs=["output_tree_dir", "output_site_rates_dir"],
 )
 def fast_tree(

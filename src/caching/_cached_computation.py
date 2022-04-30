@@ -186,8 +186,8 @@ def _check_usefull_stuff_cached_computation(
 
 
 def cached_computation(
-    exclude_args: List,
-    output_dirs: List,
+    exclude_args: List = [],
+    output_dirs: List = [],
 ):
     """
     Cache a function's outputs.
