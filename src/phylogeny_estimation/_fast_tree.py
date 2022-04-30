@@ -10,123 +10,18 @@ import pandas as pd
 import tqdm
 from ete3 import Tree as TreeETE
 
+import src.utils as utils
 from src.caching import cached_parallel_computation
 from src.io import Tree, read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_process_args
 
 
-def get_rate_categories(
-    tree_dir: str,
-    protein_family_name: str,
-    use_site_specific_rates: bool,
-    L: int,
-) -> Tuple[List[float], List[int], List[int]]:
-    """
-    Returns the rates, site_cats, sites_kept for the given protein
-    family.
-
-    If use_site_specific_rates=False, it is assumed that all sites evolve
-    at the same rate of 1.
-
-    Args:
-        tree_dir: Directory where the FastTree log is found.
-        protein_family_name: Protein family name.
-        use_site_specific_rates: If to use_site_specific_rates. If False, will
-            just use a rate of 1 for all sites, which is the old behaviour.
-            I.e. we are backwards compatible here.
-        L: Number of sites. Used only if use_site_specific_rates=False.
-    """
-    outlog = os.path.join(tree_dir, protein_family_name + ".log")
-    with open(outlog, "r") as outlog_file:
-        lines = [line.strip().split() for line in outlog_file]
-        if not lines[0][0] == "NCategories":
-            raise ValueError(f"NCategories not found in {outlog}")
-        ncats = int(lines[0][1])
-        if not lines[1][0] == "Rates":
-            raise ValueError(f"Rates not found in {outlog}")
-        if not len(lines[1][1:]) == ncats:
-            raise ValueError(
-                f"Rates should be {ncats} in length. Found {len(lines[1][1:])}."
-            )
-        rates = [float(x) for x in lines[1][1:]]
-        if not lines[2][0] == "SiteCategories":
-            raise ValueError(f"SiteCategories not found in {outlog}")
-        # FastTree uses 1-based indexing for SiteCategories, so we shift by 1.
-        site_cats = [int(x) - 1 for x in lines[2][1:]]
-    out_sites_kept_path = os.path.join(
-        tree_dir, protein_family_name + ".sites_kept"
-    )
-    with open(out_sites_kept_path, "r") as out_sites_kept_file:
-        sites_kept = [
-            int(x) for x in out_sites_kept_file.read().strip().split()
-        ]
-    if not len(site_cats) == len(sites_kept):
-        raise ValueError(
-            f"SiteCategories should have length {len(sites_kept)},"
-            f" but has {len(site_cats)} instead."
-        )
-    if not use_site_specific_rates:
-        # Just force all rates to 1, and use all sites, which is the old
-        # behavior. (So, we are backwards compatible.)
-        rates = [1.0 for _ in rates]
-        site_cats = [0] * L
-        sites_kept = list(range(L))
-    return rates, site_cats, sites_kept
-
-
-def get_site_rate_from_site_id(
-    site_id: int,
-    rates: List[float],
-    site_cats: List[int],
-    sites_kept: List[int],
-):
-    """
-    Precondition: the site_id must be in the sites_kept, or an error will be
-    raised.
-    """
-    if not len(site_cats) == len(sites_kept):
-        raise ValueError(
-            f"site_cats and sites_kept should have the same length."
-            f" len(site_cats) = {len(site_cats)}; "
-            f"len(sites_kept) = {len(sites_kept)}"
-        )
-    # Find its rate
-    for site, site_cat in zip(sites_kept, site_cats):
-        if site == site_id:
-            return rates[site_cat]
-    raise ValueError(
-        "Trying to retrieve rate for site that was not kept."
-        f" Site: {site_id}. sites_kept = {sites_kept}"
-    )
-
-
 def to_fast_tree_format(rate_matrix: np.array, output_path: str, pi: np.array):
     r"""
     The weird 20 x 21 format of FastTree, which is also column-stochastic.
     """
-    amino_acids = [
-        "A",
-        "R",
-        "N",
-        "D",
-        "C",
-        "Q",
-        "E",
-        "G",
-        "H",
-        "I",
-        "L",
-        "K",
-        "M",
-        "F",
-        "P",
-        "S",
-        "T",
-        "W",
-        "Y",
-        "V",
-    ]
+    amino_acids = utils.amino_acids[:]
     rate_matrix_df = pd.DataFrame(
         rate_matrix, index=amino_acids, columns=amino_acids
     )
@@ -168,12 +63,36 @@ def name_internal_nodes(t: TreeETE) -> None:
     dfs_name_internal_nodes(None, t)
 
 
+def translate_site_rates(
+    i_fasttree_log_dir: str,
+    family: str,
+    o_site_rates_dir: str,
+) -> None:
+    lines = (
+        open(os.path.join(i_fasttree_log_dir, family + ".fast_tree_log"), "r")
+        .read()
+        .split("\n")
+    )
+    for (j, line) in enumerate(lines):
+        if line.startswith("Rates"):
+            lines_1_split = lines[j].split(" ")
+            lines_2_split = lines[j + 1].split(" ")
+            site_rates = [
+                lines_1_split[int(lines_2_split[i + 1])]
+                for i in range(len(lines_2_split) - 1)
+            ]
+    open(os.path.join(o_site_rates_dir, family + ".txt"), "w").write(
+        f"{len(site_rates)} sites\n" + " ".join(site_rates)
+    )
+
+
 def run_fast_tree_with_custom_rate_matrix(
     msa_path: str,
     family: str,
     rate_matrix_path: str,
     num_rate_categories: int,
     output_tree_dir: str,
+    output_site_rates_dir: str,
 ) -> str:
     r"""
     This wrapper deals with the fact that FastTree only accepts normalized rate
@@ -267,6 +186,12 @@ def run_fast_tree_with_custom_rate_matrix(
 
             write_tree(tree, os.path.join(output_tree_dir, family + ".txt"))
 
+            translate_site_rates(
+                i_fasttree_log_dir=output_tree_dir,
+                family=family,
+                o_site_rates_dir=output_site_rates_dir,
+            )
+
 
 def post_process_fast_tree_log(outlog: str):
     """
@@ -293,6 +218,7 @@ def _map_func(args: List):
     rate_matrix_path = args[2]
     num_rate_categories = args[3]
     output_tree_dir = args[4]
+    output_site_rates_dir = args[5]
 
     for family in families:
         msa_path = os.path.join(msa_dir, family + ".txt")
@@ -302,13 +228,14 @@ def _map_func(args: List):
             rate_matrix_path=rate_matrix_path,
             num_rate_categories=num_rate_categories,
             output_tree_dir=output_tree_dir,
+            output_site_rates_dir=output_site_rates_dir,
         )
 
 
 @cached_parallel_computation(
     exclude_args=["num_processes"],
     parallel_arg="families",
-    output_dirs=["output_tree_dir"],
+    output_dirs=["output_tree_dir", "output_site_rates_dir"],
 )
 def fast_tree(
     msa_dir: str,
@@ -316,12 +243,15 @@ def fast_tree(
     rate_matrix_path: str,
     num_rate_categories: int,
     output_tree_dir: str,
+    output_site_rates_dir: str,
     num_processes: int,
 ) -> None:
     logger = logging.getLogger("rate_estimation.fast_tree")
 
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
+    if not os.path.exists(output_site_rates_dir):
+        os.makedirs(output_site_rates_dir)
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     c_path = os.path.join(dir_path, "FastTree.c")
@@ -348,6 +278,7 @@ def fast_tree(
             rate_matrix_path,
             num_rate_categories,
             output_tree_dir,
+            output_site_rates_dir,
         ]
         for process_rank in range(num_processes)
     ]
