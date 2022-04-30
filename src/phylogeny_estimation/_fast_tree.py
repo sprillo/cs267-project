@@ -10,18 +10,17 @@ import pandas as pd
 import tqdm
 from ete3 import Tree as TreeETE
 
-import src.utils as utils
 from src.caching import cached_parallel_computation
 from src.io import Tree, read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
-from src.utils import get_process_args
+from src.utils import get_amino_acids, get_process_args
 
 
 def to_fast_tree_format(rate_matrix: np.array, output_path: str, pi: np.array):
     r"""
     The weird 20 x 21 format of FastTree, which is also column-stochastic.
     """
-    amino_acids = utils.amino_acids[:]
+    amino_acids = get_amino_acids()
     rate_matrix_df = pd.DataFrame(
         rate_matrix, index=amino_acids, columns=amino_acids
     )

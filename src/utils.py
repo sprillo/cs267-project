@@ -26,6 +26,10 @@ amino_acids = [
 ]
 
 
+def get_amino_acids() -> List[str]:
+    return amino_acids[:]
+
+
 def quantization_idx(
     branch_length: float, quantization_points_sorted: np.array
 ) -> Optional[int]:

@@ -2,11 +2,13 @@ import hashlib
 import multiprocessing
 import os
 import random
+import time
 from typing import Dict, List
 
 import numpy as np
 import tqdm
 
+from src.caching import cached_parallel_computation
 from src.io import (
     read_contact_map,
     read_probability_distribution,
@@ -95,6 +97,7 @@ def _map_func(args: Dict):
     random_seed = args[11]
 
     for family in families:
+        st = time.time()
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         site_rates = read_site_rates(
             site_rates_path=os.path.join(site_rates_dir, family + ".txt")
@@ -239,8 +242,17 @@ def _map_func(args: Dict):
             msa,
             msa_path,
         )
+        et = time.time()
+        open(os.path.join(output_msa_dir, family + ".profiling"), "w").write(
+            f"Total time: {et - st}\n"
+        )
 
 
+@cached_parallel_computation(
+    exclude_args=["num_processes"],
+    parallel_arg="families",
+    output_dirs=["output_msa_dir"],
+)
 def simulate_msas(
     tree_dir: str,
     site_rates_dir: str,
