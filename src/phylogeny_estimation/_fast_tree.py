@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import tempfile
 import time
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -151,9 +151,9 @@ def run_fast_tree_with_custom_rate_matrix(
             st = time.time()
             os.system(command)
             et = time.time()
-            open(os.path.join(output_tree_dir, family + ".command"), "w").write(
-                f"time_fast_tree: {et - st}"
-            )
+            open(
+                os.path.join(output_tree_dir, family + ".profiling"), "w"
+            ).write(f"time_fast_tree: {et - st}")
             # De-normalize the branch lengths of the tree
             tree_ete = TreeETE(scaled_tree_filename)
 
