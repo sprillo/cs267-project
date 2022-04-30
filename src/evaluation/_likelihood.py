@@ -42,10 +42,12 @@ def dp_likelihood_computation(
     fact_2: Optional[FactorizedReversibleModel],
     reversible_2: bool,
     device_2: bool,
+    output_profiling_path: str,
 ) -> Tuple[float, List[float]]:
     """
     Compute the data log-likelihood with dynamic programming.
     """
+    profiling_str = ""
     st_all = time.time()
     st = time.time()
     # These are just binary vectors that encode the observation sets
@@ -136,14 +138,14 @@ def dp_likelihood_computation(
             )
 
     populate_internal_node_observation_arrays()
-    print(f"Time populate internal node obs: {time.time() - st}")
+    profiling_str += f"Time populate internal node obs: {time.time() - st}\n"
 
     st_all_expms = time.time()
     single_site_transition_mats = {}
     pair_site_transition_mats = {}
     # Strategy: compute all matrix exponentials up front with a 3D matrix stack.
 
-    def populate_transition_mats():
+    def populate_transition_mats(profiling_str):
         non_root_nodes = [
             node for node in tree.nodes() if not tree.is_root(node)
         ]
@@ -186,7 +188,7 @@ def dp_likelihood_computation(
                 single_site_transition_mats[
                     node
                 ] = single_site_transition_mats_node
-        print(f"\tTime for single-site expms: {time.time() - st}")
+        profiling_str += f"\tTime for single-site expms: {time.time() - st}\n"
 
         st = time.time()
         if n_contacting_pairs > 0:
@@ -206,10 +208,13 @@ def dp_likelihood_computation(
             for (i, node) in enumerate(non_root_nodes):
                 pair_site_transition_mats[node] = expTQ_2[i, :, :][None, :, :]
 
-        print(f"\tTime for pair-site expms: {time.time() - st}")
+        profiling_str += f"\tTime for pair-site expms: {time.time() - st}\n"
+        return profiling_str
 
-    populate_transition_mats()
-    print(f"Time to populate_transition_mats: {time.time() - st_all_expms}")
+    profiling_str = populate_transition_mats(profiling_str)
+    profiling_str += (
+        f"Time to populate_transition_mats: {time.time() - st_all_expms}\n"
+    )
     # assert(False)
 
     dp_single_site = {}
@@ -292,8 +297,9 @@ def dp_likelihood_computation(
             lls[site_id_1] = res_pair_site[i, 0, 0] / 2.0
             lls[site_id_2] = res_pair_site[i, 0, 0] / 2.0
 
-    print(f"Time for dp = {time.time() - st}")
-    print(f"Total time = {time.time() - st_all}")
+    profiling_str += f"Time for dp: {time.time() - st}\n"
+    profiling_str += f"Total time: {time.time() - st_all}\n"
+    open(output_profiling_path, "w").write(profiling_str)
     # assert(False)  # Uncomment to see timing results when running tests
     return sum(lls), lls
 
@@ -379,6 +385,9 @@ def _map_func(args: Dict):
             else None
         )
 
+        output_profiling_path = os.path.join(
+            output_likelihood_dir, family + ".profiling"
+        )
         ll, lls = dp_likelihood_computation(
             tree=tree,
             msa=msa,
@@ -395,6 +404,7 @@ def _map_func(args: Dict):
             fact_2=fact_2,
             reversible_2=reversible_2,
             device_2=device_2,
+            output_profiling_path=output_profiling_path,
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)
@@ -480,6 +490,9 @@ def compute_log_likelihoods(
     """
     if use_cpp_implementation:
         raise NotImplementedError
+
+    if not os.path.exists(output_likelihood_dir):
+        os.makedirs(output_likelihood_dir)
 
     map_args = [
         [
