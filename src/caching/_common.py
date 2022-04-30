@@ -21,7 +21,7 @@ _init_logger()
 logger = logging.getLogger("caching")
 
 _CACHE_DIR = None
-_HASH = True
+_USE_HASH = True
 
 
 def set_cache_dir(cache_dir: str):
@@ -32,11 +32,6 @@ def set_cache_dir(cache_dir: str):
 
 def get_cache_dir():
     global _CACHE_DIR
-    if _CACHE_DIR is None:
-        raise Exception(
-            "Cache directory has not been set yet. "
-            "Please set it with set_cache_dir function."
-        )
     return _CACHE_DIR
 
 
@@ -45,15 +40,15 @@ def set_log_level(log_level: int):
     logger.setLevel(level=log_level)
 
 
-def set_hash(hash: bool):
-    logger.info(f"Setting cache to use hash: {hash}")
-    global _HASH
-    _HASH = hash
+def set_use_hash(use_hash: bool):
+    logger.info(f"Setting cache to use use_hash: {use_hash}")
+    global _USE_HASH
+    _USE_HASH = use_hash
 
 
-def get_hash():
-    global _HASH
-    return _HASH
+def get_use_hash():
+    global _USE_HASH
+    return _USE_HASH
 
 
 class CacheUsageError(Exception):
@@ -66,7 +61,7 @@ def _hash_all(xs: List[str]) -> str:
 
 
 def _get_func_caching_dir(
-    func, unhashed_args: List[str], args, kwargs, cache_dir: str, hash: bool
+    func, unhashed_args: List[str], args, kwargs, cache_dir: str, use_hash: bool
 ) -> str:
     """
     Get caching directory for the given *function call*.
@@ -79,12 +74,12 @@ def _get_func_caching_dir(
     binding.apply_defaults()
 
     # Compute the cache key
-    if not hash:
+    if not use_hash:
+        # TODO: use the function name _and_ the module name? (To avoid function
+        # name collision with other modules that use the caching decorator)
         path = (
             [cache_dir]
-            + [
-                f"{func.__name__}"
-            ]  # TODO: use the function name _and_ the module name? (To avoid function name collision with other modules that use the caching decorator)
+            + [f"{func.__name__}"]
             + [
                 f"{key}_{val}"
                 for (key, val) in binding.arguments.items()
@@ -92,11 +87,11 @@ def _get_func_caching_dir(
             ]
         )
     else:
+        # TODO: use the function name _and_ the module name? (To avoid function
+        # name collision with other modules that use the caching decorator)
         path = (
             [cache_dir]
-            + [
-                f"{func.__name__}"
-            ]  # TODO: use the function name _and_ the module name? (To avoid function name collision with other modules that use the caching decorator)
+            + [f"{func.__name__}"]
             + [
                 _hash_all(
                     [

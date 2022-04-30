@@ -10,7 +10,7 @@ from ._common import (
     _get_mode,
     _validate_decorator_args,
     get_cache_dir,
-    get_hash,
+    get_use_hash,
 )
 
 logger = logging.getLogger("caching")
@@ -41,7 +41,7 @@ def _get_func_caching_dir_aux(
     args,
     kwargs,
     cache_dir: str,
-    hash: bool,
+    use_hash: bool,
 ) -> str:
     """
     Get caching directory for the given *function call*.
@@ -49,7 +49,12 @@ def _get_func_caching_dir_aux(
     args = deepcopy(args)
     kwargs = deepcopy(kwargs)
 
-    # To bind the func call, we need to have all arguments specified. Since the output dirs can be omitted, we just hackily assign them None. TODO: If the output dirs are passed as args, this fails due to a `TypeError: multiple values for argument`. The good news is that it fails noisily, instead of causing a silent bug. So really not critical to address right now.
+    # To bind the func call, we need to have all arguments specified. Since the
+    # output dirs can be omitted, we just hackily assign them None. TODO: If
+    # the output dirs are passed as args, this fails due to a `TypeError:
+    # multiple values for argument`. The good news is that it fails noisily,
+    # instead of causing a silent bug. So really not critical to address right
+    # now.
     for output_dir in output_dirs:
         kwargs[output_dir] = None
 
@@ -59,7 +64,7 @@ def _get_func_caching_dir_aux(
         args=args,
         kwargs=kwargs,
         cache_dir=cache_dir,
-        hash=hash,
+        use_hash=use_hash,
     )
 
 
@@ -88,7 +93,7 @@ def _maybe_write_usefull_stuff_cached_computation(
         args,
         kwargs,
         cache_dir,
-        hash=False,
+        use_hash=False,
     )
     unhashed_func_caching_dir_logfile = os.path.join(
         kwargs[output_dir],
@@ -143,7 +148,7 @@ def _check_usefull_stuff_cached_computation(
         args,
         kwargs,
         cache_dir,
-        hash=False,
+        use_hash=False,
     )
     unhashed_func_caching_dir_logfile = os.path.join(
         kwargs[output_dir],
@@ -245,7 +250,9 @@ def cached_computation(
         )
 
         def wrapper(*args, **kwargs):
-            # Only allow calling the function with kwargs for simplicity. TODO: If I find a way to put all the args into kwargs, I can remove this restriction from the user.
+            # Only allow calling the function with kwargs for simplicity. TODO:
+            # If I find a way to put all the args into kwargs, I can remove
+            # this restriction from the user.
             if len(args) > 0:
                 raise CacheUsageError(
                     f"Please call {func.__name__} with keyword arguments only. "
@@ -254,7 +261,9 @@ def cached_computation(
 
             # Get caching hyperparameters
             cache_dir = get_cache_dir()
-            hash = get_hash()
+            if cache_dir is None:
+                return func(*args, **kwargs)
+            use_hash = get_use_hash()
 
             # Compute function caching directory.
             func_caching_dir = _get_func_caching_dir_aux(
@@ -264,7 +273,7 @@ def cached_computation(
                 args,
                 kwargs,
                 cache_dir,
-                hash,
+                use_hash,
             )
 
             # Set the output dirs in kwargs based on the caching directory if
