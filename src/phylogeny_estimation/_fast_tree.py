@@ -85,6 +85,27 @@ def translate_site_rates(
     )
 
 
+def extract_log_likelihood(
+    i_fasttree_log_dir: str,
+    family: str,
+    o_likelihood_dir: str,
+):
+    lines = (
+        open(os.path.join(i_fasttree_log_dir, family + ".fast_tree_log"), "r")
+        .read()
+        .split("\n")
+    )
+    for line in lines:
+        line_tokens = line.split()
+        if (
+            len(line_tokens) >= 3
+            and line_tokens[0] == "TreeLogLk"
+            and line_tokens[1] == "ML_Lengths2"
+        ):
+            ll = float(line_tokens[2])
+    open(os.path.join(o_likelihood_dir, family + ".txt"), "w").write(str(ll))
+
+
 def run_fast_tree_with_custom_rate_matrix(
     msa_path: str,
     family: str,
@@ -92,6 +113,7 @@ def run_fast_tree_with_custom_rate_matrix(
     num_rate_categories: int,
     output_tree_dir: str,
     output_site_rates_dir: str,
+    output_likelihood_dir: str,
 ) -> str:
     r"""
     This wrapper deals with the fact that FastTree only accepts normalized rate
@@ -196,6 +218,12 @@ def run_fast_tree_with_custom_rate_matrix(
                 o_site_rates_dir=output_site_rates_dir,
             )
 
+            extract_log_likelihood(
+                i_fasttree_log_dir=output_tree_dir,
+                family=family,
+                o_likelihood_dir=output_likelihood_dir,
+            )
+
             os.remove(outlog)
 
 
@@ -225,6 +253,7 @@ def _map_func(args: List):
     num_rate_categories = args[3]
     output_tree_dir = args[4]
     output_site_rates_dir = args[5]
+    output_likelihood_dir = args[6]
 
     for family in families:
         msa_path = os.path.join(msa_dir, family + ".txt")
@@ -235,13 +264,18 @@ def _map_func(args: List):
             num_rate_categories=num_rate_categories,
             output_tree_dir=output_tree_dir,
             output_site_rates_dir=output_site_rates_dir,
+            output_likelihood_dir=output_likelihood_dir,
         )
 
 
 @cached_parallel_computation(
     parallel_arg="families",
     exclude_args=["num_processes"],
-    output_dirs=["output_tree_dir", "output_site_rates_dir"],
+    output_dirs=[
+        "output_tree_dir",
+        "output_site_rates_dir",
+        "output_likelihood_dir",
+    ],
 )
 def fast_tree(
     msa_dir: str,
@@ -250,6 +284,7 @@ def fast_tree(
     num_rate_categories: int,
     output_tree_dir: str,
     output_site_rates_dir: str,
+    output_likelihood_dir: str,
     num_processes: int,
 ) -> None:
     logger = logging.getLogger("rate_estimation.fast_tree")
@@ -285,6 +320,7 @@ def fast_tree(
             num_rate_categories,
             output_tree_dir,
             output_site_rates_dir,
+            output_likelihood_dir,
         ]
         for process_rank in range(num_processes)
     ]
