@@ -3,14 +3,15 @@ import multiprocessing
 import os
 import tempfile
 import time
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import tqdm
-from ete3 import Tree
+from ete3 import Tree as TreeETE
 
-from src.io import read_rate_matrix
+from src.caching import cached_parallel_computation
+from src.io import Tree, read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_process_args
 
@@ -139,6 +140,34 @@ def to_fast_tree_format(rate_matrix: np.array, output_path: str, pi: np.array):
     rate_matrix_df.to_csv(output_path, sep="\t", header=False, mode="a")
 
 
+def name_internal_nodes(t: TreeETE) -> None:
+    r"""
+    Assigns names to the internal nodes of tree t if they don't already have a
+    name.
+    """
+
+    def node_name_generator():
+        """Generates unique node names for the tree."""
+        internal_node_id = 1
+        while True:
+            yield f"internal-{internal_node_id}"
+            internal_node_id += 1
+
+    names = node_name_generator()
+
+    def dfs_name_internal_nodes(p: Optional[Tree], v: Tree) -> None:
+        global internal_node_id
+        if v.name == "":
+            v.name = next(names)
+        if p:
+            # print(f"{p.name} -> {v.name}")
+            pass
+        for u in v.get_children():
+            dfs_name_internal_nodes(v, u)
+
+    dfs_name_internal_nodes(None, t)
+
+
 def run_fast_tree_with_custom_rate_matrix(
     msa_path: str,
     family: str,
@@ -207,23 +236,36 @@ def run_fast_tree_with_custom_rate_matrix(
                 f"time_fast_tree: {et - st}"
             )
             # De-normalize the branch lengths of the tree
-            tree = Tree(scaled_tree_filename)
+            tree_ete = TreeETE(scaled_tree_filename)
 
-            def dfs_scale_tree(v: tree) -> None:
+            def dfs_scale_tree(v) -> None:
                 for u in v.get_children():
                     u.dist = u.dist / mutation_rate
                     dfs_scale_tree(u)
 
-            dfs_scale_tree(tree)
-            tree.write(
+            dfs_scale_tree(tree_ete)
+
+            name_internal_nodes(tree_ete)
+
+            tree_ete.write(
                 format=2,
                 outfile=os.path.join(output_tree_dir, family + ".newick"),
             )
             open(os.path.join(output_tree_dir, family + ".command"), "w").write(
                 command
             )
-            # TODO: Convert into our friendy format by using the
-            # write_tree function!
+            tree = Tree()
+
+            def dfs_translate_tree(p, v) -> None:
+                tree.add_node(v.name)
+                if p is not None:
+                    tree.add_edge(p.name, v.name, v.dist)
+                for u in v.get_children():
+                    dfs_translate_tree(v, u)
+
+            dfs_translate_tree(None, tree_ete)
+
+            write_tree(tree, os.path.join(output_tree_dir, family + ".txt"))
 
 
 def post_process_fast_tree_log(outlog: str):
@@ -263,11 +305,11 @@ def _map_func(args: List):
         )
 
 
-# @cached_parallel_computation(
-#     exclude_args=["num_processes"],
-#     parallel_arg="families",
-#     output_dirs=["output_tree_dir"],
-# )
+@cached_parallel_computation(
+    exclude_args=["num_processes"],
+    parallel_arg="families",
+    output_dirs=["output_tree_dir"],
+)
 def fast_tree(
     msa_dir: str,
     families: List[str],

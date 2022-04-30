@@ -206,19 +206,6 @@ class TestCountTransitionsMedium(unittest.TestCase):
     @parameterized.expand([("32 processes", 32)])
     @pytest.mark.slow
     def test_count_transitions_edges(self, name, num_processes):
-        # for family in families_medium:
-        #     dirs = {}
-        #     dirs["trees"] = f"{DATA_DIR}/medium/tree_dir"
-        #     dirs["msas"] = f"{DATA_DIR}/medium/msa_dir"
-        #     dirs["site_rates"] = f"{DATA_DIR}/medium/site_rates_dir"
-        #     dirs["contact_maps"] = f"{DATA_DIR}/medium/contact_map_dir"
-        #     for what in ["trees", "msas", "site_rates", "contact_maps"]:
-        #         cs267_data_dir = \
-        #             f"~/Git/Phylo-correction/cs267_data/{what}_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats"
-        #         cs267_data_path = os.path.join(
-        #             cs267_data_dir, family + ".txt"
-        #         )
-        #         os.system(f"cp {cs267_data_path} {os.path.join(dirs[what], family + '.txt')}")
         with tempfile.TemporaryDirectory() as root_dir:
             # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_edges")
