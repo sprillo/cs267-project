@@ -1,16 +1,18 @@
-import numpy as np
-import pandas as pd
 import logging
 import os
 import sys
 import tempfile
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Optional, Tuple
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import wget
 
 from src import cherry_estimator
-from src.utils import pushd
 from src.io import read_log_likelihood
+from src.utils import pushd
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -299,11 +301,11 @@ def run_rate_estimator(
     """
     if rate_estimator_name == "EQU":
         res = equ_path()
-    elif rate_estimator_name == "JTT":
+    elif rate_estimator_name == "reproduced JTT":
         res = os.path.join(dir_path, "../../data/rate_matrices/jtt.txt")
-    elif rate_estimator_name == "WAG":
+    elif rate_estimator_name == "reproduced WAG":
         res = os.path.join(dir_path, "../../data/rate_matrices/wag.txt")
-    elif rate_estimator_name == "LG":
+    elif rate_estimator_name == "reproduced LG":
         res = os.path.join(dir_path, "../../data/rate_matrices/lg.txt")
     elif rate_estimator_name == "Cherry; FastTree w/EQU; 1st iteration":
         return cherry_estimator(
@@ -337,6 +339,35 @@ def run_rate_estimator(
     return res
 
 
+def get_reported_results_df(pfam_or_treebase: str) -> pd.DataFrame:
+    """
+    Gets the results table of the LG paper.
+
+    The data is hosted at:
+    http://www.atgc-montpellier.fr/models/index.php?model=lg
+
+    Args:
+        pfam_or_treebase: 'pfam' or 'treebase'.
+    """
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    if pfam_or_treebase == "treebase":
+        df = pd.read_csv(
+            os.path.join(dir_path, "data/lg_paper/Treebase.txt"), sep="\t"
+        )
+    elif pfam_or_treebase == "pfam":
+        df = pd.read_csv(
+            os.path.join(dir_path, "data/lg_paper/Pfam.txt"), sep="\t"
+        )
+    else:
+        raise ValueError(
+            f"pfam_or_treebase should be either 'pfam' or "
+            f"'treebase'. You provided: {pfam_or_treebase}"
+        )
+    df = df.drop(0)
+    df.set_index(["Name"], inplace=True)
+    return df
+
+
 MSADirType = str
 FamiliesType = List[str]
 RateMatrixPathType = str
@@ -357,14 +388,19 @@ def reproduce_lg_paper_fig_4(
     msa_test_dir: str,
     families_test: List[str],
     rate_estimator_names: List[str],
-    baseline_rate_estimator_name: str,
+    baseline_rate_estimator_name: Optional[str],
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
     num_processes: int,
+    pfam_or_treebase: str,
+    family_name_len: int,
+    figsize: Tuple[float, float] = (6.4, 4.8),
+    num_bootstraps: int = 0,
+    show_legend: bool = True,
 ):
     """
     Reproduce Fig. 4 of the LG paper, extending it with the desired models.
     """
-    res = pd.DataFrame(
+    df = pd.DataFrame(
         np.zeros(
             shape=(
                 len(families_test),
@@ -374,9 +410,24 @@ def reproduce_lg_paper_fig_4(
         index=families_test,
         columns=rate_estimator_names,
     )
+
+    reported_results_df = get_reported_results_df(
+        pfam_or_treebase=pfam_or_treebase
+    )
+
+    df["num_sites"] = 0
+    for family in families_test:
+        df.loc[family, "num_sites"] = reported_results_df.loc[
+            family[:family_name_len], "Sites"
+        ]
+
     for rate_estimator_name in rate_estimator_names:
-        if rate_estimator_name == "r__JTT":
-            raise NotImplementedError("Need to read perf from hardcoded CSV file")
+        if rate_estimator_name.startswith("reported"):
+            _, rate_matrix_name = rate_estimator_name.split(" ")
+            for family in families_test:
+                df.loc[family, rate_estimator_name] = reported_results_df.loc[
+                    family[:family_name_len], rate_matrix_name
+                ]
         else:
             rate_matrix_path = run_rate_estimator(
                 rate_estimator_name=rate_estimator_name,
@@ -390,10 +441,86 @@ def reproduce_lg_paper_fig_4(
                 rate_matrix_path=rate_matrix_path,
             )["output_likelihood_dir"]
             for family in families_test:
-                res.loc[family, rate_estimator_name] = read_log_likelihood(
-                    os.path.join(
-                        output_likelihood_dir,
-                        family + ".txt"
-                    )
+                df.loc[family, rate_estimator_name] = read_log_likelihood(
+                    os.path.join(output_likelihood_dir, family + ".txt")
                 )[0]
-    return res
+
+    def get_log_likelihoods(df: pd.DataFrame, model_names: List[str]):
+        """
+        Given a DataFrame like the LG results table, with Name as the index,
+        returns the sum of log likelihoods for each model.
+        """
+        num_sites = df["num_sites"].sum()
+        log_likelihoods = 2.0 * df[model_names].sum(axis=0) / num_sites
+        if baseline_rate_estimator_name is not None:
+            log_likelihoods -= (
+                2.0 * df[baseline_rate_estimator_name].sum() / num_sites
+            )
+        return log_likelihoods
+
+    y = get_log_likelihoods(df, rate_estimator_names)
+    yerr = None
+    if num_bootstraps > 0:
+        np.random.seed(0)
+        y_bootstraps = []
+        for _ in range(num_bootstraps):
+            chosen_rows = np.random.choice(
+                df.index,
+                size=len(df.index),
+                replace=True,
+            )
+            df_bootstrap = df.loc[chosen_rows]
+            assert df_bootstrap.shape == df.shape
+            y_bootstrap = get_log_likelihoods(
+                df_bootstrap, rate_estimator_names
+            )
+            y_bootstraps.append(y_bootstrap)
+        y_bootstraps = np.array(y_bootstraps)
+        assert y_bootstraps.shape == (num_bootstraps, len(rate_estimator_names))
+        # yerr = np.array(
+        #     [
+        #         [
+        #             y[i] - np.quantile(y_bootstraps[:, i], 0.025),  # Below
+        #             np.quantile(y_bootstraps[:, i], 0.975) - y[i],  # Above
+        #         ]
+        #         for i in range(len(model_names))
+        #     ]
+        # ).T
+
+    colors = []
+    for model_name in rate_estimator_names:
+        if "reported" in model_name:
+            colors.append("black")
+        elif "reproduced" in model_name:
+            colors.append("blue")
+        elif "Cherry" in model_name:
+            colors.append("red")
+        elif "MP" in model_name:
+            colors.append("green")
+        elif "JTT-IPW" in model_name:
+            colors.append("grey")
+        else:
+            colors.append("brown")
+    plt.figure(figsize=figsize)
+    plt.title(pfam_or_treebase)
+    plt.bar(x=rate_estimator_names, height=y, color=colors, yerr=yerr)
+    plt.xticks(rotation=270)
+    ax = plt.gca()
+    ax.yaxis.grid()
+    if show_legend:
+        plt.legend(
+            handles=[
+                mpatches.Patch(color="black", label="Reported"),
+                mpatches.Patch(color="blue", label="Reproduced"),
+                mpatches.Patch(color="red", label="Cherry"),
+                mpatches.Patch(color="green", label="M. Parsimony"),
+                mpatches.Patch(color="grey", label="JTT-IPW"),
+                mpatches.Patch(color="brown", label="Other"),
+            ]
+        )
+    plt.show()
+
+    if num_bootstraps:
+        return y, df, pd.DataFrame(y_bootstraps, columns=rate_estimator_names)
+    else:
+        return y, df, None
