@@ -1,6 +1,6 @@
 import os
-from typing import List
-from src.caching import cached_parallel_computation, cached_computation, set_hash, set_cache_dir, set_log_level
+from typing import List, Optional
+from src.caching import cached_parallel_computation, cached_computation, set_use_hash, set_cache_dir, set_log_level
 
 
 def test_cached_parallel_computation():
@@ -20,9 +20,9 @@ def test_cached_parallel_computation():
         pi_2_path: str,
         Q_2_path: str,
         strategy: str,
-        output_msa_dir: str,
-        output_msa_dir2: str,  # Can also include a log directory? Or just write '.log' files in the only output directories that matter! (I think the latter is better)
         num_processes: int,
+        output_msa_dir: Optional[str] = None,
+        output_msa_dir2: Optional[str] = None,  # Can also include a log directory? Or just write '.log' files in the only output directories that matter! (I think the latter is better)
     ):
         for family in families:
             output_filepath = os.path.join(output_msa_dir, family + ".txt")
@@ -33,7 +33,7 @@ def test_cached_parallel_computation():
             with open(output_filepath, "w") as f:
                 f.write("Simulated MSA for family: " + family + "\n")
 
-    set_hash(True)
+    set_use_hash(True)
     set_cache_dir("cache")
     set_log_level(9)
 
@@ -72,9 +72,9 @@ def test_cached_computation():
         pi_2_path: str,
         Q_2_path: str,
         strategy: str,
-        output_count_dir: str,
-        output_count_dir2: str,  # Can also include a log directory? Or just write '.log' files in the only output directories that matter! (I think the latter is better)
         num_processes: int,
+        output_count_dir: Optional[str] = None,
+        output_count_dir2: Optional[str] = None,  # Can also include a log directory? Or just write '.log' files in the only output directories that matter! (I think the latter is better)
     ):
         output_filepath = os.path.join(output_count_dir, "result.txt")
         with open(output_filepath, "w") as f:
@@ -83,7 +83,7 @@ def test_cached_computation():
         with open(output_filepath, "w") as f:
             f.write("Counted data from families: " + str(families) + "\n")
 
-    set_hash(True)
+    set_use_hash(True)
     set_cache_dir("cache")
     set_log_level(9)
 
@@ -107,5 +107,5 @@ def test_cached_computation():
 
 
 if __name__ == "__main__":
-    # test_cached_parallel_computation()
+    test_cached_parallel_computation()
     test_cached_computation()
