@@ -1,6 +1,7 @@
 import logging
 import os
 from copy import deepcopy
+from functools import wraps
 from inspect import signature
 from typing import List
 
@@ -249,6 +250,7 @@ def cached_computation(
             func, decorator_args=exclude_args + output_dirs
         )
 
+        @wraps(func)
         def wrapper(*args, **kwargs):
             # Only allow calling the function with kwargs for simplicity. TODO:
             # If I find a way to put all the args into kwargs, I can remove
@@ -279,7 +281,7 @@ def cached_computation(
             # Set the output dirs in kwargs based on the caching directory if
             # not already provided.
             for output_dir in output_dirs:
-                if output_dir not in kwargs:
+                if output_dir not in kwargs or kwargs[output_dir] is None:
                     kwargs[output_dir] = os.path.join(
                         func_caching_dir, output_dir
                     )
