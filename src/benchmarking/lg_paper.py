@@ -293,7 +293,7 @@ def equ_path() -> str:
 
 
 def run_rate_estimator(
-    rate_matrix_name: str,
+    rate_estimator_name: str,
     msa_train_dir: str,
     families_train: List[str],
     num_processes: int,
@@ -301,15 +301,15 @@ def run_rate_estimator(
     """
     Given a rate estimator name, returns the path to the rate matrix
     """
-    if rate_matrix_name == "EQU":
+    if rate_estimator_name == "EQU":
         res = equ_path()
-    elif rate_matrix_name == "JTT":
+    elif rate_estimator_name == "JTT":
         res = os.path.join(dir_path, "../../data/rate_matrices/jtt.txt")
-    elif rate_matrix_name == "WAG":
+    elif rate_estimator_name == "WAG":
         res = os.path.join(dir_path, "../../data/rate_matrices/wag.txt")
-    elif rate_matrix_name == "LG":
+    elif rate_estimator_name == "LG":
         res = os.path.join(dir_path, "../../data/rate_matrices/lg.txt")
-    elif rate_matrix_name == "Cherry; FastTree w/EQU; 1st iteration":
+    elif rate_estimator_name == "Cherry; FastTree w/EQU; 1st iteration":
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
@@ -318,7 +318,7 @@ def run_rate_estimator(
             num_iterations=1,
             num_processes=num_processes,
         )
-    elif rate_matrix_name == "Cherry; FastTree w/EQU; 2nd iteration":
+    elif rate_estimator_name == "Cherry; FastTree w/EQU; 2nd iteration":
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
@@ -361,7 +361,7 @@ def reproduce_lg_paper_fig_4(
     msa_test_dir: str,
     families_test: List[str],
     rate_estimator_names: List[str],
-    baseline_rate_matrix_path: str,
+    baseline_rate_estimator_name: str,
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
     num_processes: int,
 ):
@@ -371,7 +371,7 @@ def reproduce_lg_paper_fig_4(
     for rate_estimator_name in rate_estimator_names:
         rate_matrix_path = run_rate_estimator(
             rate_estimator_name=rate_estimator_name,
-            msa_dir_train=msa_train_dir,
+            msa_train_dir=msa_train_dir,
             families_train=families_train,
             num_processes=num_processes,
         )

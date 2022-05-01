@@ -17,6 +17,8 @@ def cherry_estimator(
     quantization_grid_center: float = 0.06,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 50,
+    use_cpp_counting_implementation: bool = False,
+    device: str = "cpu",
 ) -> str:
     """
     Cherry estimator.
@@ -49,7 +51,7 @@ def cherry_estimator(
             quantization_points=quantization_points,
             edge_or_cherry="cherry",
             num_processes=num_processes,
-            use_cpp_implementation=False,
+            use_cpp_implementation=use_cpp_counting_implementation,
         )["output_count_matrices_dir"]
 
         jtt_ipw_dir = jtt_ipw(
@@ -65,7 +67,7 @@ def cherry_estimator(
             mask_path=None,
             stationary_distribution_path=None,
             rate_matrix_parameterization="pande_reversible",
-            device="cpu",
+            device=device,
             learning_rate=1e-1,
             num_epochs=200,
             do_adam=True,
