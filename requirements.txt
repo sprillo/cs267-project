@@ -9,3 +9,4 @@ pytest
 threadpoolctl
 torch
 tqdm
+wget

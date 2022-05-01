@@ -6,7 +6,15 @@ from typing import Callable, Dict, List
 
 import wget
 
-from src.utils import pushd
+from src import (
+    cherry_estimator,
+    count_transitions,
+    fast_tree,
+    jtt_ipw,
+    phyml,
+    quantized_transitions_mle,
+)
+from src.utils import get_amino_acids, pushd
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -280,12 +288,54 @@ def get_lg_PfamTrainingAlignments_data(
     )
 
 
-def get_rate_matrix_path_by_name(rate_matrix_name: str) -> str:
+def equ_path() -> str:
+    return os.path.join(dir_path, "../../data/rate_matrices/equ.txt")
+
+
+def run_rate_estimator(
+    rate_matrix_name: str,
+    msa_train_dir: str,
+    families_train: List[str],
+    num_processes: int,
+) -> str:
     """
-    Given a rate matrix name, returns the path to the rate matrix
+    Given a rate estimator name, returns the path to the rate matrix
     """
-    if rate_matrix_name == "JTT":
+    if rate_matrix_name == "EQU":
+        res = equ_path()
+    elif rate_matrix_name == "JTT":
+        res = os.path.join(dir_path, "../../data/rate_matrices/jtt.txt")
+    elif rate_matrix_name == "WAG":
+        res = os.path.join(dir_path, "../../data/rate_matrices/wag.txt")
+    elif rate_matrix_name == "LG":
         res = os.path.join(dir_path, "../../data/rate_matrices/lg.txt")
+    elif rate_matrix_name == "Cherry; FastTree w/EQU; 1st iteration":
+        return cherry_estimator(
+            msa_dir=msa_train_dir,
+            families=families_train,
+            initial_rate_matrix_path=equ_path(),
+            num_rate_categories=4,
+            num_iterations=1,
+            num_processes=num_processes,
+        )
+    elif rate_matrix_name == "Cherry; FastTree w/EQU; 2nd iteration":
+        return cherry_estimator(
+            msa_dir=msa_train_dir,
+            families=families_train,
+            initial_rate_matrix_path=equ_path(),
+            num_rate_categories=4,
+            num_iterations=2,
+            num_processes=num_processes,
+        )
+    elif rate_matrix_name == "Cherry; FastTree w/EQU; 3rd iteration":
+        return cherry_estimator(
+            msa_dir=msa_train_dir,
+            families=families_train,
+            initial_rate_matrix_path=equ_path(),
+            num_rate_categories=4,
+            num_iterations=3,
+            num_processes=num_processes,
+        )
     else:
         raise ValueError(f"Unknown rate matrix name: {rate_matrix_name}")
     return res
@@ -306,19 +356,27 @@ PhylogenyEstimatorType = Callable[
 
 
 def reproduce_lg_paper_fig_4(
-    msa_dir_test: str,
+    msa_train_dir: str,
+    families_train: List[str],
+    msa_test_dir: str,
     families_test: List[str],
-    rate_matrix_names: List[str],
-    baseline_rate_matrix: str,
+    rate_estimator_names: List[str],
+    baseline_rate_matrix_path: str,
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
+    num_processes: int,
 ):
     """
     Reproduce Fig. 4 of the LG paper, adding the desired rate matrices.
     """
-    for rate_matrix_name in rate_matrix_names:
-        rate_matrix_path = get_rate_matrix_path_by_name(rate_matrix_name)
+    for rate_estimator_name in rate_estimator_names:
+        rate_matrix_path = run_rate_estimator(
+            rate_estimator_name=rate_estimator_name,
+            msa_dir_train=msa_train_dir,
+            families_train=families_train,
+            num_processes=num_processes,
+        )
         output_likelihood_dir = evaluation_phylogeny_estimator(
-            msa_dir=msa_dir_test,
+            msa_dir=msa_test_dir,
             families=families_test,
             rate_matrix_path=rate_matrix_path,
         )["output_likelihood_dir"]

@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import time
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -136,6 +137,7 @@ def _map_func(args: List):
     extra_command_line_args = args[7]
 
     for family in families:
+        st = time.time()
         input_msa_path = os.path.join(msa_dir, family + ".txt")
         phyml_log_path = os.path.join(output_tree_dir, family + ".phyml_log")
         with pushd(output_tree_dir):
@@ -218,6 +220,10 @@ def _map_func(args: List):
         )
         open(os.path.join(output_site_rates_dir, family + ".txt"), "w").write(
             site_rates_file_contents
+        )
+
+        open(os.path.join(output_tree_dir, family + ".profiling"), "w").write(
+            f"Total time: {time.time() - st}\n"
         )
 
 
