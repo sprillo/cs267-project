@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import tempfile
 import time
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -264,10 +264,10 @@ def fast_tree(
     families: List[str],
     rate_matrix_path: str,
     num_rate_categories: int,
-    output_tree_dir: str,
-    output_site_rates_dir: str,
-    output_likelihood_dir: str,
     num_processes: int,
+    output_tree_dir: Optional[str] = None,
+    output_site_rates_dir: Optional[str] = None,
+    output_likelihood_dir: Optional[str] = None,
 ) -> None:
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
