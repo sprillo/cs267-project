@@ -138,7 +138,7 @@ def create_trivial_contact_maps(
     msa_dir: str,
     families: List[str],
     states: List[str],
-    output_contact_map_dir: str,
+    output_contact_map_dir: Optional[str] = None,
 ):
     for family in families:
         st = time.time()
@@ -162,7 +162,7 @@ def subset_msa_to_leaf_nodes(
     msa_dir: str,
     families: List[str],
     states: List[str],
-    output_msa_dir: str,
+    output_msa_dir: Optional[str] = None,
 ):
     """
     An internal node is anyone that starts with 'internal-'.
