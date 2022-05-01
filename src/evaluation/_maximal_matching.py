@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 
 import networkx as nx
 import numpy as np
@@ -16,9 +16,9 @@ from src.io import read_contact_map, write_contact_map
 def create_maximal_matching_contact_map(
     i_contact_map_dir: str,
     families: List[str],
-    o_contact_map_dir: str,
     minimum_distance_for_nontrivial_contact: int,
     num_processes: int,
+    o_contact_map_dir: Optional[str] = None,
 ) -> None:
     if num_processes != 1:
         raise NotImplementedError("Multiprocessing not yet implemented.")
