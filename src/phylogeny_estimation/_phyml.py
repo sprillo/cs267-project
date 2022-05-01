@@ -1,7 +1,7 @@
 import logging
 import multiprocessing
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -242,11 +242,11 @@ def phyml(
     families: List[str],
     rate_matrix_path: str,
     num_rate_categories: int,
-    output_tree_dir: str,
-    output_site_rates_dir: str,
-    output_likelihood_dir: str,
     num_processes: int,
     extra_command_line_args: str = get_phyml_default_extra_command_line_args(),
+    output_tree_dir: Optional[str] = None,
+    output_site_rates_dir: Optional[str] = None,
+    output_likelihood_dir: Optional[str] = None,
 ):
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
