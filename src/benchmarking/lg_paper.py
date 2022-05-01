@@ -446,7 +446,9 @@ def reproduce_lg_paper_fig_4(
                 df.loc[family, rate_estimator_name] = read_log_likelihood(
                     os.path.join(output_likelihood_dir, family + ".txt")
                 )[0]
-        print(f"Total time to evaluate {rate_estimator_name} = {time.time() - st}")
+        print(
+            f"Total time to evaluate {rate_estimator_name} = {time.time() - st}"
+        )
 
     def get_log_likelihoods(df: pd.DataFrame, model_names: List[str]):
         """
