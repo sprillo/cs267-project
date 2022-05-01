@@ -422,6 +422,8 @@ def reproduce_lg_paper_fig_4(
         ]
 
     for rate_estimator_name in rate_estimator_names:
+        print(f"Evaluating rate_estimator_name: {rate_estimator_name}")
+        st = time.time()
         if rate_estimator_name.startswith("reported"):
             _, rate_matrix_name = rate_estimator_name.split(" ")
             for family in families_test:
@@ -444,6 +446,7 @@ def reproduce_lg_paper_fig_4(
                 df.loc[family, rate_estimator_name] = read_log_likelihood(
                     os.path.join(output_likelihood_dir, family + ".txt")
                 )[0]
+        print(f"Total time to evaluate {rate_estimator_name} = {time.time() - st}")
 
     def get_log_likelihoods(df: pd.DataFrame, model_names: List[str]):
         """
