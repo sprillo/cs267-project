@@ -1,0 +1,23 @@
+import unittest
+
+import numpy as np
+
+from src.evaluation import l_infty_norm, rmse
+
+
+class TestLInftyNorm(unittest.TestCase):
+    def test_l_infty_norm(self):
+        Q_1 = np.array([[-1.0, 1.0], [2.0, -2.0]])
+        Q_2 = np.array([[-2.0, 2.0], [3.0, -3.0]])
+        np.testing.assert_almost_equal(l_infty_norm(Q_1, Q_2), np.log(2))
+        np.testing.assert_almost_equal(l_infty_norm(Q_2, Q_1), np.log(2))
+        np.testing.assert_almost_equal(l_infty_norm(Q_1, Q_1), 0.0)
+
+
+class TestRMSE(unittest.TestCase):
+    def test_l_infty_norm(self):
+        Q_1 = np.array([[-1.0, 1.0], [2.0, -2.0]])
+        Q_2 = np.array([[-2.0, 2.0], [3.0, -3.0]])
+        np.testing.assert_almost_equal(rmse(Q_1, Q_2), 0.5678269844632537)
+        np.testing.assert_almost_equal(rmse(Q_2, Q_1), 0.5678269844632537)
+        np.testing.assert_almost_equal(rmse(Q_1, Q_1), 0.0)
