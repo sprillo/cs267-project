@@ -1,19 +1,11 @@
 import logging
-import multiprocessing
 import os
 import sys
 import tempfile
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List
 
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import tqdm
 import wget
 
-from src import caching
-from src.phylogeny_estimation import phyml
 from src.utils import pushd
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -160,9 +152,7 @@ def _convert_lg_data(
         os.makedirs(destination_directory)
     protein_family_names = sorted(list(os.listdir(lg_data_dir)))
     for protein_family_name in protein_family_names:
-        with open(
-            os.path.join(lg_data_dir, protein_family_name), "r"
-        ) as file:
+        with open(os.path.join(lg_data_dir, protein_family_name), "r") as file:
             res = ""
             lines = file.read().split("\n")
             n_seqs, n_sites = map(int, lines[0].split(" "))
@@ -200,8 +190,10 @@ def get_lg_PfamTestingAlignments_data(
     Args:
         destination_directory: Where to download the data to.
     """
-    url = "http://www.atgc-montpellier.fr/download/datasets/models"\
+    url = (
+        "http://www.atgc-montpellier.fr/download/datasets/models"
         "/lg_PfamTestingAlignments.tar.gz"
+    )
     if (
         os.path.exists(destination_directory)
         and len(os.listdir(destination_directory)) > 0
@@ -288,9 +280,7 @@ def get_lg_PfamTrainingAlignments_data(
     )
 
 
-def get_rate_matrix_path_by_name(
-    rate_matrix_name: str
-) -> str:
+def get_rate_matrix_path_by_name(rate_matrix_name: str) -> str:
     """
     Given a rate matrix name, returns the path to the rate matrix
     """
@@ -311,7 +301,7 @@ PhylogenyEstimatorType = Callable[
         FamiliesType,
         RateMatrixPathType,
     ],
-    PhylogenyEstimatorReturnType
+    PhylogenyEstimatorReturnType,
 ]
 
 
@@ -321,7 +311,6 @@ def reproduce_lg_paper_fig_4(
     rate_matrix_names: List[str],
     baseline_rate_matrix: str,
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
-    num_processed: int,
 ):
     """
     Reproduce Fig. 4 of the LG paper, adding the desired rate matrices.
