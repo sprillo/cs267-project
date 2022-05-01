@@ -85,6 +85,7 @@ def extract_log_likelihood(
     family: str,
     o_likelihood_dir: str,
     use_gamma: bool,
+    num_rate_categories: int,
 ) -> None:
     lines = (
         open(os.path.join(i_fasttree_log_dir, family + ".fast_tree_log"), "r")
@@ -106,13 +107,16 @@ def extract_log_likelihood(
     elif use_gamma:
         for i, line in enumerate(lines):
             line_tokens = line.split()
-            if len(line_tokens) >= 2 and line_tokens[0] == "Gamma20LogLk":
+            if (
+                len(line_tokens) >= 2
+                and line_tokens[0] == f"Gamma{num_rate_categories}LogLk"
+            ):
                 ll = float(line_tokens[1])
                 lls = []
                 j = i + 2
                 while j < len(lines):
                     line_tokens = lines[j].split()
-                    if line_tokens[0] == "Gamma20":
+                    if line_tokens[0] == f"Gamma{num_rate_categories}":
                         lls.append(line_tokens[2])
                     else:
                         break
@@ -229,6 +233,7 @@ def run_fast_tree_with_custom_rate_matrix(
                 family=family,
                 o_likelihood_dir=output_likelihood_dir,
                 use_gamma="-gamma" in command,
+                num_rate_categories=num_rate_categories,
             )
 
             os.remove(outlog)
