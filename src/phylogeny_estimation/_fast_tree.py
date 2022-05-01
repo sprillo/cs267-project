@@ -84,21 +84,42 @@ def extract_log_likelihood(
     i_fasttree_log_dir: str,
     family: str,
     o_likelihood_dir: str,
-):
+    use_gamma: bool,
+) -> None:
     lines = (
         open(os.path.join(i_fasttree_log_dir, family + ".fast_tree_log"), "r")
         .read()
         .split("\n")
     )
-    for line in lines:
-        line_tokens = line.split()
-        if (
-            len(line_tokens) >= 3
-            and line_tokens[0] == "TreeLogLk"
-            and line_tokens[1] == "ML_Lengths2"
-        ):
-            ll = float(line_tokens[2])
-    open(os.path.join(o_likelihood_dir, family + ".txt"), "w").write(str(ll))
+    if not use_gamma:
+        for line in lines:
+            line_tokens = line.split()
+            if (
+                len(line_tokens) >= 3
+                and line_tokens[0] == "TreeLogLk"
+                and line_tokens[1] == "ML_Lengths2"
+            ):
+                ll = float(line_tokens[2])
+        open(os.path.join(o_likelihood_dir, family + ".txt"), "w").write(
+            str(ll)
+        )
+    elif use_gamma:
+        for i, line in enumerate(lines):
+            line_tokens = line.split()
+            if len(line_tokens) >= 2 and line_tokens[0] == "Gamma20LogLk":
+                ll = float(line_tokens[1])
+                lls = []
+                j = i + 2
+                while j < len(lines):
+                    line_tokens = lines[j].split()
+                    if line_tokens[0] == "Gamma20":
+                        lls.append(line_tokens[2])
+                    else:
+                        break
+                    j += 1
+        open(os.path.join(o_likelihood_dir, family + ".txt"), "w").write(
+            str(ll) + f"\n{len(lls)} sites\n{' '.join(lls)}\n"
+        )
 
 
 def run_fast_tree_with_custom_rate_matrix(
@@ -109,6 +130,7 @@ def run_fast_tree_with_custom_rate_matrix(
     output_tree_dir: str,
     output_site_rates_dir: str,
     output_likelihood_dir: str,
+    extra_command_line_args: str,
 ) -> str:
     r"""
     This wrapper deals with the fact that FastTree only accepts normalized rate
@@ -161,7 +183,9 @@ def run_fast_tree_with_custom_rate_matrix(
             command = (
                 f"{dir_path}/FastTree -quiet -trans "
                 + f"{scaled_rate_matrix_filename} -log {outlog} -cat "
-                + f"{num_rate_categories} < {msa_path} > "
+                + f"{num_rate_categories} "
+                + extra_command_line_args
+                + f" < {msa_path} > "
                 + f"{scaled_tree_filename}"
             )
             st = time.time()
@@ -204,6 +228,7 @@ def run_fast_tree_with_custom_rate_matrix(
                 i_fasttree_log_dir=output_tree_dir,
                 family=family,
                 o_likelihood_dir=output_likelihood_dir,
+                use_gamma="-gamma" in command,
             )
 
             os.remove(outlog)
@@ -236,6 +261,7 @@ def _map_func(args: List):
     output_tree_dir = args[4]
     output_site_rates_dir = args[5]
     output_likelihood_dir = args[6]
+    extra_command_line_args = args[7]
 
     for family in families:
         msa_path = os.path.join(msa_dir, family + ".txt")
@@ -247,6 +273,7 @@ def _map_func(args: List):
             output_tree_dir=output_tree_dir,
             output_site_rates_dir=output_site_rates_dir,
             output_likelihood_dir=output_likelihood_dir,
+            extra_command_line_args=extra_command_line_args,
         )
 
 
@@ -265,6 +292,7 @@ def fast_tree(
     rate_matrix_path: str,
     num_rate_categories: int,
     num_processes: int,
+    extra_command_line_args: str = "",
     output_tree_dir: Optional[str] = None,
     output_site_rates_dir: Optional[str] = None,
     output_likelihood_dir: Optional[str] = None,
@@ -287,6 +315,7 @@ def fast_tree(
             output_tree_dir,
             output_site_rates_dir,
             output_likelihood_dir,
+            extra_command_line_args,
         ]
         for process_rank in range(num_processes)
     ]
