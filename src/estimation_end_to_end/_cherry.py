@@ -1,10 +1,9 @@
 import os
 from typing import List
 
-from src.counting import count_co_transitions, count_transitions
+from src.counting import count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
-from src.evaluation import compute_log_likelihoods
-from src.phylogeny_estimation import fast_tree, phyml
+from src.phylogeny_estimation import fast_tree
 from src.utils import get_amino_acids
 
 
