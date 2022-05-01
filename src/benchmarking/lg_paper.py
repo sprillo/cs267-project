@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 import tempfile
+import time
 from typing import Callable, Dict, List, Optional, Tuple
 
 import matplotlib.patches as mpatches
