@@ -3,7 +3,7 @@ import multiprocessing
 import os
 import random
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import tqdm
@@ -266,10 +266,10 @@ def simulate_msas(
     pi_2_path: str,
     Q_2_path: str,
     strategy: str,
-    output_msa_dir: str,
     random_seed: int,
     num_processes: int,
     use_cpp_implementation: bool = False,
+    output_msa_dir: Optional[str] = None,
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
