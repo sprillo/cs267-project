@@ -22,6 +22,7 @@ logger = logging.getLogger("caching")
 
 _CACHE_DIR = None
 _USE_HASH = True
+_HASH_LEN = None
 
 
 def set_cache_dir(cache_dir: str):
@@ -51,13 +52,34 @@ def get_use_hash():
     return _USE_HASH
 
 
+def set_hash_len(hash_len: int):
+    if hash_len > 128:
+        raise ValueError(
+            "The maximum allowed hash length is 128. "
+            f"You requested: {hash_len}"
+        )
+    logger.info(f"Setting cache to use hash length: {hash_len}")
+    global _HASH_LEN
+    _HASH_LEN = hash_len
+
+
+def get_hash_len():
+    global _HASH_LEN
+    return _HASH_LEN
+
+
 class CacheUsageError(Exception):
     pass
 
 
 def _hash_all(xs: List[str]) -> str:
+    hash_len = get_hash_len()
     hashes = [hashlib.sha512(x.encode("utf-8")).hexdigest() for x in xs]
-    return hashlib.sha512("".join(hashes).encode("utf-8")).hexdigest()
+    res = hashlib.sha512("".join(hashes).encode("utf-8")).hexdigest()
+    if hash_len is None:
+        return res
+    else:
+        return res[:hash_len]
 
 
 def _get_func_caching_dir(

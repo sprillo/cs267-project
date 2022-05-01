@@ -10,4 +10,4 @@ applications.
 from ._cached import cached
 from ._cached_computation import cached_computation
 from ._cached_parallel_computation import cached_parallel_computation
-from ._common import set_cache_dir, set_log_level, set_use_hash
+from ._common import set_cache_dir, set_hash_len, set_log_level, set_use_hash
