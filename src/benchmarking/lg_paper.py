@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import logging
 import os
 import sys
@@ -6,15 +8,9 @@ from typing import Callable, Dict, List
 
 import wget
 
-from src import (
-    cherry_estimator,
-    count_transitions,
-    fast_tree,
-    jtt_ipw,
-    phyml,
-    quantized_transitions_mle,
-)
-from src.utils import get_amino_acids, pushd
+from src import cherry_estimator
+from src.utils import pushd
+from src.io import read_log_likelihood
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -327,7 +323,7 @@ def run_rate_estimator(
             num_iterations=2,
             num_processes=num_processes,
         )
-    elif rate_matrix_name == "Cherry; FastTree w/EQU; 3rd iteration":
+    elif rate_estimator_name == "Cherry; FastTree w/EQU; 3rd iteration":
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
@@ -337,7 +333,7 @@ def run_rate_estimator(
             num_processes=num_processes,
         )
     else:
-        raise ValueError(f"Unknown rate matrix name: {rate_matrix_name}")
+        raise ValueError(f"Unknown rate estimator name: {rate_estimator_name}")
     return res
 
 
@@ -366,18 +362,38 @@ def reproduce_lg_paper_fig_4(
     num_processes: int,
 ):
     """
-    Reproduce Fig. 4 of the LG paper, adding the desired rate matrices.
+    Reproduce Fig. 4 of the LG paper, extending it with the desired models.
     """
+    res = pd.DataFrame(
+        np.zeros(
+            shape=(
+                len(families_test),
+                len(rate_estimator_names),
+            )
+        ),
+        index=families_test,
+        columns=rate_estimator_names,
+    )
     for rate_estimator_name in rate_estimator_names:
-        rate_matrix_path = run_rate_estimator(
-            rate_estimator_name=rate_estimator_name,
-            msa_train_dir=msa_train_dir,
-            families_train=families_train,
-            num_processes=num_processes,
-        )
-        output_likelihood_dir = evaluation_phylogeny_estimator(
-            msa_dir=msa_test_dir,
-            families=families_test,
-            rate_matrix_path=rate_matrix_path,
-        )["output_likelihood_dir"]
-        print(output_likelihood_dir)
+        if rate_estimator_name == "r__JTT":
+            raise NotImplementedError("Need to read perf from hardcoded CSV file")
+        else:
+            rate_matrix_path = run_rate_estimator(
+                rate_estimator_name=rate_estimator_name,
+                msa_train_dir=msa_train_dir,
+                families_train=families_train,
+                num_processes=num_processes,
+            )
+            output_likelihood_dir = evaluation_phylogeny_estimator(
+                msa_dir=msa_test_dir,
+                families=families_test,
+                rate_matrix_path=rate_matrix_path,
+            )["output_likelihood_dir"]
+            for family in families_test:
+                res.loc[family, rate_estimator_name] = read_log_likelihood(
+                    os.path.join(
+                        output_likelihood_dir,
+                        family + ".txt"
+                    )
+                )[0]
+    return res
