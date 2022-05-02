@@ -1,3 +1,8 @@
+"""
+Reproduce LG paper results.
+
+This module should be run from the repo root directory.
+"""
 import logging
 import os
 import sys
@@ -14,8 +19,6 @@ import wget
 from src import cherry_estimator
 from src.io import read_log_likelihood
 from src.utils import pushd
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
 
 
 def init_logger():
@@ -288,7 +291,7 @@ def get_lg_PfamTrainingAlignments_data(
 
 
 def equ_path() -> str:
-    return os.path.join(dir_path, "../../data/rate_matrices/equ.txt")
+    return "data/rate_matrices/equ.txt"
 
 
 def run_rate_estimator(
@@ -303,11 +306,11 @@ def run_rate_estimator(
     if rate_estimator_name == "EQU":
         res = equ_path()
     elif rate_estimator_name == "reproduced JTT":
-        res = os.path.join(dir_path, "../../data/rate_matrices/jtt.txt")
+        res = "data/rate_matrices/jtt.txt"
     elif rate_estimator_name == "reproduced WAG":
-        res = os.path.join(dir_path, "../../data/rate_matrices/wag.txt")
+        res = "data/rate_matrices/wag.txt"
     elif rate_estimator_name == "reproduced LG":
-        res = os.path.join(dir_path, "../../data/rate_matrices/lg.txt")
+        res = "data/rate_matrices/lg.txt"
     elif rate_estimator_name == "Cherry; FastTree w/EQU; 1st iteration":
         return cherry_estimator(
             msa_dir=msa_train_dir,
