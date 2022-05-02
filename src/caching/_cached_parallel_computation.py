@@ -17,6 +17,13 @@ from ._common import (
 logger = logging.getLogger("caching")
 
 
+def secure_parallel_output(output_dir: str, parallel_arg: str) -> None:
+    os.system(f"chmod 444 {os.path.join(output_dir, parallel_arg + '.txt')}")
+    open(os.path.join(output_dir, parallel_arg + ".success"), "w").write(
+        "SUCCESS\n"
+    )
+
+
 def _get_parallel_func_binding(
     func,
     exclude_args: List[str],
@@ -347,12 +354,19 @@ def cached_parallel_computation(
                     )
                     if os.path.exists(output_filepath):
                         os.system(f'chmod 664 "{output_filepath}"')
+                        logger.info(
+                            f"Removing possibly corrupted {output_filepath}"
+                        )
                         os.remove(output_filepath)
 
                     output_success_token_filepath = os.path.join(
                         kwargs[output_dir], parallel_arg_value + ".success"
                     )
                     if os.path.exists(output_success_token_filepath):
+                        logger.info(
+                            "Removing possibly corrupted "
+                            f"{output_success_token_filepath}"
+                        )
                         os.remove(output_success_token_filepath)
 
             # We will only call the function on the values that have not
