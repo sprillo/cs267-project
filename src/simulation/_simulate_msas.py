@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 import numpy as np
 import tqdm
 
-from src.caching import cached_parallel_computation
+from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import (
     read_contact_map,
     read_probability_distribution,
@@ -242,6 +242,7 @@ def _map_func(args: Dict):
             msa,
             msa_path,
         )
+        secure_parallel_output(output_msa_dir, family)
         et = time.time()
         open(os.path.join(output_msa_dir, family + ".profiling"), "w").write(
             f"Total time: {et - st}\n"

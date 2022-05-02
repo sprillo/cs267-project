@@ -4,7 +4,7 @@ from typing import List, Optional
 import networkx as nx
 import numpy as np
 
-from src.caching import cached_parallel_computation
+from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import read_contact_map, write_contact_map
 
 
@@ -41,3 +41,4 @@ def create_maximal_matching_contact_map(
             res[u, v] = res[v, u] = 1
         o_contact_map_path = os.path.join(o_contact_map_dir, family + ".txt")
         write_contact_map(res, o_contact_map_path)
+        secure_parallel_output(o_contact_map_dir, family)

@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import sys
 import tempfile
 import time
 from typing import List, Optional
@@ -10,7 +11,7 @@ import pandas as pd
 import tqdm
 from ete3 import Tree as TreeETE
 
-from src.caching import cached_parallel_computation
+from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_amino_acids, get_process_args
@@ -18,8 +19,22 @@ from src.utils import get_amino_acids, get_process_args
 from ._common import name_internal_nodes, translate_tree
 
 
+def _init_logger():
+    logger = logging.getLogger("phylogeny_estimation.fast_tree")
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
+
+
 def _install_fast_tree():
-    logger = logging.getLogger("rate_estimation.fast_tree")
+    logger = logging.getLogger("phylogeny_estimation.fast_tree")
     dir_path = os.path.dirname(os.path.realpath(__file__))
     c_path = os.path.join(dir_path, "FastTree.c")
     bin_path = os.path.join(dir_path, "FastTree")
@@ -78,6 +93,7 @@ def translate_site_rates(
     open(os.path.join(o_site_rates_dir, family + ".txt"), "w").write(
         f"{len(site_rates)} sites\n" + " ".join(site_rates)
     )
+    secure_parallel_output(o_site_rates_dir, family)
 
 
 def extract_log_likelihood(
@@ -124,6 +140,7 @@ def extract_log_likelihood(
         open(os.path.join(o_likelihood_dir, family + ".txt"), "w").write(
             str(ll) + f"\n{len(lls)} sites\n{' '.join(lls)}\n"
         )
+    secure_parallel_output(o_likelihood_dir, family)
 
 
 def run_fast_tree_with_custom_rate_matrix(
@@ -221,6 +238,7 @@ def run_fast_tree_with_custom_rate_matrix(
             tree = translate_tree(tree_ete)
 
             write_tree(tree, os.path.join(output_tree_dir, family + ".txt"))
+            secure_parallel_output(output_tree_dir, family)
 
             translate_site_rates(
                 i_fasttree_log_dir=output_tree_dir,
@@ -302,6 +320,8 @@ def fast_tree(
     output_site_rates_dir: Optional[str] = None,
     output_likelihood_dir: Optional[str] = None,
 ) -> None:
+    logger = logging.getLogger("phylogeny_estimation.fast_tree")
+
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
     if not os.path.exists(output_site_rates_dir):
@@ -324,6 +344,8 @@ def fast_tree(
         ]
         for process_rank in range(num_processes)
     ]
+
+    logger.info(f"Going to run on {len(families)} families")
 
     if num_processes > 1:
         with multiprocessing.Pool(num_processes) as pool:

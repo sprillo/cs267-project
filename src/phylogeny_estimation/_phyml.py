@@ -9,7 +9,7 @@ import pandas as pd
 import tqdm
 from ete3 import Tree as TreeETE
 
-from src.caching import cached_parallel_computation
+from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import read_msa, read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution
 from src.utils import get_process_args, pushd
@@ -202,6 +202,7 @@ def _map_func(args: List):
         )
         tree = translate_tree(tree_ete)
         write_tree(tree, os.path.join(output_tree_dir, family + ".txt"))
+        secure_parallel_output(output_tree_dir, family)
 
         site_rates, site_ll = get_site_rates_and_site_ll(
             phyml_site_ll_path=phyml_site_ll_path
@@ -214,6 +215,7 @@ def _map_func(args: List):
         open(os.path.join(output_likelihood_dir, family + ".txt"), "w").write(
             ll_file_contents
         )
+        secure_parallel_output(output_likelihood_dir, family)
 
         site_rates_file_contents = (
             f"{len(site_rates)} sites\n{' '.join(map(str, site_rates))}\n"
@@ -221,6 +223,7 @@ def _map_func(args: List):
         open(os.path.join(output_site_rates_dir, family + ".txt"), "w").write(
             site_rates_file_contents
         )
+        secure_parallel_output(output_site_rates_dir, family)
 
         open(os.path.join(output_tree_dir, family + ".profiling"), "w").write(
             f"Total time: {time.time() - st}\n"
