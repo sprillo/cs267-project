@@ -8,7 +8,7 @@ import os
 import sys
 import tempfile
 import time
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import wget
 
-from src import cherry_estimator
+from src import PhylogenyEstimatorType, cherry_estimator
 from src.io import read_log_likelihood
 from src.markov_chain import (
     get_equ_path,
@@ -372,20 +372,6 @@ def get_reported_results_df(pfam_or_treebase: str) -> pd.DataFrame:
     df = df.drop(0)
     df.set_index(["Name"], inplace=True)
     return df
-
-
-MSADirType = str
-FamiliesType = List[str]
-RateMatrixPathType = str
-PhylogenyEstimatorReturnType = Dict[str, str]
-PhylogenyEstimatorType = Callable[
-    [
-        MSADirType,
-        FamiliesType,
-        RateMatrixPathType,
-    ],
-    PhylogenyEstimatorReturnType,
-]
 
 
 def reproduce_lg_paper_fig_4(
