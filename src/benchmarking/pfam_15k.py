@@ -7,14 +7,15 @@ import numpy as np
 import tqdm
 
 from src import caching
+from src.caching import secure_parallel_output
 from src.io import write_msa
 from src.utils import get_process_args
 
 from ._contact_generation.ContactMatrix import ContactMatrix
 
 
-def compute_contact_map(
-    pdb_dir: str,
+def _compute_contact_map(
+    pfam_15k_pdb_dir: str,
     family: str,
     angstrom_cutoff: float,
     output_contact_map_dir: str,
@@ -23,22 +24,23 @@ def compute_contact_map(
         output_contact_map_dir, family + ".txt"
     )
     contact_matrix = ContactMatrix(
-        pdb_dir=pdb_dir,
+        pdb_dir=pfam_15k_pdb_dir,
         protein_family_name=family,
         angstrom_cutoff=angstrom_cutoff,
     )
     contact_matrix.write_to_file(output_contact_map_path)
+    secure_parallel_output(output_contact_map_dir, family)
 
 
 def _map_func_compute_contact_maps(args: List) -> None:
-    pdb_dir = args[0]
+    pfam_15k_pdb_dir = args[0]
     families = args[1]
     angstrom_cutoff = args[2]
     output_contact_map_dir = args[3]
 
     for family in families:
-        compute_contact_map(
-            pdb_dir=pdb_dir,
+        _compute_contact_map(
+            pfam_15k_pdb_dir=pfam_15k_pdb_dir,
             family=family,
             angstrom_cutoff=angstrom_cutoff,
             output_contact_map_dir=output_contact_map_dir,
@@ -51,18 +53,18 @@ def _map_func_compute_contact_maps(args: List) -> None:
     output_dirs=["output_contact_map_dir"],
 )
 def compute_contact_maps(
-    pdb_dir: str,
+    pfam_15k_pdb_dir: str,
     families: List[str],
     angstrom_cutoff: float,
     num_processes: int,
     output_contact_map_dir: str,
 ):
-    if not os.path.exists(pdb_dir):
-        raise ValueError(f"Could not find pdb_dir {pdb_dir}")
+    if not os.path.exists(pfam_15k_pdb_dir):
+        raise ValueError(f"Could not find pfam_15k_pdb_dir {pfam_15k_pdb_dir}")
 
     map_args = [
         [
-            pdb_dir,
+            pfam_15k_pdb_dir,
             get_process_args(process_rank, num_processes, families),
             angstrom_cutoff,
             output_contact_map_dir,
@@ -87,18 +89,18 @@ def compute_contact_maps(
         )
 
 
-def subsample_pfam_15k_msa(
-    input_msa_path: str,
+def _subsample_pfam_15k_msa(
+    pfam_15k_msa_path: str,
     num_sequences: Optional[int],
     output_msa_dir: str,
     family: str,
 ):
-    if not os.path.exists(input_msa_path):
-        raise FileNotFoundError(f"MSA file {input_msa_path} does not exist!")
+    if not os.path.exists(pfam_15k_msa_path):
+        raise FileNotFoundError(f"MSA file {pfam_15k_msa_path} does not exist!")
 
     # Read MSA
     msa = []  # type: List[Tuple[str, str]]
-    with open(input_msa_path) as file:
+    with open(pfam_15k_msa_path) as file:
         lines = list(file)
         n_lines = len(lines)
         for i in range(0, n_lines, 2):
@@ -123,7 +125,7 @@ def subsample_pfam_15k_msa(
     family_int_hash = (
         int(
             hashlib.sha512(
-                (family + "-subsample_pfam_15k_msa").encode("utf-8")
+                (family + "-_subsample_pfam_15k_msa").encode("utf-8")
             ).hexdigest(),
             16,
         )
@@ -142,16 +144,17 @@ def subsample_pfam_15k_msa(
     write_msa(
         msa=msa_dict, msa_path=os.path.join(output_msa_dir, family + ".txt")
     )
+    secure_parallel_output(output_msa_dir, family)
 
 
 def _map_func_subsample_pfam_15k_msas(args: List):
-    msa_dir = args[0]
+    pfam_15k_msa_dir = args[0]
     num_sequences = args[1]
     families = args[2]
     output_msa_dir = args[3]
     for family in families:
-        subsample_pfam_15k_msa(
-            input_msa_path=os.path.join(msa_dir, family + ".a3m"),
+        _subsample_pfam_15k_msa(
+            pfam_15k_msa_path=os.path.join(pfam_15k_msa_dir, family + ".a3m"),
             num_sequences=num_sequences,
             output_msa_dir=output_msa_dir,
             family=family,
@@ -164,7 +167,7 @@ def _map_func_subsample_pfam_15k_msas(args: List):
     output_dirs=["output_msa_dir"],
 )
 def subsample_pfam_15k_msas(
-    msa_dir: str,
+    pfam_15k_msa_dir: str,
     num_sequences: int,
     families: List[str],
     output_msa_dir: str,
@@ -172,7 +175,7 @@ def subsample_pfam_15k_msas(
 ):
     map_args = [
         [
-            msa_dir,
+            pfam_15k_msa_dir,
             num_sequences,
             get_process_args(process_rank, num_processes, families),
             output_msa_dir,
