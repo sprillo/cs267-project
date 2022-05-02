@@ -1,3 +1,4 @@
+biotite
 ete3
 flake8
 matplotlib
@@ -6,6 +7,7 @@ numpy
 pandas
 parameterized
 pytest
+scipy
 threadpoolctl
 torch
 tqdm

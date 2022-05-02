@@ -11,6 +11,7 @@ setup(
     version=version,
     packages=find_packages(),
     install_requires=[
+        'biotite',
         'ete3',
         'flake8',
         'matplotlib',
@@ -19,6 +20,7 @@ setup(
         'pandas',
         'parameterized',
         'pytest',
+        'scipy',
         'threadpoolctl',
         'torch',
         'tqdm',
