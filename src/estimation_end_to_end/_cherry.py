@@ -1,15 +1,17 @@
 import os
+from functools import partial
 from typing import List
 
 from src.counting import count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
-from src.phylogeny_estimation import fast_tree
+from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids
 
 
 def cherry_estimator(
     msa_dir: str,
     families: List[str],
+    tree_estimator: PhylogenyEstimatorType,
     initial_rate_matrix_path: str,
     num_rate_categories: int,
     num_iterations: int,
@@ -34,7 +36,7 @@ def cherry_estimator(
 
     current_estimate_rate_matrix_path = initial_rate_matrix_path
     for iteration in range(num_iterations):
-        fast_tree_output_dirs = fast_tree(
+        tree_estimator_output_dirs = tree_estimator(
             msa_dir=msa_dir,
             families=families,
             rate_matrix_path=current_estimate_rate_matrix_path,
@@ -43,9 +45,9 @@ def cherry_estimator(
         )
 
         count_matrices_dir = count_transitions(
-            tree_dir=fast_tree_output_dirs["output_tree_dir"],
+            tree_dir=tree_estimator_output_dirs["output_tree_dir"],
             msa_dir=msa_dir,
-            site_rates_dir=fast_tree_output_dirs["output_site_rates_dir"],
+            site_rates_dir=tree_estimator_output_dirs["output_site_rates_dir"],
             families=families,
             amino_acids=get_amino_acids(),
             quantization_points=quantization_points,
