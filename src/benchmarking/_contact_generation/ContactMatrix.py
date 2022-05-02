@@ -4,6 +4,8 @@ import numpy as np
 from biotite.structure.io.pdb import PDBFile
 from scipy.spatial.distance import pdist, squareform
 
+from src.io import write_contact_map
+
 
 def extend(a, b, c, L, A, D) -> float:
     """
@@ -69,11 +71,8 @@ class ContactMatrix:
         Writes the contact matrix to outfile. Spaces are used as separators.
         """
         n = self.nsites
-        res = f"{n} sites\n"
+        cm = np.zeros(shape=(n, n), dtype=int)
         for i in range(n):
             for j in range(n):
-                res += str(self._pdb_contact[i, j])
-            res += "\n"
-        with open(outfile, "w") as file:
-            file.write(res)
-            file.flush()
+                cm[i, j] = self._pdb_contact[i, j]
+        write_contact_map(cm, outfile)
