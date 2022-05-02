@@ -18,6 +18,12 @@ import wget
 
 from src import cherry_estimator
 from src.io import read_log_likelihood
+from src.markov_chain import (
+    get_equ_path,
+    get_jtt_path,
+    get_lg_path,
+    get_wag_path,
+)
 from src.utils import pushd
 
 
@@ -290,10 +296,6 @@ def get_lg_PfamTrainingAlignments_data(
     )
 
 
-def equ_path() -> str:
-    return "data/rate_matrices/equ.txt"
-
-
 def run_rate_estimator(
     rate_estimator_name: str,
     msa_train_dir: str,
@@ -304,18 +306,18 @@ def run_rate_estimator(
     Given a rate estimator name, returns the path to the rate matrix
     """
     if rate_estimator_name == "EQU":
-        res = equ_path()
+        res = get_equ_path()
     elif rate_estimator_name == "reproduced JTT":
-        res = "data/rate_matrices/jtt.txt"
+        res = get_jtt_path()
     elif rate_estimator_name == "reproduced WAG":
-        res = "data/rate_matrices/wag.txt"
+        res = get_wag_path()
     elif rate_estimator_name == "reproduced LG":
-        res = "data/rate_matrices/lg.txt"
+        res = get_lg_path()
     elif rate_estimator_name == "Cherry; FastTree w/EQU; 1st iteration":
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=equ_path(),
+            initial_rate_matrix_path=get_equ_path(),
             num_rate_categories=4,
             num_iterations=1,
             num_processes=num_processes,
@@ -324,7 +326,7 @@ def run_rate_estimator(
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=equ_path(),
+            initial_rate_matrix_path=get_equ_path(),
             num_rate_categories=4,
             num_iterations=2,
             num_processes=num_processes,
@@ -333,7 +335,7 @@ def run_rate_estimator(
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=equ_path(),
+            initial_rate_matrix_path=get_equ_path(),
             num_rate_categories=4,
             num_iterations=3,
             num_processes=num_processes,

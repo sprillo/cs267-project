@@ -244,3 +244,31 @@ def normalized(rate_matrix: np.array) -> np.array:
     mutation_rate = pi @ -np.diag(rate_matrix)
     res = rate_matrix / mutation_rate
     return res
+
+
+def get_equ_path():
+    return "data/rate_matrices/equ.txt"
+
+
+def get_jtt_path():
+    return "data/rate_matrices/jtt.txt"
+
+
+def get_wag_path():
+    return "data/rate_matrices/wag.txt"
+
+
+def get_lg_path():
+    return "data/rate_matrices/lg.txt"
+
+
+def get_lg_stationary_path():
+    return "data/rate_matrices/lg_stationary.txt"
+
+
+def get_lg_x_lg_path():
+    return "data/rate_matrices/lg_x_lg.txt"
+
+
+def get_lg_x_lg_stationary_path():
+    return "data/rate_matrices/lg_x_lg_stationary.txt"
