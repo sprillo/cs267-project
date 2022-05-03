@@ -42,3 +42,13 @@ def rmse(
         np.sum(masked_log_ratio_squared) / (num_states * (num_states - 1.0))
     )
     return res
+
+
+def mre(
+    y: RateMatrixType,
+    y_hat: RateMatrixType,
+) -> float:
+    """
+    Max relative error.
+    """
+    return np.exp(l_infty_norm(y, y_hat)) - 1

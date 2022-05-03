@@ -298,7 +298,7 @@ def get_lg_PfamTrainingAlignments_data(
     )
 
 
-@caching.cached()
+# @caching.cached()
 def run_rate_estimator(
     rate_estimator_name: str,
     msa_train_dir: str,
@@ -316,7 +316,9 @@ def run_rate_estimator(
         res = get_wag_path()
     elif rate_estimator_name == "reproduced LG":
         res = get_lg_path()
-    elif rate_estimator_name == "Cherry; FastTree w/EQU; 1st iteration":
+    elif rate_estimator_name.startswith("Cherry__"):
+        tokens = rate_estimator_name.split("__")
+        assert len(tokens) == 4
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
@@ -325,44 +327,11 @@ def run_rate_estimator(
                 num_rate_categories=4,
             ),
             initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=1,
+            num_iterations=int(tokens[1]),
             num_processes=num_processes,
-        )
-    elif rate_estimator_name == "Cherry; FastTree w/EQU; 2nd iteration":
-        return cherry_estimator(
-            msa_dir=msa_train_dir,
-            families=families_train,
-            tree_estimator=partial(
-                fast_tree,
-                num_rate_categories=4,
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=2,
-            num_processes=num_processes,
-        )
-    elif rate_estimator_name == "Cherry; FastTree w/EQU; 3rd iteration":
-        return cherry_estimator(
-            msa_dir=msa_train_dir,
-            families=families_train,
-            tree_estimator=partial(
-                fast_tree,
-                num_rate_categories=4,
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=3,
-            num_processes=num_processes,
-        )
-    elif rate_estimator_name == "Cherry; FastTree w/EQU; 4th iteration":
-        return cherry_estimator(
-            msa_dir=msa_train_dir,
-            families=families_train,
-            tree_estimator=partial(
-                fast_tree,
-                num_rate_categories=4,
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=4,
-            num_processes=num_processes,
+            learning_rate=float(tokens[2]),
+            num_epochs=int(tokens[3]),
+            do_adam=True,
         )
     else:
         raise ValueError(f"Unknown rate estimator name: {rate_estimator_name}")
