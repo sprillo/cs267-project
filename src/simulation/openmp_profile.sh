@@ -7,8 +7,8 @@ module load openmpi
 mpicxx -fopenmp -O3 -o simulate simulate.cpp
 
 # Set OpenMP settings
-# export OMP_PLACES=cores
-# export OMP_PROC_BIND=spread
+export OMP_PLACES=cores
+export OMP_PROC_BIND=spread
 # export OMP_NUM_THREADS=4
 
 for ((n = 1; n <= 64; n = 2 * n))

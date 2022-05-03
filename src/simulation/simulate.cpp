@@ -663,18 +663,20 @@ int main(int argc, char *argv[]) {
     // Initialize simulation
     init_simulation(amino_acids, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
 
-    MPI_Barrier(MPI_COMM_WORLD);
-
     auto end_init = std::chrono::high_resolution_clock::now();
     double init_time = std::chrono::duration<double>(end_init - start).count();
     if (rank == 0) {
-        std::cout << "Finish Initializing in " << init_time << " seconds." << std::endl;
-        std::string outputfilename =  output_msa_dir + "/" + "profiling.txt";
-        outprofilingfile.open(outputfilename);
-        outprofilingfile << "This is the start of this testing file ..." << std::endl;
-        outprofilingfile << "The number of process is " << num_procs << std::endl;
-        outprofilingfile << "Finish Initializing in " << init_time << " seconds." << std::endl;
+        std::cout << " Rank 0 finish Initializing in " << init_time << " seconds." << std::endl;
     }
+
+    std::string outputfilename =  output_msa_dir + "/" + std::to_string(rank) + "_profiling.txt";
+    outprofilingfile.open(outputfilename);
+    outprofilingfile << "This is the start of this testing file ..." << std::endl;
+    outprofilingfile << "The number of process is " << num_procs << std::endl;
+    outprofilingfile << "This is rank " << rank << std::endl;
+    outprofilingfile << "Finish Initializing in " << init_time << " seconds." << std::endl;
+
+
 
 
     // Assign families to each rank
@@ -690,19 +692,18 @@ int main(int argc, char *argv[]) {
     for (std::string family : local_families) {
         run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
     }
-    
-    MPI_Barrier(MPI_COMM_WORLD);
 
     auto end_sim = std::chrono::high_resolution_clock::now();
     double sim_time = std::chrono::duration<double>(end_sim - end_init).count();
     double entire_time = std::chrono::duration<double>(end_sim - start).count();
     if (rank == 0) {
-        std::cout << "Finish Simulation in " << sim_time << " seconds." << std::endl;
-        std::cout << "Finish the entire program in " << entire_time << " seconds." << std::endl;
-        outprofilingfile << "Finish Simulation in " << sim_time << " seconds." << std::endl;
-        outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
-        outprofilingfile.close();
+        std::cout << " Rank 0 finish Simulation in " << sim_time << " seconds." << std::endl;
+        std::cout << " Rank 0 finish the entire program in " << entire_time << " seconds." << std::endl;
     }
+
+    outprofilingfile << "Finish Simulation in " << sim_time << " seconds." << std::endl;
+    outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
+    outprofilingfile.close();
 
     MPI_Finalize();
 }
