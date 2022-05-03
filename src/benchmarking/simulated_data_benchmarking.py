@@ -230,9 +230,10 @@ def simulate_ground_truth_data_single_site(
         num_processes=num_processes,
     )
 
-    gt_trees, gt_site_rates = (
+    gt_trees, gt_site_rates, gt_likelihood_dir = (
         fast_tree_output["output_tree_dir"],
         fast_tree_output["output_site_rates_dir"],
+        fast_tree_output["output_likelihood_dir"],
     )
 
     # We only investigate single-site model here.
@@ -266,7 +267,14 @@ def simulate_ground_truth_data_single_site(
         states=get_amino_acids(),
     )["output_msa_dir"]
 
-    return msa_dir, contact_map_dir, gt_msa_dir, gt_trees, gt_site_rates
+    return (
+        msa_dir,
+        contact_map_dir,
+        gt_msa_dir,
+        gt_trees,
+        gt_site_rates,
+        gt_likelihood_dir,
+    )
 
 
 # def end_to_end_simulation_single_site(
