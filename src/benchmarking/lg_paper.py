@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 import time
+from functools import partial
 from typing import List, Optional, Tuple
 
 import matplotlib.patches as mpatches
@@ -16,7 +17,7 @@ import numpy as np
 import pandas as pd
 import wget
 
-from src import PhylogenyEstimatorType, cherry_estimator
+from src import PhylogenyEstimatorType, caching, cherry_estimator
 from src.io import read_log_likelihood
 from src.markov_chain import (
     get_equ_path,
@@ -24,6 +25,7 @@ from src.markov_chain import (
     get_lg_path,
     get_wag_path,
 )
+from src.phylogeny_estimation import fast_tree
 from src.utils import pushd
 
 
@@ -296,6 +298,7 @@ def get_lg_PfamTrainingAlignments_data(
     )
 
 
+@caching.cached()
 def run_rate_estimator(
     rate_estimator_name: str,
     msa_train_dir: str,
@@ -317,8 +320,11 @@ def run_rate_estimator(
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=get_equ_path(),
-            num_rate_categories=4,
+            tree_estimator=partial(
+                fast_tree,
+                num_rate_categories=4,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
             num_iterations=1,
             num_processes=num_processes,
         )
@@ -326,8 +332,11 @@ def run_rate_estimator(
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=get_equ_path(),
-            num_rate_categories=4,
+            tree_estimator=partial(
+                fast_tree,
+                num_rate_categories=4,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
             num_iterations=2,
             num_processes=num_processes,
         )
@@ -335,9 +344,24 @@ def run_rate_estimator(
         return cherry_estimator(
             msa_dir=msa_train_dir,
             families=families_train,
-            initial_rate_matrix_path=get_equ_path(),
-            num_rate_categories=4,
+            tree_estimator=partial(
+                fast_tree,
+                num_rate_categories=4,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
             num_iterations=3,
+            num_processes=num_processes,
+        )
+    elif rate_estimator_name == "Cherry; FastTree w/EQU; 4th iteration":
+        return cherry_estimator(
+            msa_dir=msa_train_dir,
+            families=families_train,
+            tree_estimator=partial(
+                fast_tree,
+                num_rate_categories=4,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
+            num_iterations=4,
             num_processes=num_processes,
         )
     else:
@@ -379,7 +403,7 @@ def reproduce_lg_paper_fig_4(
     families_train: List[str],
     msa_test_dir: str,
     families_test: List[str],
-    rate_estimator_names: List[str],
+    rate_estimator_names: List[Tuple[str]],
     baseline_rate_estimator_name: Optional[str],
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
     num_processes: int,
@@ -392,6 +416,8 @@ def reproduce_lg_paper_fig_4(
     """
     Reproduce Fig. 4 of the LG paper, extending it with the desired models.
     """
+    assert pfam_or_treebase == "pfam"
+    assert family_name_len == 7
     df = pd.DataFrame(
         np.zeros(
             shape=(
@@ -413,7 +439,7 @@ def reproduce_lg_paper_fig_4(
             family[:family_name_len], "Sites"
         ]
 
-    for rate_estimator_name in rate_estimator_names:
+    for (rate_estimator_name, _) in rate_estimator_names:
         print(f"Evaluating rate_estimator_name: {rate_estimator_name}")
         st = time.time()
         if rate_estimator_name.startswith("reported"):
@@ -455,7 +481,7 @@ def reproduce_lg_paper_fig_4(
             )
         return log_likelihoods
 
-    y = get_log_likelihoods(df, rate_estimator_names)
+    y = get_log_likelihoods(df, [x[0] for x in rate_estimator_names])
     yerr = None
     if num_bootstraps > 0:
         np.random.seed(0)
@@ -469,7 +495,7 @@ def reproduce_lg_paper_fig_4(
             df_bootstrap = df.loc[chosen_rows]
             assert df_bootstrap.shape == df.shape
             y_bootstrap = get_log_likelihoods(
-                df_bootstrap, rate_estimator_names
+                df_bootstrap, [x[0] for x in rate_estimator_names]
             )
             y_bootstraps.append(y_bootstrap)
         y_bootstraps = np.array(y_bootstraps)
@@ -485,7 +511,7 @@ def reproduce_lg_paper_fig_4(
         # ).T
 
     colors = []
-    for model_name in rate_estimator_names:
+    for model_name in [x[0] for x in rate_estimator_names]:
         if "reported" in model_name:
             colors.append("black")
         elif "reproduced" in model_name:
@@ -499,9 +525,13 @@ def reproduce_lg_paper_fig_4(
         else:
             colors.append("brown")
     plt.figure(figsize=figsize)
-    plt.title(pfam_or_treebase)
-    plt.bar(x=rate_estimator_names, height=y, color=colors, yerr=yerr)
-    plt.xticks(rotation=270)
+    plt.bar(
+        x=[x[1] for x in rate_estimator_names],
+        height=y,
+        color=colors,
+        yerr=yerr,
+    )  # , width=0.3)
+    plt.xticks(rotation=0)
     ax = plt.gca()
     ax.yaxis.grid()
     if show_legend:
@@ -510,14 +540,24 @@ def reproduce_lg_paper_fig_4(
                 mpatches.Patch(color="black", label="Reported"),
                 mpatches.Patch(color="blue", label="Reproduced"),
                 mpatches.Patch(color="red", label="Cherry"),
-                mpatches.Patch(color="green", label="M. Parsimony"),
-                mpatches.Patch(color="grey", label="JTT-IPW"),
-                mpatches.Patch(color="brown", label="Other"),
+                # mpatches.Patch(color="green", label="M. Parsimony"),
+                # mpatches.Patch(color="grey", label="JTT-IPW"),
+                # mpatches.Patch(color="brown", label="Other"),
             ]
         )
+    # plt.grid()
+    plt.tight_layout()
+    plt.title("Results on Pfam data from LG paper")
+    plt.savefig("lg_paper_figure.jpg", bbox_inches="tight")
     plt.show()
 
     if num_bootstraps:
-        return y, df, pd.DataFrame(y_bootstraps, columns=rate_estimator_names)
+        return (
+            y,
+            df,
+            pd.DataFrame(
+                y_bootstraps, columns=[x[1] for x in rate_estimator_names]
+            ),
+        )
     else:
         return y, df, None
