@@ -184,7 +184,11 @@ def count_co_transitions(
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
     """
+    print("bbbbbbbb")
     if not os.path.exists(output_count_matrices_dir):
+        print("creating")
+        print(output_count_matrices_dir)
+        assert(False)
         os.makedirs(output_count_matrices_dir)
 
     if use_cpp_implementation:
@@ -196,12 +200,12 @@ def count_co_transitions(
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
             # Currently it should run on the interactive node
-            command = f"mpicxx -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
+            command = f"mpicxx -fopenmp -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         # os.system("export OMP_NUM_THREADS=4")
-        command = ""
+        command = "export OMP_NUM_THREADS=68 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 68 --cpu_bind=cores"
         command += f"{bin_path}"
         command += f" {tree_dir}"
         command += f" {msa_dir}"

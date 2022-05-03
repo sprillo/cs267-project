@@ -1,4 +1,5 @@
- mpicxx -O3 -o /global/homes/a/andy_pyc/cs267-project/src/counting/count /global/homes/a/andy_pyc/cs267-project/src/counting/_count_co_transitions.cpp
+module load openmpi
+mpicxx -O3 -o /global/homes/a/andy_pyc/cs267-project/src/counting/count /global/homes/a/andy_pyc/cs267-project/src/counting/_count_co_transitions.cpp
 
 /global/homes/a/andy_pyc/cs267-project/src/counting/count \
 /global/cscratch1/sd/sprillo/cs267_data/trees_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats \

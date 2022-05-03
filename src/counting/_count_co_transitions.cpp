@@ -8,6 +8,7 @@
 #include <map>
 #include <utility> 
 #include <chrono>
+#include <omp.h>
 
 #define PROFILE true
 
@@ -18,11 +19,12 @@ double total_time = 0;
 double time_parse_param = 0;
 double time_init_aa_pairs = 0;
 double time_init_count_matrices_data = 0;
-double time_read_tree = 0;
-double time_read_msa = 0;
-double time_read_contact_map = 0;
-double time_compute_contacting_pairs = 0;
-double time_compute_count_matrices = 0;
+// double time_read_tree = 0;
+// double time_read_msa = 0;
+// double time_read_contact_map = 0;
+// double time_compute_contacting_pairs = 0;
+// double time_compute_count_matrices = 0;
+double time_read_dataset_and_compute_count_matrices;
 double time_create_count_matrices_datastructure = 0;
 double time_write_count_matrices = 0;
 auto start_ = std::chrono::high_resolution_clock::now();
@@ -270,103 +272,118 @@ vector<count_matrix> _map_func(
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
-    for (const string & family : families){
-        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        Tree* tree = read_tree(tree_dir + "/" + family + ".txt");
-        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_read_tree += std::chrono::duration<double>(end_ - start_).count();
-        
-        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        map<string, string>* msa = read_msa(msa_dir + "/" + family + ".txt");
-        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+    #pragma omp parallel
+    {
+        #pragma omp for
+        for (const string & family : families){
+            // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+            Tree* tree = read_tree(tree_dir + "/" + family + ".txt");
+            // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+            // if (PROFILE) time_read_tree += std::chrono::duration<double>(end_ - start_).count();
+            
+            // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+            map<string, string>* msa = read_msa(msa_dir + "/" + family + ".txt");
+            // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+            // if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
-        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
-        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
+            // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+            char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+            // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+            // if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
 
-        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        vector<pair<int, int>> contacting_pairs;
-        for (int i=0; i<num_sites; i++){
-            for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
-                if (contact_map[i*(num_sites+1)+j] == '1'){
-                    pair<int, int> temp(i, j);
-                    contacting_pairs.push_back(temp);
+            // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+            vector<pair<int, int>> contacting_pairs;
+            contacting_pairs.reserve(num_sites * num_sites / 2);
+            for (int i=0; i<num_sites; i++){
+                for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
+                    if (contact_map[i*(num_sites+1)+j] == '1'){
+                        pair<int, int> temp(i, j);
+                        contacting_pairs.push_back(temp);
+                    }
                 }
             }
-        }
-        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
+            // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+            // if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
 
-        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        for (string node : tree->nodes()){
-            if (edge_or_cherry == "edge") {
-                string node_seq = (*msa)[node];
-                for (adj_pair_t& edge : tree->children(node)){
-                    string child = edge.node;
-                    float branch_length = edge.length;
-                    string child_seq = (*msa)[child];
-                    int q_idx = quantization_idx(branch_length, quantization_points);
-                    if (q_idx != -1){
-                        for (pair<int, int>& p : contacting_pairs){
-                            int i = p.first;
-                            int j = p.second;
-                            string start_state = string{node_seq[i], node_seq[j]};
-                            string end_state = string{child_seq[i], child_seq[j]};
-                            if (
-                                find(amino_acids.begin(), amino_acids.end(), string{node_seq[i]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{node_seq[j]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{child_seq[i]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{child_seq[j]}) != amino_acids.end()
-                            ){
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
-                                reverse(start_state.begin(), start_state.end());
-                                reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
+            // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+
+            for (string node : tree->nodes()){
+                if (edge_or_cherry == "edge") {
+                    string node_seq = (*msa)[node];
+                    for (adj_pair_t& edge : tree->children(node)){
+                        string child = edge.node;
+                        float branch_length = edge.length;
+                        string child_seq = (*msa)[child];
+                        int q_idx = quantization_idx(branch_length, quantization_points);
+                        if (q_idx != -1){
+                            for (pair<int, int>& p : contacting_pairs){
+                                int i = p.first;
+                                int j = p.second;
+                                string start_state = string{node_seq[i], node_seq[j]};
+                                string end_state = string{child_seq[i], child_seq[j]};
+                                if (
+                                    find(amino_acids.begin(), amino_acids.end(), string{node_seq[i]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{node_seq[j]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{child_seq[i]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{child_seq[j]}) != amino_acids.end()
+                                ){
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
+                                    reverse(start_state.begin(), start_state.end());
+                                    reverse(end_state.begin(), end_state.end());
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
+                                }
+                            }
+                        }
+                    }
+                } else { // cherry
+                    vector<adj_pair_t> children = tree->children(node);
+                    if (children.size() == 2 && all_children_are_leafs(tree, children)){
+                        string leaf_1 = children[0].node;
+                        float branch_length_1 = children[0].length;
+                        string leaf_2 = children[1].node;
+                        float branch_length_2 = children[1].length;
+                        string leaf_seq_1 = (*msa)[leaf_1];
+                        string leaf_seq_2 = (*msa)[leaf_2];
+                        float branch_length_total = branch_length_1 + branch_length_2;
+                        int q_idx = quantization_idx(branch_length_total, quantization_points);
+                        if (q_idx != -1){
+                            for (pair<int, int>& p : contacting_pairs){
+                                int i = p.first;
+                                int j = p.second;
+                                string start_state = string{leaf_seq_1[i], leaf_seq_1[j]};
+                                string end_state = string{leaf_seq_2[i], leaf_seq_2[j]};
+                                if (
+                                    find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[i]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[j]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[i]}) != amino_acids.end()
+                                    && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[j]}) != amino_acids.end()
+                                ){
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
+                                    reverse(start_state.begin(), start_state.end());
+                                    reverse(end_state.begin(), end_state.end());
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
+                                    #pragma omp atomic
+                                    count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
+                                }
                             }
                         }
                     }
                 }
-            } else { // cherry
-                vector<adj_pair_t> children = tree->children(node);
-                if (children.size() == 2 && all_children_are_leafs(tree, children)){
-                    string leaf_1 = children[0].node;
-                    float branch_length_1 = children[0].length;
-                    string leaf_2 = children[1].node;
-                    float branch_length_2 = children[1].length;
-                    string leaf_seq_1 = (*msa)[leaf_1];
-                    string leaf_seq_2 = (*msa)[leaf_2];
-                    float branch_length_total = branch_length_1 + branch_length_2;
-                    int q_idx = quantization_idx(branch_length_total, quantization_points);
-                    if (q_idx != -1){
-                        for (pair<int, int>& p : contacting_pairs){
-                            int i = p.first;
-                            int j = p.second;
-                            string start_state = string{leaf_seq_1[i], leaf_seq_1[j]};
-                            string end_state = string{leaf_seq_2[i], leaf_seq_2[j]};
-                            if (
-                                find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[i]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[j]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[i]}) != amino_acids.end()
-                                && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[j]}) != amino_acids.end()
-                            ){
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
-                                reverse(start_state.begin(), start_state.end());
-                                reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
-                            }
-                        }
-                    }
-                }
             }
+            // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+            // if (PROFILE) time_compute_count_matrices += std::chrono::duration<double>(end_ - start_).count();
         }
-        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_compute_count_matrices += std::chrono::duration<double>(end_ - start_).count();
-    }
-    
+    } // end OpenMP parallel
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_read_dataset_and_compute_count_matrices += std::chrono::duration<double>(end_ - start_).count();
+
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     for (int i=0; i<quantization_points.size(); i++){
         count_matrices.push_back(count_matrix{quantization_points[i], &(count_matrices_data[i * count_matrix_num_entries])});
@@ -439,6 +456,7 @@ void count_co_transitions(
 }
 
 int main(int argc, char *argv[]) {
+    cout << "aaaaa" << endl;
     // Read in all the arguments
     if (PROFILE) start_time = std::chrono::high_resolution_clock::now();
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
@@ -471,7 +489,6 @@ int main(int argc, char *argv[]) {
     
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_parse_param += std::chrono::duration<double>(end_ - start_).count();
-
     count_co_transitions(
         tree_dir,
         msa_dir,
@@ -491,11 +508,12 @@ int main(int argc, char *argv[]) {
     if (PROFILE) cout << "time_parse_param: " << time_parse_param << endl;
     if (PROFILE) cout << "time_init_aa_pairs: " << time_init_aa_pairs << endl;
     if (PROFILE) cout << "time_init_count_matrices_data: " << time_init_count_matrices_data << endl;
-    if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
-    if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
-    if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
-    if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
-    if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
+    // if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
+    // if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
+    // if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
+    // if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
+    // if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
+    if (PROFILE) cout << "time_read_dataset_and_compute_count_matrices: " << time_read_dataset_and_compute_count_matrices << endl;
     if (PROFILE) cout << "time_create_count_matrices_datastructure: " << time_create_count_matrices_datastructure << endl;
     if (PROFILE) cout << "time_write_count_matrices: " << time_write_count_matrices << endl;
     if (PROFILE) cout << "Total time: " << total_time << endl;
