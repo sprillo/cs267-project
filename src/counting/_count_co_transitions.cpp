@@ -456,7 +456,6 @@ void count_co_transitions(
 }
 
 int main(int argc, char *argv[]) {
-    cout << "aaaaa" << endl;
     // Read in all the arguments
     if (PROFILE) start_time = std::chrono::high_resolution_clock::now();
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();

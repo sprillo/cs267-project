@@ -89,7 +89,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     )
     def test_count_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
-            root_dir = "test_output/"
+            # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_matrices_dir_edges")
             count_transitions(
                 tree_dir=f"{DATA_DIR}/tiny/tree_dir",
@@ -147,7 +147,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     )
     def test_count_co_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
-            root_dir = "test_output/"
+            # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_edges")
             count_co_transitions(
                 tree_dir=f"{DATA_DIR}/tiny/tree_dir",
@@ -177,7 +177,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
     )
     def test_count_co_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
-            root_dir = "test_output/"
+            # root_dir = "test_output/"
             outdir = os.path.join(root_dir, "count_co_matrices_dir_cherries")
             count_co_transitions(
                 tree_dir=f"{DATA_DIR}/tiny/tree_dir",
