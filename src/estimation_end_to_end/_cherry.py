@@ -1,5 +1,4 @@
 import os
-from functools import partial
 from typing import List
 
 from src.counting import count_transitions
@@ -12,8 +11,7 @@ def cherry_estimator(
     msa_dir: str,
     families: List[str],
     tree_estimator: PhylogenyEstimatorType,
-    initial_rate_matrix_path: str,
-    num_rate_categories: int,
+    initial_tree_estimator_rate_matrix_path: str,
     num_iterations: int,
     num_processes: int,
     quantization_grid_center: float = 0.06,
@@ -21,6 +19,9 @@ def cherry_estimator(
     quantization_grid_num_steps: int = 50,
     use_cpp_counting_implementation: bool = False,
     device: str = "cpu",
+    learning_rate: float = 1e-1,
+    num_epochs: int = 2000,
+    do_adam: bool = True,
 ) -> str:
     """
     Cherry estimator.
@@ -34,13 +35,12 @@ def cherry_estimator(
         )
     ]
 
-    current_estimate_rate_matrix_path = initial_rate_matrix_path
+    current_estimate_rate_matrix_path = initial_tree_estimator_rate_matrix_path
     for iteration in range(num_iterations):
         tree_estimator_output_dirs = tree_estimator(
             msa_dir=msa_dir,
             families=families,
             rate_matrix_path=current_estimate_rate_matrix_path,
-            num_rate_categories=num_rate_categories,
             num_processes=num_processes,
         )
 
@@ -70,9 +70,9 @@ def cherry_estimator(
             stationary_distribution_path=None,
             rate_matrix_parameterization="pande_reversible",
             device=device,
-            learning_rate=1e-1,
-            num_epochs=200,
-            do_adam=True,
+            learning_rate=learning_rate,
+            num_epochs=num_epochs,
+            do_adam=do_adam,
         )["output_rate_matrix_dir"]
 
         current_estimate_rate_matrix_path = os.path.join(
