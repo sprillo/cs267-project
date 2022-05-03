@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import sys
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -19,6 +20,20 @@ from ._common import name_internal_nodes, translate_tree
 dir_path = os.path.dirname(os.path.realpath(__file__))
 phyml_path = os.path.join(dir_path, "phyml_github")
 phyml_bin_path = os.path.join(dir_path, "bin/phyml")
+
+
+def _init_logger():
+    logger = logging.getLogger("phylogeny_estimation.phyml")
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
 
 
 def _install_phyml():
@@ -257,6 +272,8 @@ def phyml(
     output_site_rates_dir: Optional[str] = None,
     output_likelihood_dir: Optional[str] = None,
 ):
+    logger = logging.getLogger("phylogeny_estimation.phyml")
+
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
     if not os.path.exists(output_site_rates_dir):
@@ -285,6 +302,8 @@ def phyml(
         ]
         for process_rank in range(num_processes)
     ]
+
+    logger.info(f"Going to run on {len(families)} families")
 
     if num_processes > 1:
         with multiprocessing.Pool(num_processes) as pool:
