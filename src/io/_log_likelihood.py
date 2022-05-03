@@ -1,9 +1,10 @@
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 
 def write_log_likelihood(
-    log_likelihood: Tuple[float, List[float]], log_likelihood_path: str
+    log_likelihood: Tuple[float, Optional[List[float]]],
+    log_likelihood_path: str,
 ) -> None:
     log_likelihood_dir = os.path.dirname(log_likelihood_path)
     if not os.path.exists(log_likelihood_dir):
@@ -11,16 +12,19 @@ def write_log_likelihood(
     ll, lls = log_likelihood
     res = ""
     res += f"{ll}\n"
-    res += f"{len(lls)} sites\n"
-    res += " ".join(list(map(str, lls)))
+    if lls is not None:
+        res += f"{len(lls)} sites\n"
+        res += " ".join(list(map(str, lls)))
     open(log_likelihood_path, "w").write(res)
 
 
 def read_log_likelihood(
     log_likelihood_path: str,
-) -> Tuple[float, List[float]]:
+) -> Tuple[float, Optional[List[float]]]:
     lines = open(log_likelihood_path, "r").read().strip().split("\n")
     ll = float(lines[0])
+    if len(lines) == 1:
+        return ll, None
     try:
         num_sites, s = lines[1].split(" ")
         if s != "sites":
