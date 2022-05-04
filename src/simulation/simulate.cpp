@@ -389,15 +389,15 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
         int threadnum = omp_get_thread_num();
         int numthreads = omp_get_num_threads();
         // First sample the independent sites
-        std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
+        // std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
         for (int i = threadnum; i < num_independent_sites; i += numthreads) {
-            result[i] = distribution1(random_engines[i]);
+            result[i] = i % 20;  // distribution1(random_engines[i]);
         }
 
         // Then sample the contacting sites
-        std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
+        // std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
         for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
-            result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
+            result[num_independent_sites + j] = j % 20; // distribution2(random_engines[num_independent_sites + j]);
         }
     }
 
@@ -420,8 +420,8 @@ int sample_transition(int index, int starting_state, float elapsed_time, std::st
             current_rate = - Q2_rate_matrix[current_state][current_state];
         }
         // See when the next transition happens
-        std::exponential_distribution<float> distribution1(current_rate);
-        float waiting_time = distribution1(random_engines[index]);
+        // std::exponential_distribution<float> distribution1(current_rate);
+        float waiting_time = current_rate; // distribution1(random_engines[index]);
         current_time += waiting_time;
         if (current_time >= elapsed_time) {
             // We reached the end of the process
@@ -435,8 +435,8 @@ int sample_transition(int index, int starting_state, float elapsed_time, std::st
             rate_vector = Q2_rate_matrix[current_state];
         }
         rate_vector.erase(rate_vector.begin() + current_state);
-        std::discrete_distribution distribution2(cbegin(rate_vector), cend(rate_vector));
-        int new_state = distribution2(random_engines[index]);
+        // std::discrete_distribution distribution2(cbegin(rate_vector), cend(rate_vector));
+        int new_state = (current_state + 1) % 19; // distribution2(random_engines[index]);
         if (new_state >= current_state) {
             new_state += 1;
         }
