@@ -1,3 +1,4 @@
+import argparse
 import os
 import time
 from typing import Dict, List, Optional, Tuple
@@ -541,3 +542,49 @@ def compute_log_likelihoods(
     profiling_str = f"Total time: {time.time() - st}\n"
     output_profiling_path = os.path.join(output_likelihood_dir, "profiling.txt")
     open(output_profiling_path, "w").write(profiling_str)
+
+
+# https://towardsdatascience.com/a-simple-guide-to-command-line-arguments-with-argparse-6824c30ab1c3
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Compute likelihoods")
+    parser.add_argument("--tree_dir", type=str, required=True)
+    parser.add_argument("--msa_dir", type=str, required=True)
+    parser.add_argument("--site_rates_dir", type=str, required=True)
+    parser.add_argument("--contact_map_dir", type=str, required=True)
+    parser.add_argument("--families", type=str, nargs="+", required=True)
+    parser.add_argument("--amino_acids", type=str, nargs="+", required=True)
+    parser.add_argument("--pi_1_path", type=str, required=True)
+    parser.add_argument("--Q_1_path", type=str, required=True)
+    parser.add_argument("--reversible_1", action="store_true")
+    parser.add_argument("--device_1", type=str, required=True)
+    parser.add_argument("--pi_2_path", type=str, required=True)
+    parser.add_argument("--Q_2_path", type=str, required=True)
+    parser.add_argument("--reversible_2", action="store_true")
+    parser.add_argument("--device_2", type=str, required=True)
+    parser.add_argument("--output_likelihood_dir", type=str, required=True)
+    parser.add_argument("--num_processes", type=int, required=True)
+    parser.add_argument("--use_cpp_implementation", action="store_true")
+    parser.add_argument("--OMP_NUM_THREADS", type=int, required=True)
+    parser.add_argument("--OPENBLAS_NUM_THREADS", type=int, required=True)
+    args = parser.parse_args()
+    compute_log_likelihoods(
+        tree_dir=args.tree_dir,
+        msa_dir=args.msa_dir,
+        site_rates_dir=args.site_rates_dir,
+        contact_map_dir=args.contact_map_dir,
+        families=args.families,
+        amino_acids=args.amino_acids,
+        pi_1_path=args.pi_1_path,
+        Q_1_path=args.Q_1_path,
+        reversible_1=args.reversible_1,
+        device_1=args.device_1,
+        pi_2_path=args.pi_2_path,
+        Q_2_path=args.Q_2_path,
+        reversible_2=args.reversible_2,
+        device_2=args.device_2,
+        output_likelihood_dir=args.output_likelihood_dir,
+        num_processes=args.num_processes,
+        use_cpp_implementation=args.use_cpp_implementation,
+        OMP_NUM_THREADS=args.OMP_NUM_THREADS,
+        OPENBLAS_NUM_THREADS=args.OPENBLAS_NUM_THREADS,
+    )
