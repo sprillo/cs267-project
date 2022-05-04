@@ -396,7 +396,7 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
 
         // Then sample the contacting sites
         // std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
-        for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
+        for (int j = threadnum; j < num_contacting_pairs; j += numthreads) {
             result[num_independent_sites + j] = j % 20; // distribution2(random_engines[num_independent_sites + j]);
         }
     }
