@@ -323,6 +323,9 @@ def _map_func(args: Dict):
     reversible_2 = args[12]
     device_2 = args[13]
     output_likelihood_dir = args[14]
+    process_rank = args[15]
+
+    st = time.time()
 
     for family in families:
         tree_path = os.path.join(tree_dir, family + ".txt")
@@ -408,6 +411,12 @@ def _map_func(args: Dict):
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)
+
+    profiling_str = f"Total time: {time.time() - st}\n"
+    output_profiling_path = os.path.join(
+        output_likelihood_dir, f"profiling_{process_rank}.txt"
+    )
+    open(output_profiling_path, "w").write(profiling_str)
 
 
 def compute_log_likelihoods(
@@ -511,6 +520,7 @@ def compute_log_likelihoods(
             reversible_2,
             device_2,
             output_likelihood_dir,
+            process_rank,
         ]
         for process_rank in range(num_processes)
     ]
