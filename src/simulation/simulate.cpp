@@ -16,20 +16,20 @@
  * 
  * Below shows the testing arguments during development:
  * (This is a sample version of the test_simulate_msas_normal_model)
- * argv[1]  (tree_dir): "./../../tests/simulation_tests/test_input_data/tree_dir"
- * argv[2]  (site_rates_dir): "./../../tests/simulation_tests/test_input_data/synthetic_site_rates_dir"
- * argv[3]  (contact_map_dir): "./../../tests/simulation_tests/test_input_data/synthetic_contact_map_dir"
- * argv[4]  (num_of_families): 3
- * argv[5]  (num_of_amino_acids): 2
- * argv[6]  (pi_1_path): "./../../tests/simulation_tests/test_input_data/normal_model/pi_1.txt"
- * argv[7]  (Q_1_path): "./../../tests/simulation_tests/test_input_data/normal_model/Q_1.txt"
- * agrv[8]  (pi_2_path): "./../../tests/simulation_tests/test_input_data/normal_model/pi_2.txt"
- * argv[9]  (Q_2_path): "./../../tests/simulation_tests/test_input_data/normal_model/Q_2.txt"
+ * argv[1]  (tree_dir): "/global/cscratch1/sd/sprillo/cs267_data/trees_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats"
+ * argv[2]  (site_rates_dir): "/global/cscratch1/sd/sprillo/cs267_data/site_rates_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats"
+ * argv[3]  (contact_map_dir): "/global/cscratch1/sd/sprillo/cs267_data/contact_maps_1024_seqs_None_sites_LG_FastTree.txt-d15ceeb4_RM_20_cats_maximal_matching"
+ * argv[4]  (familiy_file_path): ./test_familiy_sizes.txt
+ * argv[5]  (num_of_amino_acids): 20
+ * argv[6]  (pi_1_path): "../../data/rate_matrices/wag_stationary.txt"
+ * argv[7]  (Q_1_path): "../../data/rate_matrices/wag.txt"
+ * agrv[8]  (pi_2_path): "../../data/rate_matrices/wag_x_wag_stationary.txt"
+ * argv[9]  (Q_2_path): ".../../data/rate_matrices/wag_x_wag.txt"
  * argv[10] (strategy): "all_transitions"
- * argv[11] (output_msa_dir): "./../../tests/simulation_tests/test_input_data/simulated_msa_dir"
+ * argv[11] (output_msa_dir): "/global/cscratch1/sd/sprillo/xingyu_sim_out"
  * argv[12] (random_seed): 0
- * argv[13 : 16] (families): ["fam1", "fam2", "fam3"]
- * argv[16 : 18] (amino_acids): ["S", "T"]
+ * argv[13] (load_balancing_mode): 0 (0: naive version; 1: zig-zag)
+ * argv[14 : 24] (amino_acids): A R N D C Q E G H I L K M F P S T W Y V
  * 
  */
 #include <chrono>
@@ -38,16 +38,19 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <utility>
 #include <random>
 #include <vector>
 #include <unordered_map>
 #include <set>
 #include <map>
+#include <algorithm>
 
 #include <omp.h>
 #include <mpi.h>
 
 // global variables
+std::vector<std::string> families;
 std::vector<float> p1_probability_distribution;
 std::vector<float> p2_probability_distribution;
 std::vector<std::vector<float>> Q1_rate_matrix;
@@ -363,6 +366,48 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
     return result;
 }
 
+// Read family sizes file
+std::vector<std::string> read_family_sizes(std::string family_sizes_file, int load_balancing_mode = 1, int num_procs = 1) {
+    std::vector<std::pair<int, std::string>> family_pairs;
+    std::vector<std::string> result;
+    std::string tmp, tmp1, tmp2, tmp3;
+
+    std::ifstream famfile;
+    famfile.open(family_sizes_file);
+
+    getline(famfile, tmp);
+    if (tmp != "family sequences sites") {
+        std::cerr << "Family file" << family_sizes_file << " has a wrong format." << std::endl;
+    }
+
+    while (famfile.peek() != EOF) {
+        getline(famfile, tmp);
+        std::stringstream tmpstring(tmp);
+        tmpstring >> tmp1;
+        tmpstring >> tmp2;
+        tmpstring >> tmp3;
+        family_pairs.push_back(std::make_pair(std::stoi(tmp2) * std::stoi(tmp3), tmp1));
+    }
+    if (load_balancing_mode == 0) {
+        for (auto p : family_pairs) {
+            result.push_back(p.second);
+            std::cout << p.second << std::endl;
+        }
+    } else if (load_balancing_mode == 1) {
+        sort(family_pairs.rbegin(), family_pairs.rend());
+        for (int i = 0; i <= std::floor(family_pairs.size() / (2 * num_procs)); i += 2 * num_procs) {
+            for (int j = 0; j <= num_procs; j += 1) {
+                
+            } 
+        }
+    }
+    
+    
+
+
+    return result;
+}
+
 // Write msa files
 void write_msa(std::string filename, std::map<std::string, std::vector<std::string>> msa) {
     std::ofstream outfile;
@@ -445,7 +490,7 @@ int sample_transition(int index, int starting_state, float elapsed_time, std::st
 }
 
 // Initialize simulation on each process
-void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
+void init_simulation(std::vector<std::string> amino_acids, std::string family_sizes_file, int load_balancing_mode, int num_procs, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
     amino_acids_alphabet = amino_acids;  
     for (std::string aa1 : amino_acids_alphabet) {
         for (std::string aa2 : amino_acids_alphabet) {
@@ -453,6 +498,7 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
         }
     }
 
+    families = read_family_sizes(family_sizes_file, load_balancing_mode, num_procs);
     p1_probability_distribution = read_probability_distribution(pi_1_path, amino_acids_alphabet);
     p2_probability_distribution = read_probability_distribution(pi_2_path, amino_acids_pairs);
     Q1_rate_matrix = read_rate_matrix(Q_1_path, amino_acids_alphabet);
@@ -637,7 +683,7 @@ int main(int argc, char *argv[]) {
     std::string tree_dir = argv[1];
     std::string site_rates_dir = argv[2];
     std::string contact_map_dir = argv[3];
-    int num_of_families = std::atoi(argv[4]);
+    std::string family_file_path = argv[4];
     int num_of_amino_acids = std::atoi(argv[5]);
     std::string pi_1_path = argv[6];
     std::string Q_1_path = argv[7];
@@ -646,22 +692,18 @@ int main(int argc, char *argv[]) {
     std::string strategy = argv[10];
     std::string output_msa_dir = argv[11];
     int random_seed = std::atoi(argv[12]);
-    std::vector<std::string> families;
-    families.reserve(num_of_families);
-    for (int i = 0; i < num_of_families; i++) {
-        families.push_back(argv[13 + i]);
-    }
+    int load_balancing_mode = std::atoi(argv[13]);
     std::vector<std::string> amino_acids;
     amino_acids.reserve(num_of_amino_acids);
     for (int i = 0; i < num_of_amino_acids; i++) {
-        amino_acids.push_back(argv[13 + num_of_families + i]);
+        amino_acids.push_back(argv[14 + i]);
     }
 
     std::ofstream outprofilingfile;
 
 
     // Initialize simulation
-    init_simulation(amino_acids, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
+    init_simulation(amino_acids, family_file_path, load_balancing_mode, num_procs, pi_1_path, Q_1_path, pi_2_path, Q_2_path);
 
     auto end_init = std::chrono::high_resolution_clock::now();
     double init_time = std::chrono::duration<double>(end_init - start).count();
@@ -669,7 +711,7 @@ int main(int argc, char *argv[]) {
         std::cout << " Rank 0 finish Initializing in " << init_time << " seconds." << std::endl;
     }
 
-    std::string outputfilename =  output_msa_dir + "/" + std::to_string(rank) + "_profiling.txt";
+    std::string outputfilename =  output_msa_dir + "/profiling_" + std::to_string(rank) + ".txt";
     outprofilingfile.open(outputfilename);
     outprofilingfile << "This is the start of this testing file ..." << std::endl;
     outprofilingfile << "The number of process is " << num_procs << std::endl;
@@ -683,7 +725,7 @@ int main(int argc, char *argv[]) {
     // Currently, we just statically "evenly" assign family to each rank before simulation
     // There might be some dynamic load balancing techniques here.
     std::vector<std::string> local_families;
-    for (int i = rank; i < num_of_families; i += num_procs) {
+    for (int i = rank; i < families.size(); i += num_procs) {
         local_families.push_back(families[i]);
     }
 
