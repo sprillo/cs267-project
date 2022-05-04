@@ -391,20 +391,22 @@ std::vector<std::string> read_family_sizes(std::string family_sizes_file, int lo
     if (load_balancing_mode == 0) {
         for (auto p : family_pairs) {
             result.push_back(p.second);
-            std::cout << p.second << std::endl;
         }
     } else if (load_balancing_mode == 1) {
         sort(family_pairs.rbegin(), family_pairs.rend());
-        for (int i = 0; i <= std::floor(family_pairs.size() / (2 * num_procs)); i += 2 * num_procs) {
-            for (int j = 0; j <= num_procs; j += 1) {
-                
-            } 
+        for (int i = 0; i < 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i += 2 * num_procs) {
+            for (int j = 0; j < num_procs; j += 1) {
+                result.push_back(family_pairs[i + j].second);
+            }
+            for (int j = 0; j < num_procs; j += 1) {
+                result.push_back(family_pairs[i + 2 * num_procs - 1  - j].second);
+            }
+        }
+        for (int i = 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i < family_pairs.size(); i += 1) {
+            result.push_back(family_pairs[i].second);
         }
     }
     
-    
-
-
     return result;
 }
 
@@ -441,7 +443,7 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
 
         // Then sample the contacting sites
         std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
-        for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
+        for (int j = threadnum; j < num_contacting_pairs; j += numthreads) {
             result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
         }
     }
