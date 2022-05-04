@@ -515,6 +515,7 @@ def compute_log_likelihoods(
         for process_rank in range(num_processes)
     ]
 
+    st = time.time()
     # Map step (distribute families among processes)
     with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
         with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
@@ -527,3 +528,6 @@ def compute_log_likelihoods(
                     )
             else:
                 list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))
+    profiling_str = f"Total time: {time.time() - st}\n"
+    output_profiling_path = os.path.join(output_likelihood_dir, "profiling.txt")
+    open(output_profiling_path, "w").write(profiling_str)
