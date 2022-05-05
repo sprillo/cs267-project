@@ -256,6 +256,7 @@ def simulate_msas(
     random_seed: int,
     num_processes: int,
     use_cpp_implementation: bool = True,
+    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=4 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
@@ -307,6 +308,9 @@ def simulate_msas(
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
     """
+    if not os.path.exists(output_msa_dir):
+        os.makedirs(output_msa_dir)
+
     if use_cpp_implementation:
         # check if the binary exists
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -316,13 +320,13 @@ def simulate_msas(
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
             # Currently it should run on the interactive node
-            command = f"mpicxx -o {bin_path} {cpp_path}"  # TODO: Compile with -O3 etc.
+            command = f"mpicxx -fopenmp -O3 -o {bin_path} {cpp_path}"
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
-        os.system("export OMP_NUM_THREADS=4")
         command = ""
-        command += "srun -N 1 --ntasks-per-node=3"
+        command += cpp_command_line_prefix
+        command += f" --ntasks-per-node={num_processes}"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {site_rates_dir}"

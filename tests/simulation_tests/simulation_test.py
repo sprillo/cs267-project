@@ -72,6 +72,7 @@ class TestSimulation(unittest.TestCase):
         families = ["fam1", "fam2", "fam3"]
         tree_dir = "./tests/simulation_tests/test_input_data/tree_dir"
         with tempfile.TemporaryDirectory() as synthetic_contact_map_dir:
+            synthetic_contact_map_dir = "tests/simulation_tests/test_input_data/synthetic_contact_map_dir"
             # Create synthetic contact maps
             contact_maps = {}
             for i, family in enumerate(families):
@@ -89,6 +90,7 @@ class TestSimulation(unittest.TestCase):
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
+                synthetic_site_rates_dir = "tests/simulation_tests/test_input_data/synthetic_site_rates_dir"
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
@@ -97,6 +99,7 @@ class TestSimulation(unittest.TestCase):
                     write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
+                    simulated_msa_dir = "tests/simulation_tests/test_input_data/simulated_msa_dir"
                     simulate_msas(
                         tree_dir=tree_dir,
                         site_rates_dir=synthetic_site_rates_dir,
@@ -171,9 +174,7 @@ class TestSimulation(unittest.TestCase):
         families = ["fam1", "fam2", "fam3"]
         tree_dir = "./tests/simulation_tests/test_input_data/tree_dir"
         with tempfile.TemporaryDirectory() as synthetic_contact_map_dir:
-        # if True:
-        #     synthetic_contact_map_dir = "./tests/simulation_tests/test_input_data/synthetic_contact_map_dir"
-            # Create synthetic contact maps
+            synthetic_contact_map_dir = "tests/simulation_tests/test_input_data/synthetic_contact_map_dir"
             contact_maps = {}
             for i, family in enumerate(families):
                 num_sites = 1000
@@ -190,8 +191,7 @@ class TestSimulation(unittest.TestCase):
                 contact_maps[family] = contact_map
 
             with tempfile.TemporaryDirectory() as synthetic_site_rates_dir:
-            # if True:
-            #     synthetic_site_rates_dir = "./tests/simulation_tests/test_input_data/synthetic_site_rates_dir"
+                synthetic_site_rates_dir = "tests/simulation_tests/test_input_data/synthetic_site_rates_dir"
                 for i, family in enumerate(families):
                     site_rates = [1.0 * np.log(1 + i) for i in range(num_sites)]
                     site_rates_path = os.path.join(
@@ -200,8 +200,7 @@ class TestSimulation(unittest.TestCase):
                     write_site_rates(site_rates, site_rates_path)
 
                 with tempfile.TemporaryDirectory() as simulated_msa_dir:
-                # if True:
-                #     simulated_msa_dir = "./tests/simulation_tests/test_input_data/simulated_msa_dir"
+                    simulated_msa_dir = "tests/simulation_tests/test_input_data/simulated_msa_dir"
                     simulate_msas(
                         tree_dir=tree_dir,
                         site_rates_dir=synthetic_site_rates_dir,
