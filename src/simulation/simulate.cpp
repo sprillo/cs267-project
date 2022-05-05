@@ -384,19 +384,19 @@ void write_msa(std::string filename, std::map<std::string, std::vector<std::stri
 std::vector<int> sample_root_states(int num_independent_sites, int num_contacting_pairs) {
     std::vector<int> result(num_independent_sites + num_contacting_pairs, 0);
 
-    #pragma omp parallel
+    // #pragma omp parallel
     {
-        int threadnum = omp_get_thread_num();
-        int numthreads = omp_get_num_threads();
+        // int threadnum = omp_get_thread_num();
+        // int numthreads = omp_get_num_threads();
         // First sample the independent sites
         std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
-        for (int i = threadnum; i < num_independent_sites; i += numthreads) {
+        for (int i = 0; i < num_independent_sites; i++) {
             result[i] = distribution1(random_engines[i]);
         }
 
         // Then sample the contacting sites
         std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
-        for (int j = threadnum; j + 1 < num_contacting_pairs; j += numthreads) {
+        for (int j = 0; j < num_contacting_pairs; j++) {
             result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
         }
     }
@@ -480,14 +480,16 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::string contactmapfilepath = contact_map_dir + "/" + family + ".txt";
     
     Tree currentTree = read_tree(treefilepath);
-    std::vector<float> site_rates = read_site_rates(siteratefilepath);
+    std::vector<float> site_rates_vec = read_site_rates(siteratefilepath);
+    float site_rates[site_rates_vec.size()];
+    copy(site_rates_vec.begin(), site_rates_vec.end(), site_rates);
     std::vector<std::vector<int>> contact_map = read_contact_map(contactmapfilepath);
-    int num_sites = site_rates.size();
+    int num_sites = site_rates_vec.size();
 
     auto end_reading = std::chrono::high_resolution_clock::now();
     
     // Further process sites
-    std::vector<int> independent_sites;
+    std::vector<int> independent_sites_vec;
     std::set<int> contacting_sites;
     std::vector<std::vector<int>> contacting_pairs;
     // Assume the contact map is symmetric
@@ -505,10 +507,12 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     }
     for (int k = 0; k < num_sites; k++) {
         if (contacting_sites.find(k) == contacting_sites.end()) {
-            independent_sites.push_back(k);
+            independent_sites_vec.push_back(k);
         }
     }
-    int num_independent_sites = independent_sites.size();
+    int independent_sites[independent_sites_vec.size()];
+    copy(independent_sites_vec.begin(), independent_sites_vec.end(), independent_sites);
+    int num_independent_sites = independent_sites_vec.size();
     int num_contacting_pairs = contacting_pairs.size();
 
     // Generate random seeds, may generate a seed with current time if needed
@@ -517,7 +521,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::srand(seed);
     int local_seed = std::rand();
     random_engines = new std::default_random_engine[num_independent_sites + num_contacting_pairs];
-    #pragma omp parallel for schedule(dynamic)
+    // #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < num_independent_sites + num_contacting_pairs; i++) {
         std::default_random_engine generator_site(local_seed + i);
         random_engines[i] = generator_site;
@@ -540,27 +544,30 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         if (node == currentTree.root()) {
             continue;
         }
-        std::vector<int> node_states_int(num_independent_sites + num_contacting_pairs, 0);
+        int node_states_int[num_independent_sites + num_contacting_pairs];
         adj_pair_t parent_pair = currentTree.parent(node);
-        std::vector<int> parent_states_int = msa_int[node_to_index_map[parent_pair.node]];
+        std::vector<int> parent_states_int_vec = msa_int[node_to_index_map[parent_pair.node]];
+        int parent_states_int[parent_states_int_vec.size()];
+        copy(parent_states_int_vec.begin(), parent_states_int_vec.end(), parent_states_int);
+        float parent_pair_length = parent_pair.length;
 
         // Sample all the transitions for this node
         // First sample the independent sites
-        #pragma omp parallel for schedule(dynamic)
+        // #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int starting_state = parent_states_int[i];
-            float elapsed_time = parent_pair.length * site_rates[independent_sites[i]];
+            float elapsed_time = parent_pair_length * site_rates[independent_sites[i]];
             node_states_int[i] = sample_transition(i, starting_state, elapsed_time, strategy, true);
         }
         // Then sample the contacting sites
         #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
-            float elapsed_time = parent_pair.length;
+            float elapsed_time = parent_pair_length;
             node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, strategy, false);
         }
 
-        msa_int.push_back(node_states_int);
+        msa_int.push_back(std::vector<int>(node_states_int, node_states_int + num_independent_sites + num_contacting_pairs));
     }
 
     auto end_sampling = std::chrono::high_resolution_clock::now();
@@ -571,20 +578,20 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         std::string node = dfs_order[k];
         std::vector<int> states_int = msa_int[k];
         std::vector<std::string> states(num_sites, "");
-        #pragma omp parallel for schedule(dynamic)
+        // #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int state_int = states_int[i];
             std::string state_str = amino_acids_alphabet[state_int];
             states[independent_sites[i]] = state_str;
         }
-        #pragma omp parallel for schedule(dynamic)
+        // #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int state_int = states_int[num_independent_sites + j];
             std::string state_str = amino_acids_pairs[state_int];
             states[contacting_pairs[j][0]] = state_str[0];
             states[contacting_pairs[j][1]] = state_str[1];
         }
-        #pragma omp parallel for schedule(dynamic)
+        // #pragma omp parallel for schedule(dynamic)
         for (std::string s : states) {
             if (s == "") {
                 std::cerr << "Error mapping integer states to amino acids." << std::endl;
@@ -687,11 +694,19 @@ int main(int argc, char *argv[]) {
 
 
     // Run the simulation for all the families assigned to the process
+    std::string msg;
     for (std::string family : local_families) {
+        msg += " " + family;
+    }
+    std::cerr << "my families are: " << msg << std::endl;
+    for (std::string family : local_families) {
+        std::cerr << "Running on family " << family << std::endl;
         run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
     }
     
+    std::cerr << "Waiting on barrier" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
+    std::cerr << "Outside barrier" << std::endl;
 
     auto end_sim = std::chrono::high_resolution_clock::now();
     double sim_time = std::chrono::duration<double>(end_sim - end_init).count();
@@ -704,5 +719,7 @@ int main(int argc, char *argv[]) {
         outprofilingfile.close();
     }
 
+    std::cerr << "Finalizing" << std::endl;
     MPI_Finalize();
+    std::cerr << "Finalized!!!" << std::endl;
 }
