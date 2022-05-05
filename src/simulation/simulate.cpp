@@ -553,11 +553,11 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
 
         // Sample all the transitions for this node
         // First sample the independent sites
-        // #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < num_independent_sites; i++) {
-            int starting_state = parent_states_int[i];
-            float elapsed_time = parent_pair_length * site_rates[independent_sites[i]];
-            node_states_int[i] = sample_transition(i, starting_state, elapsed_time, strategy, true);
+        #pragma omp parallel for schedule(dynamic)
+        for (int j = 0; j < num_independent_sites; j++) {
+            int starting_state = parent_states_int[j];
+            float elapsed_time = parent_pair_length * site_rates[independent_sites[j]];
+            node_states_int[j] = sample_transition(j, starting_state, elapsed_time, strategy, true);
         }
         // Then sample the contacting sites
         #pragma omp parallel for schedule(dynamic)
