@@ -56,6 +56,8 @@ std::vector<std::string> amino_acids_alphabet;
 std::vector<std::string> amino_acids_pairs;
 std::default_random_engine* random_engines;
 
+#define DEBUG 0
+
 // Adjacent value pairs
 typedef struct {
     /* data */
@@ -694,19 +696,24 @@ int main(int argc, char *argv[]) {
 
 
     // Run the simulation for all the families assigned to the process
-    std::string msg;
-    for (std::string family : local_families) {
-        msg += " " + family;
+    if(DEBUG){
+        std::string msg;
+        for (std::string family : local_families) {
+            msg += " " + family;
+        }
+        std::cerr << "my families are: " << msg << std::endl;
     }
-    std::cerr << "my families are: " << msg << std::endl;
     for (std::string family : local_families) {
-        std::cerr << "Running on family " << family << std::endl;
+        if(DEBUG)
+            std::cerr << "Running on family " << family << std::endl;
         run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
     }
     
-    std::cerr << "Waiting on barrier" << std::endl;
+    if(DEBUG)
+        std::cerr << "Waiting on barrier" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
-    std::cerr << "Outside barrier" << std::endl;
+    if(DEBUG)
+        std::cerr << "Outside barrier" << std::endl;
 
     auto end_sim = std::chrono::high_resolution_clock::now();
     double sim_time = std::chrono::duration<double>(end_sim - end_init).count();
@@ -719,7 +726,9 @@ int main(int argc, char *argv[]) {
         outprofilingfile.close();
     }
 
-    std::cerr << "Finalizing" << std::endl;
+    if(DEBUG)
+        std::cerr << "Finalizing" << std::endl;
     MPI_Finalize();
-    std::cerr << "Finalized!!!" << std::endl;
+    if(DEBUG)
+        std::cerr << "Finalized!!!" << std::endl;
 }
