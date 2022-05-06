@@ -257,6 +257,7 @@ def simulate_msas(
     num_processes: int,
     use_cpp_implementation: bool = True,
     cpp_command_line_prefix: str = "export OMP_NUM_THREADS=4 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
+    cpp_command_line_suffix: str = "0",
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
@@ -307,6 +308,8 @@ def simulate_msas(
         num_processes: Number of processes used to parallelize computation.
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
+        cpp_command_line_suffix: To pass in the load balancing scheme and
+            family sizes file.
     """
     if not os.path.exists(output_msa_dir):
         os.makedirs(output_msa_dir)
@@ -342,6 +345,7 @@ def simulate_msas(
         command += f" {random_seed}"
         command += " " + " ".join(families)
         command += " " + " ".join(amino_acids)
+        command += " " + cpp_command_line_suffix
         print(f"Going to run:\n{command}")
         os.system(command)
         return

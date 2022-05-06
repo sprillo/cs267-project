@@ -30,6 +30,8 @@
  * argv[12] (random_seed): 0
  * argv[13 : 16] (families): ["fam1", "fam2", "fam3"]
  * argv[16 : 18] (amino_acids): ["S", "T"]
+ * argv[19] (load_balancing_mode): 0 (0: naive version; 1: zig-zag)
+ * argv[20] (familiy_file_path): ./test_familiy_sizes.txt (If load_balancing_mode == 1)
  * 
  */
 #include <chrono>
@@ -38,11 +40,14 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <utility>
 #include <random>
 #include <vector>
 #include <unordered_map>
 #include <set>
 #include <map>
+#include <algorithm>
+#include <assert.h>
 
 #include <omp.h>
 #include <mpi.h>
@@ -365,6 +370,56 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
     return result;
 }
 
+// Read family sizes file and return the zig-zagged list of families.
+std::vector<std::string> read_family_sizes(std::vector<std::string> families, std::string family_sizes_file, int load_balancing_mode, int num_procs) {
+    std::vector<std::pair<int, std::string>> family_pairs;
+    std::vector<std::string> result;
+    std::string tmp, tmp1, tmp2, tmp3;
+
+    std::ifstream famfile;
+    famfile.open(family_sizes_file);
+
+    getline(famfile, tmp);
+    if (tmp != "family sequences sites") {
+        std::cerr << "Family file" << family_sizes_file << " has a wrong format." << std::endl;
+    }
+
+    std::set<std::string> families_all_set(families.begin(), families.end());
+
+    while (famfile.peek() != EOF) {
+        getline(famfile, tmp);
+        std::stringstream tmpstring(tmp);
+        tmpstring >> tmp1;
+        tmpstring >> tmp2;
+        tmpstring >> tmp3;
+        if(families_all_set.count(tmp1))
+            family_pairs.push_back(std::make_pair(std::stoi(tmp2) * std::stoi(tmp3), tmp1));
+    }
+    if(family_pairs.size() != families.size()){
+        std::cerr << "Some family is missing in the family_sizes_file " << family_sizes_file << std::endl;
+    }
+    if (load_balancing_mode == 0) {
+        for (auto p : family_pairs) {
+            result.push_back(p.second);
+        }
+    } else if (load_balancing_mode == 1) {
+        sort(family_pairs.rbegin(), family_pairs.rend());
+        for (int i = 0; i < 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i += 2 * num_procs) {
+            for (int j = 0; j < num_procs; j += 1) {
+                result.push_back(family_pairs[i + j].second);
+            }
+            for (int j = 0; j < num_procs; j += 1) {
+                result.push_back(family_pairs[i + 2 * num_procs - 1  - j].second);
+            }
+        }
+        for (int i = 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i < family_pairs.size(); i += 1) {
+            result.push_back(family_pairs[i].second);
+        }
+    }
+
+    return result;
+}
+
 // Write msa files
 void write_msa(std::string filename, std::map<std::string, std::vector<std::string>> msa) {
     std::ofstream outfile;
@@ -665,8 +720,15 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_of_amino_acids; i++) {
         amino_acids.push_back(argv[13 + num_of_families + i]);
     }
+    int load_balancing_mode = std::atoi(argv[13 + num_of_families + num_of_amino_acids]);
+    if(load_balancing_mode > 0){
+        std::string family_file_path = argv[13 + num_of_families + num_of_amino_acids + 1];
+        families = read_family_sizes(families, family_file_path, load_balancing_mode, num_procs);
+        assert(int(families.size()) == num_of_families);
+    }
 
     std::ofstream outprofilingfile;
+    std::ofstream outprofilingfile_local;
 
 
     // Initialize simulation
@@ -685,10 +747,18 @@ int main(int argc, char *argv[]) {
         outprofilingfile << "Finish Initializing in " << init_time << " seconds." << std::endl;
     }
 
+    std::string outputfilename_local =  output_msa_dir + "/profiling_" + std::to_string(rank) + ".txt";
+    outprofilingfile_local.open(outputfilename_local);
+    outprofilingfile_local << "This is the start of this testing file ..." << std::endl;
+    outprofilingfile_local << "The number of process is " << num_procs << std::endl;
+    outprofilingfile_local << "This is rank " << rank << std::endl;
+    outprofilingfile_local << "Finish Initializing in " << init_time << " seconds." << std::endl;
+
 
     // Assign families to each rank
     // Currently, we just statically "evenly" assign family to each rank before simulation
     // There might be some dynamic load balancing techniques here.
+    // NOTE: Done adding load balancing scheme (zig-zag)!
     std::vector<std::string> local_families;
     for (int i = rank; i < num_of_families; i += num_procs) {
         local_families.push_back(families[i]);
@@ -708,7 +778,14 @@ int main(int argc, char *argv[]) {
             std::cerr << "Running on family " << family << std::endl;
         run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
     }
-    
+
+    auto end_sim_local = std::chrono::high_resolution_clock::now();
+    double sim_time_local = std::chrono::duration<double>(end_sim_local - end_init).count();
+    double entire_time_local = std::chrono::duration<double>(end_sim_local - start).count();
+    outprofilingfile_local << "Finish Simulation in " << sim_time_local << " seconds." << std::endl;
+    outprofilingfile_local << "Finish the entire program in " << entire_time_local << " seconds." << std::endl;
+    outprofilingfile_local.close();
+
     if(DEBUG)
         std::cerr << "Waiting on barrier" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
