@@ -766,17 +766,19 @@ int main(int argc, char *argv[]) {
 
 
     // Run the simulation for all the families assigned to the process
-    if(DEBUG){
-        std::string msg;
-        for (std::string family : local_families) {
-            msg += " " + family;
-        }
-        std::cerr << "my families are: " << msg << std::endl;
+    std::string msg;
+    for (std::string family : local_families) {
+        msg += " " + family;
     }
+    if(DEBUG)
+        std::cerr << "my families are: " << msg << std::endl;
+    outprofilingfile_local << "my families are: " << msg << std::endl;
     for (std::string family : local_families) {
         if(DEBUG)
             std::cerr << "Running on family " << family << std::endl;
         run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
+        if(DEBUG)
+            std::cerr << "Done on family " << family << std::endl;
     }
 
     auto end_sim_local = std::chrono::high_resolution_clock::now();
