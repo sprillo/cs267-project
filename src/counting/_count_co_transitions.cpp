@@ -303,16 +303,26 @@ vector<count_matrix> _map_func(
         // if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
 
         // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        vector<pair<int, int>> contacting_pairs;
-        contacting_pairs.reserve(num_sites * num_sites / 2);
+        // vector<pair<int, int>> contacting_pairs;
+        // contacting_pairs.reserve(num_sites * num_sites / 2);
+        pair<int, int>* contacting_pairs = new pair<int, int>[num_sites * num_sites / 2];
+        int num_contacting_pairs = 0;
         for (int i=0; i<num_sites; i++){
             for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
                 if (contact_map[i*(num_sites+1)+j] == '1'){
-                    pair<int, int> temp(i, j);
-                    contacting_pairs.push_back(temp);
+                    contacting_pairs[num_contacting_pairs] = pair<int, int>(i, j);
+                    num_contacting_pairs++;
                 }
             }
         }
+        // pair<int, int>* contacting_pairs = new pair<int, int>[num_contacting_pairs];
+        // for (int i=0; i<num_sites; i++){
+        //     for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
+        //         if (contact_map[i*(num_sites+1)+j] == '1'){
+                    
+        //         }
+        //     }
+        // } 
         // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         // if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
 
@@ -329,7 +339,7 @@ vector<count_matrix> _map_func(
                     int q_idx = quantization_idx(branch_length, quantization_points);
                     if (q_idx != -1){
                         // #pragma omp parallel for
-                        for (int k=0; k<contacting_pairs.size(); k++){
+                        for (int k=0; k<num_contacting_pairs; k++){
                             pair<int, int>& p = contacting_pairs[k];
                             int i = p.first;
                             int j = p.second;
@@ -368,7 +378,7 @@ vector<count_matrix> _map_func(
                     int q_idx = quantization_idx(branch_length_total, quantization_points);
                     if (q_idx != -1){
                         // #pragma omp parallel for
-                        for (int k=0; k<contacting_pairs.size(); k++){
+                        for (int k=0; k<num_contacting_pairs; k++){
                             pair<int, int>& p = contacting_pairs[k];
                             int i = p.first;
                             int j = p.second;
