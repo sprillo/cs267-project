@@ -630,10 +630,11 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     msa_int.push_back(root_states);
 
     // Sample other nodes
+    std::string root = currentTree.root();
     for (int i = 0; i < int(dfs_order.size()); i++) {
         std::string node = dfs_order[i];
         node_to_index_map[node] = i;
-        if (node == currentTree.root()) {
+        if (node == root) {
             continue;
         }
         int node_states_int[num_independent_sites + num_contacting_pairs];
