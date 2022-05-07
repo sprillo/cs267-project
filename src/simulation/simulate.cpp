@@ -622,14 +622,16 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     // Depth first search from root
     std::vector<std::string> dfs_order = currentTree.preorder_traversal();
     std::unordered_map<std::string, int> node_to_index_map;
-    std::vector<std::vector<int>> msa_int;
+    std::vector<std::vector<int>> msa_int(dfs_order.size(), std::vector<int>(num_independent_sites + num_contacting_pairs, 0));
     // Sample root state
     outfamproffile << "num_independent_sites " << num_independent_sites << std::endl;
     outfamproffile << "num_contacting_pairs " << num_contacting_pairs << std::endl;
     std::vector<int> root_states = sample_root_states(num_independent_sites, num_contacting_pairs);
-    msa_int.push_back(root_states);
+    msa_int[0] = root_states;
 
     // Sample other nodes
+    int parent_states_int[num_independent_sites + num_contacting_pairs];
+    int node_states_int[num_independent_sites + num_contacting_pairs];
     std::string root = currentTree.root();
     for (int i = 0; i < int(dfs_order.size()); i++) {
         std::string node = dfs_order[i];
@@ -637,10 +639,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         if (node == root) {
             continue;
         }
-        int node_states_int[num_independent_sites + num_contacting_pairs];
         adj_pair_t parent_pair = currentTree.parent(node);
-        std::vector<int> parent_states_int_vec = msa_int[node_to_index_map[parent_pair.node]];
-        int parent_states_int[parent_states_int_vec.size()];
+        std::vector<int> & parent_states_int_vec = msa_int[node_to_index_map[parent_pair.node]];
         copy(parent_states_int_vec.begin(), parent_states_int_vec.end(), parent_states_int);
         float parent_pair_length = parent_pair.length;
 
@@ -660,7 +660,9 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
             node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, strategy, false);
         }
 
-        msa_int.push_back(std::vector<int>(node_states_int, node_states_int + num_independent_sites + num_contacting_pairs));
+        for(int j = 0; j < num_independent_sites + num_contacting_pairs; j++){
+            msa_int[i][j] = node_states_int[j];
+        }
     }
 
     auto end_sampling = std::chrono::high_resolution_clock::now();
