@@ -107,6 +107,7 @@ class Tree {
         in_deg[v] += 1;
         if (parent_map.find(v) != parent_map.end()) {
             std::cerr << "Node " << v << " already has a parent, graph is not a tree." << std::endl;
+            exit(1);
         }
         adj_pair_t parent_pair;
         parent_pair.node = u;
@@ -139,6 +140,7 @@ class Tree {
         }
         if (roots.size() != 1) {
             std::cerr << "There should be only 1 root, but there is/are " << roots.size() << " root(s)." << std::endl;
+            exit(1);
         }
         return roots[0];
     }
@@ -189,6 +191,7 @@ Tree read_tree(std::string treefilename) {
     treefile >> tmp;
     if (tmp != "nodes") {
         std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
+        exit(1);
     }
     Tree newTree(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
@@ -200,6 +203,7 @@ Tree read_tree(std::string treefilename) {
     treefile >> tmp;
     if (tmp != "edges") {
         std::cerr << "Tree file:" << treefilename << "should have line '[num_edges] edges' at position line " << num_nodes + 1 << std::endl;
+        exit(1);
     }
     getline(treefile, tmp); // Get rid of the empty line left by reading the word
     while (treefile.peek() != EOF) {
@@ -216,11 +220,13 @@ Tree read_tree(std::string treefilename) {
         // I didn't check the types at this point in the way python code does.
         if (!newTree.is_node(u) || !newTree.is_node(v)) {
             std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
+            exit(1);
         }
         newTree.add_edge(u, v, length);
     }
     if (num_edges != edges_count) {
         std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
+        exit(1);
     }
     return newTree;
 }
@@ -239,12 +245,14 @@ std::vector<float> read_site_rates(std::string filename) {
     siteratefile >> tmp;
     if (tmp != "sites") {
         std::cerr << "Site rates file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
+        exit(1);
     }
     while (siteratefile >> tmp) {
         result.push_back(std::stof(tmp));
     }
-    if (result.size() != num_sites) {
+    if (int(result.size()) != num_sites) {
         std::cerr << "Site rates file: " << filename << " was supposed to have " << num_sites << " sites, but it has " << result.size() << "." << std::endl;
+        exit(1);
     }
     return result;
 }
@@ -264,6 +272,7 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
     contactmapfile >> tmp;
     if (tmp != "sites") {
         std::cerr << "Contact map file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
+        exit(1);
     }
     
     while (contactmapfile >> tmp) {
@@ -271,15 +280,20 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
         std::vector<int> row(num_sites, 0);
         for (int i = 0; i < num_sites; i++) {
             char a = tmp[i];
-            int c = std::atoi(&a);
-            if (c != 0) {
+            if (a == '1') {
                 row[i] = 1;
+            } else if(a == '0'){
+                row[i] = 0;
+            } else{
+                std::cerr << "Contact map file: " << filename << " should have only ones or zeros." << std::endl;
+                exit(1);
             }
         }
         result.push_back(row);
     }
     if (num_sites != line_count) {
         std::cerr << "Contact map file: " << filename << " should have " << num_sites << " rows, but has " << line_count << "." << std::endl;
+        exit(1);
     }
     return result;
 }
@@ -299,10 +313,12 @@ std::vector<float> read_probability_distribution(std::string filename, std::vect
     tmpstring >> tmp2;
     if (tmp2 != "state") {
         std::cerr << "Probability distribution file" << filename << "should have state here but have " << tmp << " instead." << std::endl;
+        exit(1);
     }
     tmpstring >> tmp2;
     if (tmp2 != "prob") {
         std::cerr << "Probability distribution file" << filename << "should have prob here but have " << tmp << " instead." << std::endl;
+        exit(1);
     }
     
     while(pfile.peek() != EOF) {
@@ -310,10 +326,10 @@ std::vector<float> read_probability_distribution(std::string filename, std::vect
         float p;
 
         getline(pfile, tmp);
-        std::stringstream tmpstring(tmp);
-        tmpstring >> s;
+        std::stringstream tmpstring2(tmp);
+        tmpstring2 >> s;
         states.push_back(s);
-        tmpstring >> tmp2;
+        tmpstring2 >> tmp2;
         p = std::stof(tmp2);
         sum += p;
         result.push_back(p);
@@ -322,10 +338,12 @@ std::vector<float> read_probability_distribution(std::string filename, std::vect
     float diff = std::abs(sum - 1.0);
     if (diff > 0.000001) {
         std::cout << "Probability distribution at " << filename << " should add to 1.0, with a tolerance of 1e-6." << std::endl;
+        exit(1);
     }
 
     if (states != element_list) {
         std::cerr << "Probability distribution file" << filename << " use a different (order of) alphabet." << std::endl;
+        exit(1);
     }
     return result;
 }
@@ -349,10 +367,10 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
     while(qfile.peek() != EOF) {
         std::vector<float> row;
         getline(qfile, tmp);
-        std::stringstream tmpstring(tmp);
-        tmpstring >> tmp2;
+        std::stringstream tmpstring2(tmp);
+        tmpstring2 >> tmp2;
         states2.push_back(tmp2);
-        while (tmpstring >> tmp2) {
+        while (tmpstring2 >> tmp2) {
             float p = std::stof(tmp2);
             row.push_back(p);
         }
@@ -361,10 +379,12 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
 
     if (states1 != element_list) {
         std::cerr << "Rate matrix file" << filename << " use a different (order of) alphabet." << std::endl;
+        exit(1);
     }
 
     if (states2 != element_list) {
         std::cerr << "Rate matrix file" << filename << " use a different (order of) alphabet." << std::endl;
+        exit(1);
     }
 
     return result;
@@ -382,6 +402,7 @@ std::vector<std::string> read_family_sizes(std::vector<std::string> families, st
     getline(famfile, tmp);
     if (tmp != "family sequences sites") {
         std::cerr << "Family file" << family_sizes_file << " has a wrong format." << std::endl;
+        exit(1);
     }
 
     std::set<std::string> families_all_set(families.begin(), families.end());
@@ -397,6 +418,7 @@ std::vector<std::string> read_family_sizes(std::vector<std::string> families, st
     }
     if(family_pairs.size() != families.size()){
         std::cerr << "Some family is missing in the family_sizes_file " << family_sizes_file << std::endl;
+        exit(1);
     }
     if (load_balancing_mode == 0) {
         for (auto p : family_pairs) {
@@ -412,7 +434,7 @@ std::vector<std::string> read_family_sizes(std::vector<std::string> families, st
                 result.push_back(family_pairs[i + 2 * num_procs - 1  - j].second);
             }
         }
-        for (int i = 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i < family_pairs.size(); i += 1) {
+        for (int i = 2 * num_procs * std::floor(family_pairs.size() / (2 * num_procs)); i < int(family_pairs.size()); i += 1) {
             result.push_back(family_pairs[i].second);
         }
     }
@@ -441,21 +463,16 @@ void write_msa(std::string filename, std::map<std::string, std::vector<std::stri
 std::vector<int> sample_root_states(int num_independent_sites, int num_contacting_pairs) {
     std::vector<int> result(num_independent_sites + num_contacting_pairs, 0);
 
-    // #pragma omp parallel
-    {
-        // int threadnum = omp_get_thread_num();
-        // int numthreads = omp_get_num_threads();
-        // First sample the independent sites
-        std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
-        for (int i = 0; i < num_independent_sites; i++) {
-            result[i] = distribution1(random_engines[i]);
-        }
+    // First sample the independent sites
+    std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
+    for (int i = 0; i < num_independent_sites; i++) {
+        result[i] = distribution1(random_engines[i]);
+    }
 
-        // Then sample the contacting sites
-        std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
-        for (int j = 0; j < num_contacting_pairs; j++) {
-            result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
-        }
+    // Then sample the contacting sites
+    std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
+    for (int j = 0; j < num_contacting_pairs; j++) {
+        result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
     }
 
     return result;
@@ -465,7 +482,7 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
 int sample_transition(int index, int starting_state, float elapsed_time, std::string strategy, bool if_independent) {
     if (strategy != "all_transitions") {
         std::cerr << "Unknown strategy: " << strategy << std::endl;
-        return -1;
+        exit(1);
     }
     int current_state = starting_state;
     float current_time = 0;
@@ -517,13 +534,15 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
 }
 
 // Run simulation for a family assigned to a certain process
-void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, std::string strategy) {
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, std::string strategy, int rank) {
     std::ofstream outfamproffile;
     std::string outfamproffilename = output_msa_dir + "/" + family + ".profiling";
     outfamproffile.open(outfamproffilename);
+    outfamproffile << "Start run_simulation " << std::endl;
+    outfamproffile << "Rank is " << rank << std::endl;
     outfamproffile << "The current family is " << family << std::endl;
-    
-    int numthreads;
+
+    int numthreads = -1;
     #pragma omp parallel
     {
         numthreads = omp_get_num_threads();
@@ -548,6 +567,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     // Further process sites
     std::vector<int> independent_sites_vec;
     std::set<int> contacting_sites;
+    std::vector<int> contacting_sites_aux;
     std::vector<std::vector<int>> contacting_pairs;
     // Assume the contact map is symmetric
     for (int i = 0; i < num_sites; i++) {
@@ -559,8 +579,15 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
                 contacting_pairs.push_back(tmp);
                 contacting_sites.insert(i);
                 contacting_sites.insert(j);
+                contacting_sites_aux.push_back(i);
+                contacting_sites_aux.push_back(j);
             }
         }
+    }
+    // Check that each contacting site is in contact with exactly one other site.
+    if(contacting_sites_aux.size() != contacting_sites.size()){
+        std::cerr << "There are " << contacting_sites.size() << " unique contacting sites, but a total of " << contacting_sites_aux.size() << " contacting positions, so there must be repetitions!" << std::endl;
+        exit(1);
     }
     for (int k = 0; k < num_sites; k++) {
         if (contacting_sites.find(k) == contacting_sites.end()) {
@@ -571,12 +598,18 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     copy(independent_sites_vec.begin(), independent_sites_vec.end(), independent_sites);
     int num_independent_sites = independent_sites_vec.size();
     int num_contacting_pairs = contacting_pairs.size();
+    if(num_independent_sites + 2 * num_contacting_pairs != num_sites){
+        std::cerr << "num_independent_sites and num_contacting_pairs dont add up: num_independent_sites = " << num_independent_sites << ", num_contacting_pairs = " << num_contacting_pairs << "; num_sites = " << num_sites << std::endl;
+        exit(1);
+    }
 
     // Generate random seeds, may generate a seed with current time if needed
     std::hash<std::string> stringHasher;
     size_t seed = stringHasher(family + std::to_string(random_seed));
+    outfamproffile << "Seed for family " << family << " is " << seed << std::endl;
     std::srand(seed);
     int local_seed = std::rand();
+    outfamproffile << "local_seed for family " << family << " is " << local_seed << std::endl;
     random_engines = new std::default_random_engine[num_independent_sites + num_contacting_pairs];
     // #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < num_independent_sites + num_contacting_pairs; i++) {
@@ -591,11 +624,13 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::unordered_map<std::string, int> node_to_index_map;
     std::vector<std::vector<int>> msa_int;
     // Sample root state
+    outfamproffile << "num_independent_sites " << num_independent_sites << std::endl;
+    outfamproffile << "num_contacting_pairs " << num_contacting_pairs << std::endl;
     std::vector<int> root_states = sample_root_states(num_independent_sites, num_contacting_pairs);
     msa_int.push_back(root_states);
 
     // Sample other nodes
-    for (int i = 0; i < dfs_order.size(); i++) {
+    for (int i = 0; i < int(dfs_order.size()); i++) {
         std::string node = dfs_order[i];
         node_to_index_map[node] = i;
         if (node == currentTree.root()) {
@@ -631,7 +666,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
 
     // Now translate the integer states back to amino acids
     std::map<std::string, std::vector<std::string>> msa;
-    for (int k = 0; k < dfs_order.size(); k++) {
+    for (int k = 0; k < int(dfs_order.size()); k++) {
         std::string node = dfs_order[k];
         std::vector<int> states_int = msa_int[k];
         std::vector<std::string> states(num_sites, "");
@@ -652,6 +687,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         for (std::string s : states) {
             if (s == "") {
                 std::cerr << "Error mapping integer states to amino acids." << std::endl;
+                exit(1);
             }
         }
         msa[node] = states;
@@ -683,6 +719,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
 
 int main(int argc, char *argv[]) {
     // Init MPI
+    auto start_all = std::chrono::high_resolution_clock::now();
     int num_procs, rank;
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -754,16 +791,11 @@ int main(int argc, char *argv[]) {
     outprofilingfile_local << "This is rank " << rank << std::endl;
     outprofilingfile_local << "Finish Initializing in " << init_time << " seconds." << std::endl;
 
-
-    // Assign families to each rank
-    // Currently, we just statically "evenly" assign family to each rank before simulation
-    // There might be some dynamic load balancing techniques here.
-    // NOTE: Done adding load balancing scheme (zig-zag)!
+    // Assign families to each rank.
     std::vector<std::string> local_families;
     for (int i = rank; i < num_of_families; i += num_procs) {
         local_families.push_back(families[i]);
     }
-
 
     // Run the simulation for all the families assigned to the process
     std::string msg;
@@ -773,12 +805,15 @@ int main(int argc, char *argv[]) {
     if(DEBUG)
         std::cerr << "my families are: " << msg << std::endl;
     outprofilingfile_local << "my families are: " << msg << std::endl;
+    int counter = 0;
+    int tot = local_families.size();
     for (std::string family : local_families) {
+        counter++;
         if(DEBUG)
-            std::cerr << "Running on family " << family << std::endl;
-        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed + rank, strategy);
+            std::cerr << "Running on family " << rank << " " << family << " " << counter << "/" << tot << std::endl;
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed, strategy, rank);
         if(DEBUG)
-            std::cerr << "Done on family " << family << std::endl;
+            std::cerr << "Done on family " << rank << " " << family << " " << counter << "/" << tot << std::endl;
     }
 
     auto end_sim_local = std::chrono::high_resolution_clock::now();
@@ -789,25 +824,16 @@ int main(int argc, char *argv[]) {
     outprofilingfile_local.close();
 
     if(DEBUG)
-        std::cerr << "Waiting on barrier" << std::endl;
-    MPI_Barrier(MPI_COMM_WORLD);
+        std::cerr << "Finalizing " << rank << std::endl;
+    MPI_Finalize();
     if(DEBUG)
-        std::cerr << "Outside barrier" << std::endl;
-
-    auto end_sim = std::chrono::high_resolution_clock::now();
-    double sim_time = std::chrono::duration<double>(end_sim - end_init).count();
-    double entire_time = std::chrono::duration<double>(end_sim - start).count();
+        std::cerr << "Finalized!!! " << rank << std::endl;
     if (rank == 0) {
-        std::cout << "Finish Simulation in " << sim_time << " seconds." << std::endl;
-        std::cout << "Finish the entire program in " << entire_time << " seconds." << std::endl;
-        outprofilingfile << "Finish Simulation in " << sim_time << " seconds." << std::endl;
+        auto end_all = std::chrono::high_resolution_clock::now();
+        double entire_time = std::chrono::duration<double>(end_all - start_all).count();
+        outprofilingfile << "This is the start of this testing file ..." << std::endl;
+        outprofilingfile << "The number of process is " << num_procs << std::endl;
         outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
         outprofilingfile.close();
     }
-
-    if(DEBUG)
-        std::cerr << "Finalizing" << std::endl;
-    MPI_Finalize();
-    if(DEBUG)
-        std::cerr << "Finalized!!!" << std::endl;
 }
