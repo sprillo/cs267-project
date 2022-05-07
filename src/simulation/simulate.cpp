@@ -831,8 +831,6 @@ int main(int argc, char *argv[]) {
     if (rank == 0) {
         auto end_all = std::chrono::high_resolution_clock::now();
         double entire_time = std::chrono::duration<double>(end_all - start_all).count();
-        outprofilingfile << "This is the start of this testing file ..." << std::endl;
-        outprofilingfile << "The number of process is " << num_procs << std::endl;
         outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
         outprofilingfile.close();
     }
