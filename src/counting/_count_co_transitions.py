@@ -201,7 +201,7 @@ def count_co_transitions(
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         # os.system("export OMP_NUM_THREADS=4")
-        command = "export OMP_NUM_THREADS=1 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 1 --cpu_bind=cores"
+        command = "export OMP_NUM_THREADS=68 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 68 --cpu_bind=cores"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {msa_dir}"
