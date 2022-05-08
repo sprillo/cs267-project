@@ -177,7 +177,8 @@ class Tree {
 
 
 // Helper function to read the tree
-Tree read_tree(std::string treefilename) {
+Tree read_tree(std::string treefilename, double* reading_tree_time, double* building_tree_time) {
+    auto start_reading_tree = std::chrono::high_resolution_clock::now();
     int num_nodes;
     int num_edges;
     int edges_count = 0;
@@ -193,13 +194,18 @@ Tree read_tree(std::string treefilename) {
         std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
         exit(1);
     }
-    Tree newTree(num_nodes);
+    // Tree newTree(num_nodes);
+    std::vector<std::string> nodes(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
         treefile >> tmp;
-        newTree.add_node(tmp);
+        nodes[i] = tmp;
+        // newTree.add_node(tmp);
     }
     treefile >> tmp;
     num_edges = std::stoi(tmp);
+    std::vector<std::string> parents(num_edges);
+    std::vector<std::string> children(num_edges);
+    std::vector<float> lengths(num_edges);
     treefile >> tmp;
     if (tmp != "edges") {
         std::cerr << "Tree file:" << treefilename << "should have line '[num_edges] edges' at position line " << num_nodes + 1 << std::endl;
@@ -218,16 +224,41 @@ Tree read_tree(std::string treefilename) {
         tmpstring >> l;
         length = std::stof(l);
         // I didn't check the types at this point in the way python code does.
+        // if (!newTree.is_node(u) || !newTree.is_node(v)) {
+        //     std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
+        //     exit(1);
+        // }
+        // newTree.add_edge(u, v, length);
+        parents[edges_count - 1] = u;
+        children[edges_count - 1] = v;
+        lengths[edges_count - 1] = length;
+    }
+    if (num_edges != edges_count) {
+        std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
+        exit(1);
+    }
+    auto end_reading_tree = std::chrono::high_resolution_clock::now();
+
+    auto start_building_tree = std::chrono::high_resolution_clock::now();
+    Tree newTree(num_nodes);
+    for (int i = 0; i < num_nodes; i++) {
+        newTree.add_node(nodes[i]);
+    }
+    for (int i = 0; i < num_edges; i++){
+        std::string u = parents[i];
+        std::string v = children[i];
+        float length = lengths[i];
         if (!newTree.is_node(u) || !newTree.is_node(v)) {
             std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
             exit(1);
         }
         newTree.add_edge(u, v, length);
     }
-    if (num_edges != edges_count) {
-        std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
-        exit(1);
-    }
+    auto end_building_tree = std::chrono::high_resolution_clock::now();
+
+    *reading_tree_time = std::chrono::duration<double>(end_reading_tree - start_reading_tree).count();
+    *building_tree_time = std::chrono::duration<double>(end_building_tree - start_building_tree).count();
+
     return newTree;
 }
 
@@ -299,7 +330,7 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
 }
 
 // Read the probability distribution
-std::vector<float> read_probability_distribution(std::string filename, std::vector<std::string> element_list) {
+std::vector<float> read_probability_distribution(std::string filename, const std::vector<std::string> & element_list) {
     std::vector<float> result;
     std::vector<std::string> states;
     std::string tmp, tmp2;
@@ -349,7 +380,7 @@ std::vector<float> read_probability_distribution(std::string filename, std::vect
 }
 
 // Read the rate matrix
-std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vector<std::string> element_list) {
+std::vector<std::vector<float>> read_rate_matrix(std::string filename, const std::vector<std::string> & element_list) {
     std::vector<std::vector<float>> result;
     std::vector<std::string> states1;
     std::vector<std::string> states2;
@@ -391,7 +422,7 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, std::vect
 }
 
 // Read family sizes file and return the zig-zagged list of families.
-std::vector<std::string> read_family_sizes(std::vector<std::string> families, std::string family_sizes_file, int load_balancing_mode, int num_procs) {
+std::vector<std::string> read_family_sizes(const std::vector<std::string> & families, std::string family_sizes_file, int load_balancing_mode, int num_procs) {
     std::vector<std::pair<int, std::string>> family_pairs;
     std::vector<std::string> result;
     std::string tmp, tmp1, tmp2, tmp3;
@@ -443,17 +474,14 @@ std::vector<std::string> read_family_sizes(std::vector<std::string> families, st
 }
 
 // Write msa files
-void write_msa(std::string filename, std::map<std::string, std::vector<std::string>> msa) {
+void write_msa(std::string filename, const std::map<std::string, std::vector<char>> & msa) {
     std::ofstream outfile;
     outfile.open(filename);
 
     for (auto key_value : msa) {
         outfile << ">" << key_value.first << std::endl;
-        std::string tmp = "";
-        for (std::string s : key_value.second) {
-            tmp = tmp + s;
-        }
-        outfile <<tmp << std::endl;
+        std::string tmp(key_value.second.begin(), key_value.second.end());
+        outfile << tmp << std::endl;
     }
 
     outfile.close();
@@ -519,7 +547,7 @@ int sample_transition(int index, int starting_state, float elapsed_time, std::st
 }
 
 // Initialize simulation on each process
-void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
+void init_simulation(const std::vector<std::string> & amino_acids, std::string pi_1_path, std::string Q_1_path, std::string pi_2_path, std::string Q_2_path) {
     amino_acids_alphabet = amino_acids;  
     for (std::string aa1 : amino_acids_alphabet) {
         for (std::string aa2 : amino_acids_alphabet) {
@@ -555,12 +583,22 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     std::string siteratefilepath = site_rates_dir + "/" + family + ".txt";
     std::string contactmapfilepath = contact_map_dir + "/" + family + ".txt";
     
-    Tree currentTree = read_tree(treefilepath);
+    double read_tree_time_arr[1];
+    double build_tree_time_arr[1];
+    Tree currentTree = read_tree(treefilepath, read_tree_time_arr, build_tree_time_arr);
+    double read_tree_time = read_tree_time_arr[0];
+    double build_tree_time = build_tree_time_arr[0];
+
+    auto start_reading_site_rates = std::chrono::high_resolution_clock::now();
     std::vector<float> site_rates_vec = read_site_rates(siteratefilepath);
     float site_rates[site_rates_vec.size()];
     copy(site_rates_vec.begin(), site_rates_vec.end(), site_rates);
+    auto end_reading_site_rates = std::chrono::high_resolution_clock::now();
+
+    auto start_reading_contact_map = std::chrono::high_resolution_clock::now();
     std::vector<std::vector<int>> contact_map = read_contact_map(contactmapfilepath);
     int num_sites = site_rates_vec.size();
+    auto end_reading_contact_map = std::chrono::high_resolution_clock::now();
 
     auto end_reading = std::chrono::high_resolution_clock::now();
     
@@ -668,27 +706,27 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     auto end_sampling = std::chrono::high_resolution_clock::now();
 
     // Now translate the integer states back to amino acids
-    std::map<std::string, std::vector<std::string>> msa;
+    std::map<std::string, std::vector<char>> msa;
     for (int k = 0; k < int(dfs_order.size()); k++) {
         std::string node = dfs_order[k];
-        std::vector<int> states_int = msa_int[k];
-        std::vector<std::string> states(num_sites, "");
+        std::vector<int> & states_int = msa_int[k];
+        std::vector<char> states(num_sites, ' ');
         // #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int state_int = states_int[i];
-            std::string state_str = amino_acids_alphabet[state_int];
+            char state_str = amino_acids_alphabet[state_int].at(0);
             states[independent_sites[i]] = state_str;
         }
         // #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int state_int = states_int[num_independent_sites + j];
             std::string state_str = amino_acids_pairs[state_int];
-            states[contacting_pairs[j][0]] = state_str[0];
-            states[contacting_pairs[j][1]] = state_str[1];
+            states[contacting_pairs[j][0]] = state_str.at(0);
+            states[contacting_pairs[j][1]] = state_str.at(1);
         }
         // #pragma omp parallel for schedule(dynamic)
-        for (std::string s : states) {
-            if (s == "") {
+        for (char s : states) {
+            if (s == ' ') {
                 std::cerr << "Error mapping integer states to amino acids." << std::endl;
                 exit(1);
             }
@@ -706,6 +744,14 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
 
     double reading_time = std::chrono::duration<double>(end_reading - start_fam_sim).count();
     outfamproffile << "Finish reading all the input files in " << reading_time << " seconds." << std::endl;
+
+    outfamproffile << "Finish reading tree input files in " << read_tree_time << " seconds." << std::endl;
+    outfamproffile << "Finish building tree in " << build_tree_time << " seconds." << std::endl;
+    double reading_site_rates_time = std::chrono::duration<double>(end_reading_site_rates - start_reading_site_rates).count();
+    outfamproffile << "Finish reading site_rates input files in " << reading_site_rates_time << " seconds." << std::endl;
+    double reading_contact_map_time = std::chrono::duration<double>(end_reading_contact_map - start_reading_contact_map).count();
+    outfamproffile << "Finish reading contact_map input files in " << reading_contact_map_time << " seconds." << std::endl;
+
     double processing_time = std::chrono::duration<double>(end_processing_sites - end_reading).count();
     outfamproffile << "Finish processing the data and other initialization in " << processing_time << " seconds." << std::endl;
     double sampling_time = std::chrono::duration<double>(end_sampling - end_processing_sites).count();
