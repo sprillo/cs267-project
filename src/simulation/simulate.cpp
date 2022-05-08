@@ -48,6 +48,7 @@
 #include <map>
 #include <algorithm>
 #include <assert.h>
+#include <pthread.h>
 
 #include <omp.h>
 #include <mpi.h>
@@ -60,6 +61,10 @@ std::vector<std::vector<float>> Q2_rate_matrix;
 std::vector<std::string> amino_acids_alphabet;
 std::vector<std::string> amino_acids_pairs;
 std::default_random_engine* random_engines;
+std::discrete_distribution<int>* Q1_CTPs;
+std::discrete_distribution<int>* Q2_CTPs;
+std::vector<pthread_mutex_t> Q1_CTPs_mutex;
+std::vector<pthread_mutex_t> Q2_CTPs_mutex;
 
 #define DEBUG 0
 
@@ -502,15 +507,16 @@ int sample_transition(int index, int starting_state, float elapsed_time, std::st
             return current_state;
         }
         // Update the current_state;
-        std::vector<float> rate_vector;
+        int new_state = -1;
         if (if_independent) {
-            rate_vector = Q1_rate_matrix[current_state];
+            pthread_mutex_lock(&Q1_CTPs_mutex[current_state]);
+            new_state = Q1_CTPs[current_state](random_engines[index]);
+            pthread_mutex_unlock(&Q1_CTPs_mutex[current_state]);
         } else {
-            rate_vector = Q2_rate_matrix[current_state];
+            pthread_mutex_lock(&Q2_CTPs_mutex[current_state]);
+            new_state = Q2_CTPs[current_state](random_engines[index]);
+            pthread_mutex_unlock(&Q2_CTPs_mutex[current_state]);
         }
-        rate_vector.erase(rate_vector.begin() + current_state);
-        std::discrete_distribution distribution2(cbegin(rate_vector), cend(rate_vector));
-        int new_state = distribution2(random_engines[index]);
         if (new_state >= current_state) {
             new_state += 1;
         }
@@ -531,6 +537,30 @@ void init_simulation(std::vector<std::string> amino_acids, std::string pi_1_path
     p2_probability_distribution = read_probability_distribution(pi_2_path, amino_acids_pairs);
     Q1_rate_matrix = read_rate_matrix(Q_1_path, amino_acids_alphabet);
     Q2_rate_matrix = read_rate_matrix(Q_2_path, amino_acids_pairs);
+    int num_states = amino_acids_alphabet.size();
+    Q1_CTPs = new std::discrete_distribution<int>[num_states];
+    Q2_CTPs = new std::discrete_distribution<int>[num_states * num_states];
+    for(int current_state = 0; current_state < num_states; current_state++){
+        std::vector<float> rate_vector = Q1_rate_matrix[current_state];
+        rate_vector.erase(rate_vector.begin() + current_state);
+        Q1_CTPs[current_state] = std::discrete_distribution(cbegin(rate_vector), cend(rate_vector));
+    }
+    for(int current_state = 0; current_state < num_states * num_states; current_state++){
+        std::vector<float> rate_vector = Q2_rate_matrix[current_state];
+        rate_vector.erase(rate_vector.begin() + current_state);
+        Q2_CTPs[current_state] = std::discrete_distribution(cbegin(rate_vector), cend(rate_vector));
+    }
+
+    Q1_CTPs_mutex.clear();
+    Q1_CTPs_mutex.resize(num_states);
+    for(int current_state = 0; current_state < num_states; current_state++){
+		pthread_mutex_init(&Q1_CTPs_mutex[current_state], NULL);
+    }
+    Q2_CTPs_mutex.clear();
+    Q2_CTPs_mutex.resize(num_states * num_states);
+    for(int current_state = 0; current_state < num_states * num_states; current_state++){
+		pthread_mutex_init(&Q2_CTPs_mutex[current_state], NULL);
+    }
 }
 
 // Run simulation for a family assigned to a certain process
