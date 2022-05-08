@@ -747,6 +747,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     double fam_time = std::chrono::duration<double>(end_fam_sim - start_fam_sim).count();
     outfamproffile << "Finish Simulation of " << family << " in " << fam_time << " seconds." << std::endl;
     outfamproffile.close();
+
+    delete[] random_engines;
 }
 
 
@@ -848,6 +850,9 @@ int main(int argc, char *argv[]) {
         if(DEBUG)
             std::cerr << "Done on family " << rank << " " << family << " " << counter << "/" << tot << std::endl;
     }
+
+    delete[] Q1_CTPs;
+    delete[] Q2_CTPs;
 
     auto end_sim_local = std::chrono::high_resolution_clock::now();
     double sim_time_local = std::chrono::duration<double>(end_sim_local - end_init).count();
