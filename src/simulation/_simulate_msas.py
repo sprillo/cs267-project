@@ -184,8 +184,9 @@ def _map_func(args: Dict):
         msa_int[tree.root()] = root_states
 
         # Depth first search from root
+        root = tree.root()
         for node in tree.preorder_traversal():
-            if node == tree.root():
+            if node == root:
                 continue
             node_states_int = []
             parent, branch_length = tree.parent(node)
