@@ -211,7 +211,7 @@ map<string, string>* read_msa(const string & filename){
     map<string, string>* msa = new map<string, string>;
     std::string tmp;
     std::fstream file;
-    file.open(filename);
+    file.open(filename, ios::in);
     while (file.peek() != EOF) {
         getline(file, tmp);
         string name = tmp.substr(1);
@@ -278,7 +278,6 @@ vector<count_matrix> _map_func(
     // if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
     // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-
     for (int i=0; i<num_of_families; i++){
         const string & family = families[i];
         // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
