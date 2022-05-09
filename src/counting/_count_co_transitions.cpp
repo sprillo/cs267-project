@@ -20,9 +20,9 @@ double total_time = 0;
 double time_parse_param = 0;
 double time_init_aa_pairs = 0;
 double time_init_count_matrices_data = 0;
-// double time_read_tree = 0;
-// double time_read_msa = 0;
-// double time_read_contact_map = 0;
+double time_read_tree = 0;
+double time_read_msa = 0;
+double time_read_contact_map = 0;
 double time_compute_contacting_pairs = 0;
 double time_compute_count_matrices = 0;
 // double time_read_dataset_and_compute_count_matrices;
@@ -274,30 +274,28 @@ vector<count_matrix> _map_func(
     for (int i=0; i<num_quantization_points * count_matrix_num_entries; i++){
         count_matrices_data[i] = 0;
     }
-    // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-    // if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
+    if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
-    // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+    if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     for (int i=0; i<num_of_families; i++){
         const string & family = families[i];
-        // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         Tree* tree = read_tree(tree_dir + "/" + family + ".txt");
-        // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        // if (PROFILE) time_read_tree += std::chrono::duration<double>(end_ - start_).count();
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_tree += std::chrono::duration<double>(end_ - start_).count();
         
-        // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         map<string, string>* msa = read_msa(msa_dir + "/" + family + ".txt");
-        // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        // if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
-
-        // if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
-        // if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        // if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        // vector<pair<int, int>> contacting_pairs;
-        // contacting_pairs.reserve(num_sites * num_sites / 2);
+        char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
+        if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
+
+        if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         pair<int, int>* contacting_pairs = new pair<int, int>[num_sites * num_sites / 2];
         int num_contacting_pairs = 0;
         for (int i=0; i<num_sites; i++){
@@ -308,19 +306,11 @@ vector<count_matrix> _map_func(
                 }
             }
         }
-        // pair<int, int>* contacting_pairs = new pair<int, int>[num_contacting_pairs];
-        // for (int i=0; i<num_sites; i++){
-        //     for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
-        //         if (contact_map[i*(num_sites+1)+j] == '1'){
-                    
-        //         }
-        //     }
-        // } 
+
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        // #pragma omp parallel for
         #pragma omp parallel for
         for (string node : tree->nodes()){
             if (edge_or_cherry == "edge") {
@@ -339,14 +329,6 @@ vector<count_matrix> _map_func(
                             string start_state = string{node_seq[i], node_seq[j]};
                             string end_state = string{child_seq[i], child_seq[j]};
                             if (
-                                // my_find(amino_acids, string{node_seq[i]})
-                                // && my_find(amino_acids, string{node_seq[j]})
-                                // && my_find(amino_acids, string{child_seq[i]})
-                                // && my_find(amino_acids, string{child_seq[j]})
-                                // find(amino_acids.begin(), amino_acids.end(), string{node_seq[i]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{node_seq[j]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{child_seq[i]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{child_seq[j]}) != amino_acids.end()
                                 amino_acids.find(string{node_seq[i]}) != amino_acids.end()
                                 && amino_acids.find(string{node_seq[j]}) != amino_acids.end()
                                 && amino_acids.find(string{child_seq[i]}) != amino_acids.end()
@@ -382,14 +364,6 @@ vector<count_matrix> _map_func(
                             string start_state = string{leaf_seq_1[i], leaf_seq_1[j]};
                             string end_state = string{leaf_seq_2[i], leaf_seq_2[j]};
                             if (
-                                // my_find(amino_acids, string{leaf_seq_1[i]})
-                                // && my_find(amino_acids, string{leaf_seq_1[j]})
-                                // && my_find(amino_acids, string{leaf_seq_2[i]})
-                                // && my_find(amino_acids, string{leaf_seq_2[j]})
-                                // find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[i]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_1[j]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[i]}) != amino_acids.end()
-                                // && find(amino_acids.begin(), amino_acids.end(), string{leaf_seq_2[j]}) != amino_acids.end()
                                 amino_acids.find(string{leaf_seq_1[i]}) != amino_acids.end()
                                 && amino_acids.find(string{leaf_seq_1[j]}) != amino_acids.end()
                                 && amino_acids.find(string{leaf_seq_2[i]}) != amino_acids.end()
@@ -539,9 +513,9 @@ int main(int argc, char *argv[]) {
     if (PROFILE) cout << "time_parse_param: " << time_parse_param << endl;
     if (PROFILE) cout << "time_init_aa_pairs: " << time_init_aa_pairs << endl;
     if (PROFILE) cout << "time_init_count_matrices_data: " << time_init_count_matrices_data << endl;
-    // if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
-    // if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
-    // if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
+    if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
+    if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
+    if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
     if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
     if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
     // if (PROFILE) cout << "time_read_dataset_and_compute_count_matrices: " << time_read_dataset_and_compute_count_matrices << endl;
