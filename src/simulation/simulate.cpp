@@ -63,115 +63,112 @@ std::default_random_engine* random_engines;
 
 #define DEBUG 0
 
-// Adjacent value pairs
-typedef struct {
-    /* data */
-    std::string node;
-    float length;
-} adj_pair_t;
-
 // The tree class
 class Tree {
     public:
 
-    int num_of_nodes;
-    std::unordered_map<std::string, std::vector<adj_pair_t>> adjacent_list;
-    int m;
-    std::unordered_map<std::string, int> out_deg;
-    std::unordered_map<std::string, int> in_deg;
-    std::unordered_map<std::string, adj_pair_t> parent_map;
+    int _num_nodes;
+    std::vector<std::string> _nodes;
+    std::vector<int> _parent;
+    std::vector<float> _length;
+    std::vector<std::vector<int> > _children;
+    std::map<std::string, int> _node_to_idx;
+    int _root;
+    int _node_key;
+    int _num_edges;
 
     Tree(int num_nodes) {
-        num_of_nodes = num_nodes;
-        adjacent_list.clear();
-        m = 0;
-        out_deg.clear();
-        in_deg.clear();
-        parent_map.clear();
+        _num_nodes = num_nodes;
+        _nodes.resize(num_nodes, "");
+        _parent.resize(num_nodes, -1);
+        _length.resize(num_nodes, -1);
+        _children.resize(num_nodes);
+        _root = -1;
+        _node_key = 0;
+        _num_edges = 0;
     }
 
     void add_node(std::string v) {
-        std::vector<adj_pair_t> v_list;
-        adjacent_list[v] = v_list;
-        out_deg[v] = 0;
-        in_deg[v] = 0;
+        _node_to_idx[v] = _node_key;
+        _nodes[_node_key] = v;
+        _node_key++;
     }
 
     void add_edge(std::string u, std::string v, float length) {
-        adj_pair_t adjacent_pair;
-        adjacent_pair.node = v;
-        adjacent_pair.length = length;
-        adjacent_list[u].push_back(adjacent_pair);
-        m += 1;
-        out_deg[u] += 1;
-        in_deg[v] += 1;
-        if (parent_map.find(v) != parent_map.end()) {
+        if((_node_to_idx.count(u) == 0) || (_node_to_idx.count(v) == 0)){
+            std::cerr << "Node " << u << " or " << v << " does not exist. Cannot add edge!" << std::endl;
+            exit(1);
+        }
+        int u_idx = _node_to_idx[u];
+        int v_idx = _node_to_idx[v];
+        if(_parent[v_idx] != -1){
             std::cerr << "Node " << v << " already has a parent, graph is not a tree." << std::endl;
             exit(1);
         }
-        adj_pair_t parent_pair;
-        parent_pair.node = u;
-        parent_pair.length = length;
-        parent_map[v] = parent_pair;
+        _parent[v_idx] = u_idx;
+        _children[u_idx].push_back(v_idx);
+        _length[v_idx] = length;
+        _num_edges++;
     }
 
-    bool is_node(std::string v) {
-        if (adjacent_list.find(v) != adjacent_list.end()) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    std::vector<std::string> nodes() {
-        std::vector<std::string> nodes_vector;
-        for (auto const& kv : adjacent_list) {
-            nodes_vector.push_back(kv.first);
-        }
-        return nodes_vector;
-    }
-
-    std::string root() {
-        std::vector<std::string> roots;
-        for (auto const& kv : adjacent_list) {
-            if (in_deg[kv.first] == 0) {
-                roots.push_back(kv.first);
-            }
-        }
-        if (roots.size() != 1) {
-            std::cerr << "There should be only 1 root, but there is/are " << roots.size() << " root(s)." << std::endl;
+    void set_root(){
+        if(_root != -1){
+            std::cerr << "Root has already been computed" << std::endl;
             exit(1);
         }
-        return roots[0];
-    }
-    
-    std::vector<adj_pair_t> children(std::string u) {
-        return adjacent_list[u];
-    }
-
-    bool is_leaf(std::string u) {
-        if (out_deg[u] == 0) {
-            return true;
-        } else {
-            return false;
+        int num_roots = 0;
+        for(int i = 0; i < _num_nodes; i++){
+            if(_parent[i] == -1){
+                _root = i;
+                num_roots++;
+            }
+        }
+        if(num_roots != 1){
+            std::cerr << "More that one root found in the tree!" << std::endl;
+            exit(1);
         }
     }
 
-    void dfs (std::vector<std::string>& result, std::string v) {
+    void check_tree(){
+        for(int i = 0; i < _num_nodes; i++){
+            if((i != _root) && (_length[i] < 0)){
+                std::cerr << "Found an edge with negative length!" << std::endl;
+                exit(1);
+            }
+        }
+    }
+
+    int root(){
+        if(_root == -1){
+            std::cerr << "Root still hasn't been computed" << std::endl;
+            exit(1);
+        }
+        return _root;
+    }
+
+    void dfs (std::vector<int>& result, int v) {
         result.push_back(v);
-        for (auto kv : children(v)) {
-            dfs(result, kv.node);
+        for (auto u : _children[v]) {
+            dfs(result, u);
         }
     }
 
-    std::vector<std::string> preorder_traversal() {
-        std::vector<std::string> result;
+    std::vector<int> preorder_traversal() {
+        std::vector<int> result;
         dfs(result, root());
         return result;
     }
 
-    adj_pair_t parent(std::string u) {
-        return parent_map[u];
+    int parent(int u) {
+        return _parent[u];
+    }
+
+    float length(int u){
+        return _length[u];
+    }
+
+    std::string get_node(int u){
+        return _nodes[u];
     }
 };
 
@@ -221,12 +218,10 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
         std::string u = parents[i];
         std::string v = children[i];
         float length = lengths[i];
-        if (!newTree.is_node(u) || !newTree.is_node(v)) {
-            std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
-            exit(1);
-        }
         newTree.add_edge(u, v, length);
     }
+    newTree.set_root();
+    newTree.check_tree();
     auto end_building_tree = std::chrono::high_resolution_clock::now();
 
     *reading_tree_time = std::chrono::duration<double>(end_reading_tree - start_reading_tree).count();
@@ -434,13 +429,14 @@ std::vector<std::string> read_family_sizes(const std::vector<std::string> & fami
 }
 
 // Write msa files
-void write_msa(std::string filename, const std::map<std::string, std::vector<char>> & msa) {
+void write_msa(std::string filename, const std::vector<std::vector<char>> & msa_char, const std::vector<std::string> & nodes) {
     std::ofstream outfile;
     outfile.open(filename);
 
-    for (auto key_value : msa) {
-        outfile << ">" << key_value.first << std::endl;
-        std::string tmp(key_value.second.begin(), key_value.second.end());
+    int num_nodes = nodes.size();
+    for(int i = 0; i < num_nodes; i++){
+        outfile << ">" << nodes[i] << std::endl;
+        std::string tmp(msa_char[i].begin(), msa_char[i].end());
         outfile << tmp << std::endl;
     }
 
@@ -614,9 +610,10 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     auto end_processing_sites = std::chrono::high_resolution_clock::now();
 
     // Depth first search from root
-    std::vector<std::string> dfs_order = currentTree.preorder_traversal();
+    std::vector<int> dfs_order = currentTree.preorder_traversal();
     std::unordered_map<std::string, int> node_to_index_map;
-    std::vector<std::vector<int>> msa_int(dfs_order.size(), std::vector<int>(num_independent_sites + num_contacting_pairs, 0));
+    int num_nodes = dfs_order.size();
+    std::vector<std::vector<int>> msa_int(num_nodes, std::vector<int>(num_independent_sites + num_contacting_pairs, 0));
     // Sample root state
     outfamproffile << "num_independent_sites " << num_independent_sites << std::endl;
     outfamproffile << "num_contacting_pairs " << num_contacting_pairs << std::endl;
@@ -626,17 +623,16 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     // Sample other nodes
     int parent_states_int[num_independent_sites + num_contacting_pairs];
     int node_states_int[num_independent_sites + num_contacting_pairs];
-    std::string root = currentTree.root();
-    for (int i = 0; i < int(dfs_order.size()); i++) {
-        std::string node = dfs_order[i];
-        node_to_index_map[node] = i;
+    int root = currentTree.root();
+    for (int i = 0; i < num_nodes; i++) {
+        int node = dfs_order[i];
         if (node == root) {
             continue;
         }
-        adj_pair_t parent_pair = currentTree.parent(node);
-        std::vector<int> & parent_states_int_vec = msa_int[node_to_index_map[parent_pair.node]];
+        int parent = currentTree.parent(node);
+        float parent_pair_length = currentTree.length(node);
+        std::vector<int> & parent_states_int_vec = msa_int[parent];
         copy(parent_states_int_vec.begin(), parent_states_int_vec.end(), parent_states_int);
-        float parent_pair_length = parent_pair.length;
 
         // Sample all the transitions for this node
         // First sample the independent sites
@@ -662,9 +658,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     auto end_sampling = std::chrono::high_resolution_clock::now();
 
     // Now translate the integer states back to amino acids
-    std::map<std::string, std::vector<char>> msa;
-    for (int k = 0; k < int(dfs_order.size()); k++) {
-        std::string node = dfs_order[k];
+    std::vector<std::vector<char>> msa_char(num_nodes, std::vector<char>(num_sites, ' '));
+    for (int k = 0; k < num_nodes; k++) {
         std::vector<int> & states_int = msa_int[k];
         std::vector<char> states(num_sites, ' ');
         // #pragma omp parallel for schedule(dynamic)
@@ -687,14 +682,17 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
                 exit(1);
             }
         }
-        msa[node] = states;
+
+        for (int j = 0; j < num_sites; j++) {
+            msa_char[k][j] = states[j];
+        }
     }
 
     auto end_translating = std::chrono::high_resolution_clock::now();
 
     // Write back to files
     std::string msafilepath =  output_msa_dir + "/" + family + ".txt";
-    write_msa(msafilepath, msa);
+    write_msa(msafilepath, msa_char, currentTree._nodes);
 
     auto end_fam_sim = std::chrono::high_resolution_clock::now();
 
