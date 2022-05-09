@@ -507,11 +507,7 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
 }
 
 // Sample a transition
-int sample_transition(int index, int starting_state, float elapsed_time, std::string strategy, bool if_independent) {
-    if (strategy != "all_transitions") {
-        std::cerr << "Unknown strategy: " << strategy << std::endl;
-        exit(1);
-    }
+int sample_transition(int index, int starting_state, float elapsed_time, bool if_independent) {
     int current_state = starting_state;
     float current_time = 0;
     while (true) {
@@ -562,7 +558,7 @@ void init_simulation(const std::vector<std::string> & amino_acids, std::string p
 }
 
 // Run simulation for a family assigned to a certain process
-void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, std::string strategy, int rank) {
+void run_simulation(std::string tree_dir, std::string site_rates_dir, std::string contact_map_dir, std::string output_msa_dir, std::string family, int random_seed, int rank) {
     std::ofstream outfamproffile;
     std::string outfamproffilename = output_msa_dir + "/" + family + ".profiling";
     outfamproffile.open(outfamproffilename);
@@ -688,14 +684,14 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         for (int j = 0; j < num_independent_sites; j++) {
             int starting_state = parent_states_int[j];
             float elapsed_time = parent_pair_length * site_rates[independent_sites[j]];
-            node_states_int[j] = sample_transition(j, starting_state, elapsed_time, strategy, true);
+            node_states_int[j] = sample_transition(j, starting_state, elapsed_time, true);
         }
         // Then sample the contacting sites
         #pragma omp parallel for schedule(static)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
             float elapsed_time = parent_pair_length;
-            node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, strategy, false);
+            node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, false);
         }
 
         for(int j = 0; j < num_independent_sites + num_contacting_pairs; j++){
@@ -860,7 +856,7 @@ int main(int argc, char *argv[]) {
         counter++;
         if(DEBUG)
             std::cerr << "Running on family " << rank << " " << family << " " << counter << "/" << tot << std::endl;
-        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed, strategy, rank);
+        run_simulation(tree_dir, site_rates_dir, contact_map_dir, output_msa_dir, family, random_seed, rank);
         if(DEBUG)
             std::cerr << "Done on family " << rank << " " << family << " " << counter << "/" << tot << std::endl;
     }
