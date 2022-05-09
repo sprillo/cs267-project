@@ -181,28 +181,22 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
     auto start_reading_tree = std::chrono::high_resolution_clock::now();
     int num_nodes;
     int num_edges;
-    int edges_count = 0;
     std::string tmp;
 
     std::ifstream treefile;
     treefile.open(treefilename);
 
-    treefile >> tmp;
-    num_nodes = std::stoi(tmp);
+    treefile >> num_nodes;
     treefile >> tmp;
     if (tmp != "nodes") {
         std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
         exit(1);
     }
-    // Tree newTree(num_nodes);
     std::vector<std::string> nodes(num_nodes);
     for (int i = 0; i < num_nodes; i++) {
-        treefile >> tmp;
-        nodes[i] = tmp;
-        // newTree.add_node(tmp);
+        treefile >> nodes[i];
     }
-    treefile >> tmp;
-    num_edges = std::stoi(tmp);
+    treefile >> num_edges;
     std::vector<std::string> parents(num_edges);
     std::vector<std::string> children(num_edges);
     std::vector<float> lengths(num_edges);
@@ -212,30 +206,9 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
         exit(1);
     }
     getline(treefile, tmp); // Get rid of the empty line left by reading the word
-    while (treefile.peek() != EOF) {
-        edges_count += 1;
-        std::string u, v, l;
-        float length;
 
-        getline(treefile, tmp);
-        std::stringstream tmpstring(tmp);
-        tmpstring >> u;
-        tmpstring >> v;
-        tmpstring >> l;
-        length = std::stof(l);
-        // I didn't check the types at this point in the way python code does.
-        // if (!newTree.is_node(u) || !newTree.is_node(v)) {
-        //     std::cerr << "In Tree file " << treefilename << ": " << u << " and " << v << " should be nodes in the tree, but not." << std::endl;
-        //     exit(1);
-        // }
-        // newTree.add_edge(u, v, length);
-        parents[edges_count - 1] = u;
-        children[edges_count - 1] = v;
-        lengths[edges_count - 1] = length;
-    }
-    if (num_edges != edges_count) {
-        std::cerr << "Tree file:" << treefilename << "should have " << num_edges << " edges, but it has " << edges_count << " instead." << std::endl;
-        exit(1);
+    for(int i = 0; i < num_edges; i++){
+        treefile >> parents[i] >> children[i] >> lengths[i];
     }
     auto end_reading_tree = std::chrono::high_resolution_clock::now();
 
@@ -266,24 +239,19 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
 std::vector<float> read_site_rates(std::string filename) {
     int num_sites;
     std::string tmp;
-    std::vector<float> result;
 
     std::ifstream siteratefile;
     siteratefile.open(filename);
 
-    siteratefile >> tmp;
-    num_sites = std::stoi(tmp);
+    siteratefile >> num_sites;
     siteratefile >> tmp;
     if (tmp != "sites") {
         std::cerr << "Site rates file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
         exit(1);
     }
-    while (siteratefile >> tmp) {
-        result.push_back(std::stof(tmp));
-    }
-    if (int(result.size()) != num_sites) {
-        std::cerr << "Site rates file: " << filename << " was supposed to have " << num_sites << " sites, but it has " << result.size() << "." << std::endl;
-        exit(1);
+    std::vector<float> result(num_sites);
+    for(int i = 0; i < num_sites; i++){
+        siteratefile >> result[i];
     }
     return result;
 }
@@ -292,39 +260,31 @@ std::vector<float> read_site_rates(std::string filename) {
 std::vector<std::vector<int>> read_contact_map(std::string filename) {
     int num_sites;
     std::string tmp;
-    std::vector<std::vector<int>> result;
-    int line_count = 0;
 
     std::ifstream contactmapfile;
     contactmapfile.open(filename);
 
-    contactmapfile >> tmp;
-    num_sites = std::stoi(tmp);
+    contactmapfile >> num_sites;
+    std::vector<std::vector<int>> result(num_sites, std::vector<int>(num_sites, 0));
     contactmapfile >> tmp;
     if (tmp != "sites") {
         std::cerr << "Contact map file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
         exit(1);
     }
     
-    while (contactmapfile >> tmp) {
-        line_count += 1;
-        std::vector<int> row(num_sites, 0);
+    for(int j = 0; j < num_sites; j++){
+        contactmapfile >> tmp;
         for (int i = 0; i < num_sites; i++) {
             char a = tmp[i];
             if (a == '1') {
-                row[i] = 1;
+                result[j][i] = 1;
             } else if(a == '0'){
-                row[i] = 0;
+                result[j][i] = 0;
             } else{
                 std::cerr << "Contact map file: " << filename << " should have only ones or zeros." << std::endl;
                 exit(1);
             }
         }
-        result.push_back(row);
-    }
-    if (num_sites != line_count) {
-        std::cerr << "Contact map file: " << filename << " should have " << num_sites << " rows, but has " << line_count << "." << std::endl;
-        exit(1);
     }
     return result;
 }
