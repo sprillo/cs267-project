@@ -75,7 +75,14 @@ def check_count_matrices_are_equal(
                 f"Count matrix indices differ:\nExpected:\n"
                 f"{count_matrix_1.index}\nvs\nObtained:\n{count_matrix_2.index}"
             )
-        if not (count_matrix_1 == count_matrix_2).all().all():
+        # for i in range(count_matrix_1.shape[0]):
+        #     for j in range(count_matrix_1.shape[1]):
+        #         if abs(count_matrix_1.iloc[i, j] - count_matrix_2.iloc[i, j]) > 0.1:
+        #             raise Exception(
+        #                 f"Count matrix contents differ:\nExpected:\n{count_matrix_1.iloc[i, j]}\n"
+        #                 f"vs\nObtained:\n{count_matrix_2.iloc[i, j]}"
+        #             )
+        if not (np.abs(count_matrix_1.to_numpy() - count_matrix_2.to_numpy())).sum().sum() < 0.1:
             raise Exception(
                 f"Count matrix contents differ:\nExpected:\n{count_matrix_1}\n"
                 f"vs\nObtained:\n{count_matrix_2}"
