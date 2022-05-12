@@ -269,9 +269,9 @@ def simulate_msas(
     Q_2_path: str,
     strategy: str,
     random_seed: int,
-    num_processes: int,
+    num_processes: Optional[int] = 1,
     use_cpp_implementation: bool = False,
-    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=1 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
+    cpp_command_line_prefix: str = "",
     cpp_command_line_suffix: str = "0",
     output_msa_dir: Optional[str] = None,
 ) -> None:
@@ -339,13 +339,12 @@ def simulate_msas(
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
             # Currently it should run on the interactive node
-            command = f"mpicxx -O3 -o {bin_path} {cpp_path}"
+            command = f"mpicxx -std=c++11 -O3 -o {bin_path} {cpp_path}"
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         command = ""
         command += cpp_command_line_prefix
-        command += f" --ntasks-per-node={num_processes}"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {site_rates_dir}"

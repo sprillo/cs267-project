@@ -425,8 +425,8 @@ void count_co_transitions(
     vector<float>& quantization_points,
     const string & edge_or_cherry,
     int minimum_distance_for_nontrivial_contact,
-    const string & output_count_matrices_dir,
-    int num_processes){
+    const string & output_count_matrices_dir
+){
 
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
 
@@ -492,7 +492,7 @@ int main(int argc, char *argv[]) {
         quantization_points,
         edge_or_cherry,
         minimum_distance_for_nontrivial_contact,
-        output_count_matrices_dir,
+        output_count_matrices_dir
     );
 
     if (PROFILE) end_time = std::chrono::high_resolution_clock::now();

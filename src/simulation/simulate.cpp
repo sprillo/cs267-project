@@ -451,13 +451,13 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
     std::vector<int> result(num_independent_sites + num_contacting_pairs, 0);
 
     // First sample the independent sites
-    std::discrete_distribution distribution1(cbegin(p1_probability_distribution), cend(p1_probability_distribution));
+    std::discrete_distribution<int> distribution1(begin(p1_probability_distribution), end(p1_probability_distribution));
     for (int i = 0; i < num_independent_sites; i++) {
         result[i] = distribution1(random_engines[i]);
     }
 
     // Then sample the contacting sites
-    std::discrete_distribution distribution2(cbegin(p2_probability_distribution), cend(p2_probability_distribution));
+    std::discrete_distribution<int> distribution2(begin(p2_probability_distribution), end(p2_probability_distribution));
     for (int j = 0; j < num_contacting_pairs; j++) {
         result[num_independent_sites + j] = distribution2(random_engines[num_independent_sites + j]);
     }
@@ -521,12 +521,12 @@ void init_simulation(const std::vector<std::string> & amino_acids, std::string p
     for(int current_state = 0; current_state < num_states; current_state++){
         std::vector<float> rate_vector = Q1_rate_matrix[current_state];
         rate_vector.erase(rate_vector.begin() + current_state);
-        Q1_CTPs[current_state] = std::discrete_distribution(cbegin(rate_vector), cend(rate_vector));
+        Q1_CTPs[current_state] = std::discrete_distribution<int>(begin(rate_vector), end(rate_vector));
     }
     for(int current_state = 0; current_state < num_states * num_states; current_state++){
         std::vector<float> rate_vector = Q2_rate_matrix[current_state];
         rate_vector.erase(rate_vector.begin() + current_state);
-        Q2_CTPs[current_state] = std::discrete_distribution(cbegin(rate_vector), cend(rate_vector));
+        Q2_CTPs[current_state] = std::discrete_distribution<int>(begin(rate_vector), end(rate_vector));
     }
 
     Q1_CTPs_mutex.clear();
