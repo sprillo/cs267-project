@@ -1,3 +1,5 @@
+import contextlib
+import os
 from typing import List, Optional
 
 import numpy as np
@@ -24,6 +26,10 @@ amino_acids = [
     "Y",
     "V",
 ]
+
+
+def get_amino_acids() -> List[str]:
+    return amino_acids[:]
 
 
 def quantization_idx(
@@ -59,3 +65,13 @@ def get_process_args(
         if i % num_processes == process_rank
     ]
     return process_args
+
+
+@contextlib.contextmanager
+def pushd(new_dir):
+    previous_dir = os.getcwd()
+    os.chdir(new_dir)
+    try:
+        yield
+    finally:
+        os.chdir(previous_dir)

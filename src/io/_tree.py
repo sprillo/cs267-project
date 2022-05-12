@@ -2,9 +2,11 @@ from typing import List, Tuple
 
 
 class Tree:
-    def __init__(self, num_nodes: int) -> None:
-        self._num_nodes = num_nodes
+    def __init__(self) -> None:
+        self._num_nodes = 0
+        self._num_edges = 0
         self._adj_list = {}
+        self._edges = []
         self._m = 0
         self._out_deg = {}
         self._in_deg = {}
@@ -14,17 +16,32 @@ class Tree:
         self._adj_list[v] = []
         self._out_deg[v] = 0
         self._in_deg[v] = 0
+        self._num_nodes += 1
+
+    def add_nodes(self, nodes: List[str]) -> None:
+        for node in nodes:
+            self.add_node(node)
 
     def add_edge(self, u: str, v: str, length: float) -> None:
+        if v in self._parent:
+            raise Exception(
+                f"Node {v} already has a parent ({self._parent[v][0]}), cannot "
+                f"also have parent {u} - graph is not a tree."
+            )
         self._adj_list[u].append((v, length))
+        self._edges.append((u, v, length))
         self._m += 1
         self._out_deg[u] += 1
         self._in_deg[v] += 1
-        if v in self._parent:
-            raise Exception(
-                f"Node {v} already has a parent, graph is not a tree."
-            )
         self._parent[v] = (u, length)
+        self._num_edges += 1
+
+    def add_edges(self, edges: List[Tuple[str, str, float]]) -> None:
+        for (u, v, length) in edges:
+            self.add_edge(u, v, length)
+
+    def edges(self) -> List[Tuple[str, str, float]]:
+        return self._edges[:]
 
     def is_node(self, v: str) -> bool:
         return v in self._adj_list
@@ -52,6 +69,15 @@ class Tree:
     def is_leaf(self, u: str) -> bool:
         return self._out_deg[u] == 0
 
+    def is_root(self, u: str) -> bool:
+        return self._in_deg[u] == 0
+
+    def num_nodes(self) -> int:
+        return self._num_nodes
+
+    def num_edges(self) -> int:
+        return self._num_edges
+
     def preorder_traversal(self) -> List[str]:
         res = []
 
@@ -63,8 +89,39 @@ class Tree:
         dfs(self.root())
         return res
 
+    def postorder_traversal(self) -> List[str]:
+        res = []
+
+        def dfs(v: str):
+            for (u, _) in self.children(v):
+                dfs(u)
+            res.append(v)
+
+        dfs(self.root())
+        return res
+
     def parent(self, u: str) -> Tuple[str, int]:
         return self._parent[u]
+
+    def leaves(self) -> List[str]:
+        return [u for u in self.nodes() if self.is_leaf(u)]
+
+    def internal_nodes(self) -> List[str]:
+        return [u for u in self.nodes() if not self.is_leaf(u)]
+
+
+def write_tree(
+    tree: Tree,
+    tree_path: str,
+) -> None:
+    res = ""
+    res += f"{tree.num_nodes()} nodes\n"
+    for node in tree.nodes():
+        res += f"{node}\n"
+    res += f"{tree.num_edges()} edges\n"
+    for (u, v, d) in tree.edges():
+        res += f"{u} {v} {d}\n"
+    open(tree_path, "w").write(res)
 
 
 def read_tree(
@@ -81,7 +138,7 @@ def read_tree(
             f"Tree file: {tree_path} should start with '[num_nodes] nodes'. "
             f"It started with: '{lines[0]}'"
         )
-    tree = Tree(n)
+    tree = Tree()
     for i in range(1, n + 1, 1):
         v = lines[i]
         tree.add_node(v)
@@ -115,4 +172,6 @@ def read_tree(
                 f" tree, but the nodes are: {tree.nodes()}"
             )
         tree.add_edge(u, v, length)
+    assert tree.num_nodes() == n
+    assert tree.num_edges() == m
     return tree

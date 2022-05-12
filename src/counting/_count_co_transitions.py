@@ -1,11 +1,12 @@
 import multiprocessing
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 import tqdm
 
+from src import caching
 from src.io import read_contact_map, read_msa, read_tree, write_count_matrices
 from src.utils import get_process_args, quantization_idx
 
@@ -128,18 +129,24 @@ def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
     return count_matrices
 
 
+@caching.cached_computation(
+    exclude_args=["num_processes", "use_cpp_implementation", "cpp_command_line_prefix", "cpp_command_line_suffix"],
+    output_dirs=["output_count_matrices_dir"],
+)
 def count_co_transitions(
     tree_dir: str,
     msa_dir: str,
     contact_map_dir: str,
     families: List[str],
     amino_acids: List[str],
-    quantization_points: List[float],
+    quantization_points: List[Union[str, float]],
     edge_or_cherry: str,
     minimum_distance_for_nontrivial_contact: int,
     output_count_matrices_dir: str,
     num_processes: int,
-    use_cpp_implementation: bool = True,
+    use_cpp_implementation: bool = False,
+    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=68 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 68 --cpu_bind=cores",
+    cpp_command_line_suffix: str = "",
 ) -> None:
     """
     Count the number of co-transitions.
@@ -183,9 +190,12 @@ def count_co_transitions(
         num_processes: Number of processes used to parallelize computation.
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
+        cpp_command_line_prefix: E.g. to run the C++ binary on slurm.
+        cpp_command_line_suffix: For extra C++ args related to performance.
     """
     if not os.path.exists(output_count_matrices_dir):
         os.makedirs(output_count_matrices_dir)
+    quantization_points = [float(q) for q in quantization_points]
 
     if use_cpp_implementation:
         # check if the binary exists
@@ -201,7 +211,7 @@ def count_co_transitions(
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
         # os.system("export OMP_NUM_THREADS=4")
-        command = "export OMP_NUM_THREADS=68 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 68 --cpu_bind=cores"
+        command = cpp_command_line_prefix
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {msa_dir}"
@@ -216,6 +226,7 @@ def count_co_transitions(
         command += f" {minimum_distance_for_nontrivial_contact}"
         command += f" {output_count_matrices_dir}"
         command += f" {num_processes}"
+        command += f" {cpp_command_line_suffix}"
         os.system(command)
         return
 

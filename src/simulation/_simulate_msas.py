@@ -2,11 +2,13 @@ import hashlib
 import multiprocessing
 import os
 import random
-from typing import Dict, List
+import time
+from typing import Dict, List, Optional
 
 import numpy as np
 import tqdm
 
+from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import (
     read_contact_map,
     read_probability_distribution,
@@ -95,6 +97,7 @@ def _map_func(args: Dict):
     random_seed = args[11]
 
     for family in families:
+        st = time.time()
         tree = read_tree(tree_path=os.path.join(tree_dir, family + ".txt"))
         site_rates = read_site_rates(
             site_rates_path=os.path.join(site_rates_dir, family + ".txt")
@@ -240,8 +243,20 @@ def _map_func(args: Dict):
             msa,
             msa_path,
         )
+        secure_parallel_output(output_msa_dir, family)
+        et = time.time()
+        open(os.path.join(output_msa_dir, family + ".profiling"), "w").write(
+            f"Total time: {et - st}\n"
+        )
 
 
+# TODO: I am not excluding use_cpp_implementation, since the way that Python and
+# C++ generate their randomness is different.
+@cached_parallel_computation(
+    parallel_arg="families",
+    exclude_args=["num_processes", "cpp_command_line_prefix", "cpp_command_line_suffix"],
+    output_dirs=["output_msa_dir"],
+)
 def simulate_msas(
     tree_dir: str,
     site_rates_dir: str,
@@ -253,12 +268,12 @@ def simulate_msas(
     pi_2_path: str,
     Q_2_path: str,
     strategy: str,
-    output_msa_dir: str,
     random_seed: int,
     num_processes: int,
-    use_cpp_implementation: bool = True,
+    use_cpp_implementation: bool = False,
     cpp_command_line_prefix: str = "export OMP_NUM_THREADS=4 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
     cpp_command_line_suffix: str = "0",
+    output_msa_dir: Optional[str] = None,
 ) -> None:
     """
     Simulate multiple sequence alignments (MSAs).
@@ -309,8 +324,8 @@ def simulate_msas(
         num_processes: Number of processes used to parallelize computation.
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
-        cpp_command_line_suffix: To pass in the load balancing scheme and
-            family sizes file.
+        cpp_command_line_prefix: E.g. to run the C++ binary on slurm.
+        cpp_command_line_suffix: For extra C++ args related to performance.
     """
     if not os.path.exists(output_msa_dir):
         os.makedirs(output_msa_dir)
