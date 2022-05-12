@@ -22,6 +22,7 @@ def cherry_estimator(
     learning_rate: float = 1e-1,
     num_epochs: int = 2000,
     do_adam: bool = True,
+    edge_or_cherry: str = "cherry",
 ) -> str:
     """
     Cherry estimator.
@@ -51,7 +52,7 @@ def cherry_estimator(
             families=families,
             amino_acids=get_amino_acids(),
             quantization_points=quantization_points,
-            edge_or_cherry="cherry",
+            edge_or_cherry=edge_or_cherry,
             num_processes=num_processes,
             use_cpp_implementation=use_cpp_counting_implementation,
         )["output_count_matrices_dir"]
