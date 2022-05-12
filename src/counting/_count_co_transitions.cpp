@@ -490,7 +490,6 @@ int main(int argc, char *argv[]) {
     string edge_or_cherry = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points];
     int minimum_distance_for_nontrivial_contact = atoi(argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 1]);
     string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 2];
-    int num_processes = atoi(argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 3]);
     
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_parse_param += std::chrono::duration<double>(end_ - start_).count();
@@ -504,7 +503,6 @@ int main(int argc, char *argv[]) {
         edge_or_cherry,
         minimum_distance_for_nontrivial_contact,
         output_count_matrices_dir,
-        num_processes
     );
 
     if (PROFILE) end_time = std::chrono::high_resolution_clock::now();

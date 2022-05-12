@@ -271,7 +271,7 @@ def simulate_msas(
     random_seed: int,
     num_processes: int,
     use_cpp_implementation: bool = False,
-    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=4 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
+    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=1 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
     cpp_command_line_suffix: str = "0",
     output_msa_dir: Optional[str] = None,
 ) -> None:

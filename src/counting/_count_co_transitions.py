@@ -145,7 +145,7 @@ def count_co_transitions(
     output_count_matrices_dir: str,
     num_processes: int,
     use_cpp_implementation: bool = False,
-    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=68 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -n 1 -c 68 --cpu_bind=cores",
+    cpp_command_line_prefix: str = "export OMP_NUM_THREADS=1 && export OMP_PLACES=cores && export OMP_PROC_BIND=spread && srun -t 00:10:00 --cpu_bind=cores -C knl -N 1",
     cpp_command_line_suffix: str = "",
 ) -> None:
     """
@@ -212,6 +212,7 @@ def count_co_transitions(
                 raise Exception("Couldn't compile simulate.cpp")
         # os.system("export OMP_NUM_THREADS=4")
         command = cpp_command_line_prefix
+        command += f" --ntasks-per-node={num_processes}"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {msa_dir}"
@@ -225,7 +226,6 @@ def count_co_transitions(
         command += f" {edge_or_cherry}"
         command += f" {minimum_distance_for_nontrivial_contact}"
         command += f" {output_count_matrices_dir}"
-        command += f" {num_processes}"
         command += f" {cpp_command_line_suffix}"
         os.system(command)
         return
