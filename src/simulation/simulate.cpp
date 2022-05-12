@@ -50,7 +50,6 @@
 #include <assert.h>
 #include <pthread.h>
 
-#include <omp.h>
 #include <mpi.h>
 
 // global variables
@@ -552,11 +551,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     outfamproffile << "Rank is " << rank << std::endl;
     outfamproffile << "The current family is " << family << std::endl;
 
-    int numthreads = -1;
-    #pragma omp parallel
-    {
-        numthreads = omp_get_num_threads();
-    }
+    int numthreads = 1;
     outfamproffile << "The total number of threads is " << numthreads << std::endl;
 
     auto start_fam_sim = std::chrono::high_resolution_clock::now();
@@ -631,7 +626,6 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     int local_seed = std::rand();
     outfamproffile << "local_seed for family " << family << " is " << local_seed << std::endl;
     random_engines = new std::default_random_engine[num_independent_sites + num_contacting_pairs];
-    // #pragma omp parallel for schedule(dynamic)
     for (int i = 0; i < num_independent_sites + num_contacting_pairs; i++) {
         std::default_random_engine generator_site(local_seed + i);
         random_engines[i] = generator_site;
@@ -666,14 +660,12 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
 
         // Sample all the transitions for this node
         // First sample the independent sites
-        #pragma omp parallel for schedule(static)
         for (int j = 0; j < num_independent_sites; j++) {
             int starting_state = parent_states_int[j];
             float elapsed_time = parent_pair_length * site_rates[independent_sites[j]];
             node_states_int[j] = sample_transition(j, starting_state, elapsed_time, true);
         }
         // Then sample the contacting sites
-        #pragma omp parallel for schedule(static)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
             float elapsed_time = parent_pair_length;
@@ -692,20 +684,17 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     for (int k = 0; k < num_nodes; k++) {
         std::vector<int> & states_int = msa_int[k];
         std::vector<char> states(num_sites, ' ');
-        // #pragma omp parallel for schedule(dynamic)
         for (int i = 0; i < num_independent_sites; i++) {
             int state_int = states_int[i];
             char state_str = amino_acids_alphabet[state_int].at(0);
             states[independent_sites[i]] = state_str;
         }
-        // #pragma omp parallel for schedule(dynamic)
         for (int j = 0; j < num_contacting_pairs; j++) {
             int state_int = states_int[num_independent_sites + j];
             std::string state_str = amino_acids_pairs[state_int];
             states[contacting_pairs[j][0]] = state_str.at(0);
             states[contacting_pairs[j][1]] = state_str.at(1);
         }
-        // #pragma omp parallel for schedule(dynamic)
         for (char s : states) {
             if (s == ' ') {
                 std::cerr << "Error mapping integer states to amino acids." << std::endl;

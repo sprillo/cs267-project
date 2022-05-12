@@ -9,9 +9,8 @@
 #include <map>
 #include <utility> 
 #include <chrono>
-#include <omp.h>
 
-#define PROFILE true
+#define PROFILE false
 
 using namespace std;
 
@@ -311,7 +310,6 @@ vector<count_matrix> _map_func(
         if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        #pragma omp parallel for
         for (string node : tree->nodes()){
             if (edge_or_cherry == "edge") {
                 string node_seq = (*msa)[node];
@@ -321,7 +319,6 @@ vector<count_matrix> _map_func(
                     string child_seq = (*msa)[child];
                     int q_idx = quantization_idx(branch_length, quantization_points);
                     if (q_idx != -1){
-                        // #pragma omp parallel for
                         for (int k=0; k<num_contacting_pairs; k++){
                             pair<int, int>& p = contacting_pairs[k];
                             int i = p.first;
@@ -334,11 +331,9 @@ vector<count_matrix> _map_func(
                                 && amino_acids.find(string{child_seq[i]}) != amino_acids.end()
                                 && amino_acids.find(string{child_seq[j]}) != amino_acids.end()
                             ){
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
                                 reverse(start_state.begin(), start_state.end());
                                 reverse(end_state.begin(), end_state.end());
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
                             }
                         }
@@ -356,7 +351,6 @@ vector<count_matrix> _map_func(
                     float branch_length_total = branch_length_1 + branch_length_2;
                     int q_idx = quantization_idx(branch_length_total, quantization_points);
                     if (q_idx != -1){
-                        // #pragma omp parallel for
                         for (int k=0; k<num_contacting_pairs; k++){
                             pair<int, int>& p = contacting_pairs[k];
                             int i = p.first;
@@ -369,15 +363,11 @@ vector<count_matrix> _map_func(
                                 && amino_acids.find(string{leaf_seq_2[i]}) != amino_acids.end()
                                 && amino_acids.find(string{leaf_seq_2[j]}) != amino_acids.end()
                             ){
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
                                 reverse(start_state.begin(), start_state.end());
                                 reverse(end_state.begin(), end_state.end());
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                #pragma omp atomic
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
                             }
                         }
