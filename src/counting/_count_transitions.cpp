@@ -21,7 +21,7 @@ double time_init_aa_pairs = 0;
 double time_init_count_matrices_data = 0;
 double time_read_tree = 0;
 double time_read_msa = 0;
-double time_read_contact_map = 0;
+double time_read_site_rates = 0;
 double time_compute_contacting_pairs = 0;
 double time_compute_count_matrices = 0;
 // double time_read_dataset_and_compute_count_matrices;
@@ -32,8 +32,8 @@ auto end_ = std::chrono::high_resolution_clock::now();
 auto start_time = std::chrono::high_resolution_clock::now();
 auto end_time = std::chrono::high_resolution_clock::now();
 
-vector<string> pairs_of_amino_acids;
-map<string, int> aa_pair_to_int;;
+vector<string> amino_acids_vec;
+map<string, int> aa_to_int;
 int num_of_amino_acids;
 map<string, string> msa;
 int num_sites;
@@ -221,16 +221,25 @@ map<string, string>* read_msa(const string & filename){
     return msa;
 }
 
-char* read_contact_map(const string & filename){
+// Read the site rates file
+std::vector<double> read_site_rates(std::string filename) {
+    int num_sites;
     std::string tmp;
-    std::fstream file;
-    file.open(filename, ios::in);
-    getline(file, tmp);
-    num_sites = stoi(tmp.substr(0, tmp.find(' ')));
-    char* buffer = (char *)malloc(num_sites * (num_sites+1) * sizeof(char));
-    file.read(buffer, num_sites * (num_sites+1));
-    file.close();
-    return buffer;
+
+    std::ifstream siteratefile;
+    siteratefile.open(filename);
+
+    siteratefile >> num_sites;
+    siteratefile >> tmp;
+    if (tmp != "sites") {
+        std::cerr << "Site rates file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
+        exit(1);
+    }
+    std::vector<double> result(num_sites);
+    for(int i = 0; i < num_sites; i++){
+        siteratefile >> result[i];
+    }
+    return result;
 }
 
 int quantization_idx(double branch_length, const vector<double> & quantization_points_sorted){
@@ -257,17 +266,16 @@ bool all_children_are_leafs(Tree* tree, const vector<adj_pair_t> & children){
 vector<count_matrix> _map_func(
     const string & tree_dir,
     const string & msa_dir,
-    const string & contact_map_dir,
+    const string & site_rates_dir,
     const string* families,
     const unordered_set<string> & amino_acids,
     const vector<double> & quantization_points,
-    const string & edge_or_cherry,
-    int minimum_distance_for_nontrivial_contact
+    const string & edge_or_cherry
 ){
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     vector<count_matrix> count_matrices;
     num_quantization_points = quantization_points.size();
-    count_matrix_size = pairs_of_amino_acids.size();
+    count_matrix_size = amino_acids_vec.size();
     int count_matrix_num_entries = count_matrix_size * count_matrix_size;
     double* count_matrices_data = new double[num_quantization_points * count_matrix_num_entries];
     for (int i=0; i<num_quantization_points * count_matrix_num_entries; i++){
@@ -290,21 +298,11 @@ vector<count_matrix> _map_func(
         if (PROFILE) time_read_msa += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        char* contact_map = read_contact_map(contact_map_dir + "/" + family + ".txt");
+        vector<double> site_rates = read_site_rates(site_rates_dir + "/" + family + ".txt");
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
-        if (PROFILE) time_read_contact_map += std::chrono::duration<double>(end_ - start_).count();
+        if (PROFILE) time_read_site_rates += std::chrono::duration<double>(end_ - start_).count();
 
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-        pair<int, int>* contacting_pairs = new pair<int, int>[num_sites * num_sites / 2];
-        int num_contacting_pairs = 0;
-        for (int i=0; i<num_sites; i++){
-            for (int j=i+minimum_distance_for_nontrivial_contact; j<num_sites; j++){
-                if (contact_map[i*(num_sites+1)+j] == '1'){
-                    contacting_pairs[num_contacting_pairs] = pair<int, int>(i, j);
-                    num_contacting_pairs++;
-                }
-            }
-        }
 
         if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
         if (PROFILE) time_compute_contacting_pairs += std::chrono::duration<double>(end_ - start_).count();
@@ -317,24 +315,16 @@ vector<count_matrix> _map_func(
                     string child = edge.node;
                     double branch_length = edge.length;
                     string child_seq = (*msa)[child];
-                    int q_idx = quantization_idx(branch_length, quantization_points);
-                    if (q_idx != -1){
-                        for (int k=0; k<num_contacting_pairs; k++){
-                            pair<int, int>& p = contacting_pairs[k];
-                            int i = p.first;
-                            int j = p.second;
-                            string start_state = string{node_seq[i], node_seq[j]};
-                            string end_state = string{child_seq[i], child_seq[j]};
+                    for (int i = 0; i < int(child_seq.size()); i++){
+                        int q_idx = quantization_idx(branch_length * site_rates[i], quantization_points);
+                        if (q_idx != -1){
+                            string start_state = string{node_seq[i]};
+                            string end_state = string{child_seq[i]};
                             if (
                                 amino_acids.find(string{node_seq[i]}) != amino_acids.end()
-                                && amino_acids.find(string{node_seq[j]}) != amino_acids.end()
                                 && amino_acids.find(string{child_seq[i]}) != amino_acids.end()
-                                && amino_acids.find(string{child_seq[j]}) != amino_acids.end()
                             ){
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
-                                reverse(start_state.begin(), start_state.end());
-                                reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.5;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[start_state] * count_matrix_size + aa_to_int[end_state]] += 1.0;
                             }
                         }
                     }
@@ -349,26 +339,17 @@ vector<count_matrix> _map_func(
                     string leaf_seq_1 = (*msa)[leaf_1];
                     string leaf_seq_2 = (*msa)[leaf_2];
                     double branch_length_total = branch_length_1 + branch_length_2;
-                    int q_idx = quantization_idx(branch_length_total, quantization_points);
-                    if (q_idx != -1){
-                        for (int k=0; k<num_contacting_pairs; k++){
-                            pair<int, int>& p = contacting_pairs[k];
-                            int i = p.first;
-                            int j = p.second;
-                            string start_state = string{leaf_seq_1[i], leaf_seq_1[j]};
-                            string end_state = string{leaf_seq_2[i], leaf_seq_2[j]};
+                    for (int i=0; i<int(leaf_seq_1.size()); i++){
+                        int q_idx = quantization_idx(branch_length_total * site_rates[i], quantization_points);
+                        if (q_idx != -1){
+                            string start_state = string{leaf_seq_1[i]};
+                            string end_state = string{leaf_seq_2[i]};
                             if (
                                 amino_acids.find(string{leaf_seq_1[i]}) != amino_acids.end()
-                                && amino_acids.find(string{leaf_seq_1[j]}) != amino_acids.end()
                                 && amino_acids.find(string{leaf_seq_2[i]}) != amino_acids.end()
-                                && amino_acids.find(string{leaf_seq_2[j]}) != amino_acids.end()
                             ){
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
-                                reverse(start_state.begin(), start_state.end());
-                                reverse(end_state.begin(), end_state.end());
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[start_state] * count_matrix_size + aa_pair_to_int[end_state]] += 0.25;
-                                count_matrices_data[q_idx * count_matrix_num_entries + aa_pair_to_int[end_state] * count_matrix_size + aa_pair_to_int[start_state]] += 0.25;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[start_state] * count_matrix_size + aa_to_int[end_state]] += 0.5;
+                                count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[end_state] * count_matrix_size + aa_to_int[start_state]] += 0.5;
                             }
                         }
                     }
@@ -398,12 +379,12 @@ void write_count_matrices(const vector<count_matrix> & count_matrices, const str
     for (const count_matrix& cm : count_matrices){
         myfile << cm.q << "\n";
         myfile << "\t";
-        for (string& pair : pairs_of_amino_acids){
+        for (string& pair : amino_acids_vec){
             myfile << pair << "\t";
         }
         myfile << "\n";
         for (int i=0; i<count_matrix_size; i++){
-            myfile << pairs_of_amino_acids[i] << "\t";
+            myfile << amino_acids_vec[i] << "\t";
             for (int j=0; j<count_matrix_size; j++){
                 myfile << cm.matrix[i * count_matrix_size + j];
                 if (j != count_matrix_size-1){
@@ -419,27 +400,26 @@ void write_count_matrices(const vector<count_matrix> & count_matrices, const str
 void count_co_transitions(
     const string & tree_dir,
     const string & msa_dir,
-    const string & contact_map_dir,
+    const string & site_rates_dir,
     const string * families,
     const unordered_set<string> & amino_acids,
     vector<double>& quantization_points,
     const string & edge_or_cherry,
-    int minimum_distance_for_nontrivial_contact,
     const string & output_count_matrices_dir
 ){
 
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
 
     sort(quantization_points.begin(), quantization_points.end());
-    for (int i=0; i<pairs_of_amino_acids.size(); i++){
-        aa_pair_to_int[pairs_of_amino_acids[i]] = i;
+    for (int i=0; i<amino_acids_vec.size(); i++){
+        aa_to_int[amino_acids_vec[i]] = i;
     }
     
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_init_aa_pairs += std::chrono::duration<double>(end_ - start_).count();
 
-    vector<count_matrix> count_matrices = _map_func(tree_dir, msa_dir, contact_map_dir, families, 
-            amino_acids, quantization_points, edge_or_cherry, minimum_distance_for_nontrivial_contact);
+    vector<count_matrix> count_matrices = _map_func(tree_dir, msa_dir, site_rates_dir, families, 
+            amino_acids, quantization_points, edge_or_cherry);
 
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     write_count_matrices(count_matrices, output_count_matrices_dir + "/result.txt");
@@ -454,7 +434,7 @@ int main(int argc, char *argv[]) {
 
     string tree_dir = argv[1];
     string msa_dir = argv[2];
-    string contact_map_dir = argv[3];
+    string site_rates_dir = argv[3];
     num_of_families = atoi(argv[4]);
     num_of_amino_acids = atoi(argv[5]);
     int num_of_quantization_points = atoi(argv[6]);
@@ -468,9 +448,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 0; i < num_of_amino_acids; i++){
-        for (int j = 0; j < num_of_amino_acids; j++){
-            pairs_of_amino_acids.push_back(string(argv[7 + num_of_families + i])+string(argv[7 + num_of_families + j]));
-        }
+        amino_acids_vec.push_back(string(argv[7 + num_of_families + i]));
     }
     vector<double> quantization_points;
     quantization_points.reserve(num_of_quantization_points);
@@ -478,20 +456,20 @@ int main(int argc, char *argv[]) {
         quantization_points.push_back(atof(argv[7 + num_of_families + num_of_amino_acids + i]));
     } 
     string edge_or_cherry = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points];
-    int minimum_distance_for_nontrivial_contact = atoi(argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 1]);
-    string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 2];
+    string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 1];
     
+    cerr << "Done parsing input " << endl;
+
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_parse_param += std::chrono::duration<double>(end_ - start_).count();
     count_co_transitions(
         tree_dir,
         msa_dir,
-        contact_map_dir,
+        site_rates_dir,
         families,
         amino_acids,
         quantization_points,
         edge_or_cherry,
-        minimum_distance_for_nontrivial_contact,
         output_count_matrices_dir
     );
 
@@ -503,7 +481,7 @@ int main(int argc, char *argv[]) {
     if (PROFILE) cout << "time_init_count_matrices_data: " << time_init_count_matrices_data << endl;
     if (PROFILE) cout << "time_read_tree: " << time_read_tree << endl;
     if (PROFILE) cout << "time_read_msa: " << time_read_msa << endl;
-    if (PROFILE) cout << "time_read_contact_map: " << time_read_contact_map << endl;
+    if (PROFILE) cout << "time_read_site_rates: " << time_read_site_rates << endl;
     if (PROFILE) cout << "time_compute_contacting_pairs: " << time_compute_contacting_pairs << endl;
     if (PROFILE) cout << "time_compute_count_matrices: " << time_compute_count_matrices << endl;
     // if (PROFILE) cout << "time_read_dataset_and_compute_count_matrices: " << time_read_dataset_and_compute_count_matrices << endl;

@@ -52,10 +52,10 @@
 #include <mpi.h>
 
 // global variables
-std::vector<float> p1_probability_distribution;
-std::vector<float> p2_probability_distribution;
-std::vector<std::vector<float>> Q1_rate_matrix;
-std::vector<std::vector<float>> Q2_rate_matrix;
+std::vector<double> p1_probability_distribution;
+std::vector<double> p2_probability_distribution;
+std::vector<std::vector<double>> Q1_rate_matrix;
+std::vector<std::vector<double>> Q2_rate_matrix;
 std::vector<std::string> amino_acids_alphabet;
 std::vector<std::string> amino_acids_pairs;
 std::default_random_engine* random_engines;
@@ -73,7 +73,7 @@ class Tree {
     int _num_nodes;
     std::vector<std::string> _nodes;
     std::vector<int> _parent;
-    std::vector<float> _length;
+    std::vector<double> _length;
     std::vector<std::vector<int> > _children;
     std::map<std::string, int> _node_to_idx;
     int _root;
@@ -97,7 +97,7 @@ class Tree {
         _node_key++;
     }
 
-    void add_edge(std::string u, std::string v, float length) {
+    void add_edge(std::string u, std::string v, double length) {
         if((_node_to_idx.count(u) == 0) || (_node_to_idx.count(v) == 0)){
             std::cerr << "Node " << u << " or " << v << " does not exist. Cannot add edge!" << std::endl;
             exit(1);
@@ -166,7 +166,7 @@ class Tree {
         return _parent[u];
     }
 
-    float length(int u){
+    double length(int u){
         return _length[u];
     }
 
@@ -199,7 +199,7 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
     treefile >> num_edges;
     std::vector<std::string> parents(num_edges);
     std::vector<std::string> children(num_edges);
-    std::vector<float> lengths(num_edges);
+    std::vector<double> lengths(num_edges);
     treefile >> tmp;
     if (tmp != "edges") {
         std::cerr << "Tree file:" << treefilename << "should have line '[num_edges] edges' at position line " << num_nodes + 1 << std::endl;
@@ -220,7 +220,7 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
     for (int i = 0; i < num_edges; i++){
         std::string u = parents[i];
         std::string v = children[i];
-        float length = lengths[i];
+        double length = lengths[i];
         newTree.add_edge(u, v, length);
     }
     newTree.set_root();
@@ -234,7 +234,7 @@ Tree read_tree(std::string treefilename, double* reading_tree_time, double* buil
 }
 
 // Read the site rates file
-std::vector<float> read_site_rates(std::string filename) {
+std::vector<double> read_site_rates(std::string filename) {
     int num_sites;
     std::string tmp;
 
@@ -247,7 +247,7 @@ std::vector<float> read_site_rates(std::string filename) {
         std::cerr << "Site rates file: " << filename << " should start with line '[num_sites] sites', but started with: " << tmp << " instead." << std::endl;
         exit(1);
     }
-    std::vector<float> result(num_sites);
+    std::vector<double> result(num_sites);
     for(int i = 0; i < num_sites; i++){
         siteratefile >> result[i];
     }
@@ -288,11 +288,11 @@ std::vector<std::vector<int>> read_contact_map(std::string filename) {
 }
 
 // Read the probability distribution
-std::vector<float> read_probability_distribution(std::string filename, const std::vector<std::string> & element_list) {
-    std::vector<float> result;
+std::vector<double> read_probability_distribution(std::string filename, const std::vector<std::string> & element_list) {
+    std::vector<double> result;
     std::vector<std::string> states;
     std::string tmp, tmp2;
-    float sum = 0;
+    double sum = 0;
 
     std::ifstream pfile;
     pfile.open(filename);
@@ -312,7 +312,7 @@ std::vector<float> read_probability_distribution(std::string filename, const std
     
     while(pfile.peek() != EOF) {
         std::string s;
-        float p;
+        double p;
 
         getline(pfile, tmp);
         std::stringstream tmpstring2(tmp);
@@ -324,7 +324,7 @@ std::vector<float> read_probability_distribution(std::string filename, const std
         result.push_back(p);
     }
     
-    float diff = std::abs(sum - 1.0);
+    double diff = std::abs(sum - 1.0);
     if (diff > 0.000001) {
         std::cout << "Probability distribution at " << filename << " should add to 1.0, with a tolerance of 1e-6." << std::endl;
         exit(1);
@@ -338,8 +338,8 @@ std::vector<float> read_probability_distribution(std::string filename, const std
 }
 
 // Read the rate matrix
-std::vector<std::vector<float>> read_rate_matrix(std::string filename, const std::vector<std::string> & element_list) {
-    std::vector<std::vector<float>> result;
+std::vector<std::vector<double>> read_rate_matrix(std::string filename, const std::vector<std::string> & element_list) {
+    std::vector<std::vector<double>> result;
     std::vector<std::string> states1;
     std::vector<std::string> states2;
     std::string tmp, tmp2;
@@ -354,13 +354,13 @@ std::vector<std::vector<float>> read_rate_matrix(std::string filename, const std
     }
     
     while(qfile.peek() != EOF) {
-        std::vector<float> row;
+        std::vector<double> row;
         getline(qfile, tmp);
         std::stringstream tmpstring2(tmp);
         tmpstring2 >> tmp2;
         states2.push_back(tmp2);
         while (tmpstring2 >> tmp2) {
-            float p = std::stof(tmp2);
+            double p = std::stof(tmp2);
             row.push_back(p);
         }
         result.push_back(row);
@@ -466,19 +466,19 @@ std::vector<int> sample_root_states(int num_independent_sites, int num_contactin
 }
 
 // Sample a transition
-int sample_transition(int index, int starting_state, float elapsed_time, bool if_independent) {
+int sample_transition(int index, int starting_state, double elapsed_time, bool if_independent) {
     int current_state = starting_state;
-    float current_time = 0;
+    double current_time = 0;
     while (true) {
-        float current_rate;
+        double current_rate;
         if (if_independent) {
             current_rate = - Q1_rate_matrix[current_state][current_state];
         } else {
             current_rate = - Q2_rate_matrix[current_state][current_state];
         }
         // See when the next transition happens
-        std::exponential_distribution<float> distribution1(current_rate);
-        float waiting_time = distribution1(random_engines[index]);
+        std::exponential_distribution<double> distribution1(current_rate);
+        double waiting_time = distribution1(random_engines[index]);
         current_time += waiting_time;
         if (current_time >= elapsed_time) {
             // We reached the end of the process
@@ -519,12 +519,12 @@ void init_simulation(const std::vector<std::string> & amino_acids, std::string p
     Q1_CTPs = new std::discrete_distribution<int>[num_states];
     Q2_CTPs = new std::discrete_distribution<int>[num_states * num_states];
     for(int current_state = 0; current_state < num_states; current_state++){
-        std::vector<float> rate_vector = Q1_rate_matrix[current_state];
+        std::vector<double> rate_vector = Q1_rate_matrix[current_state];
         rate_vector.erase(rate_vector.begin() + current_state);
         Q1_CTPs[current_state] = std::discrete_distribution<int>(begin(rate_vector), end(rate_vector));
     }
     for(int current_state = 0; current_state < num_states * num_states; current_state++){
-        std::vector<float> rate_vector = Q2_rate_matrix[current_state];
+        std::vector<double> rate_vector = Q2_rate_matrix[current_state];
         rate_vector.erase(rate_vector.begin() + current_state);
         Q2_CTPs[current_state] = std::discrete_distribution<int>(begin(rate_vector), end(rate_vector));
     }
@@ -566,8 +566,8 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     double build_tree_time = build_tree_time_arr[0];
 
     auto start_reading_site_rates = std::chrono::high_resolution_clock::now();
-    std::vector<float> site_rates_vec = read_site_rates(siteratefilepath);
-    float site_rates[site_rates_vec.size()];
+    std::vector<double> site_rates_vec = read_site_rates(siteratefilepath);
+    double site_rates[site_rates_vec.size()];
     copy(site_rates_vec.begin(), site_rates_vec.end(), site_rates);
     auto end_reading_site_rates = std::chrono::high_resolution_clock::now();
 
@@ -653,7 +653,7 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
             continue;
         }
         int parent = currentTree.parent(node);
-        float parent_pair_length = currentTree.length(node);
+        double parent_pair_length = currentTree.length(node);
         std::vector<int> & parent_states_int_vec = msa_int[parent];
         copy(parent_states_int_vec.begin(), parent_states_int_vec.end(), parent_states_int);
 
@@ -661,13 +661,13 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
         // First sample the independent sites
         for (int j = 0; j < num_independent_sites; j++) {
             int starting_state = parent_states_int[j];
-            float elapsed_time = parent_pair_length * site_rates[independent_sites[j]];
+            double elapsed_time = parent_pair_length * site_rates[independent_sites[j]];
             node_states_int[j] = sample_transition(j, starting_state, elapsed_time, true);
         }
         // Then sample the contacting sites
         for (int j = 0; j < num_contacting_pairs; j++) {
             int starting_state = parent_states_int[num_independent_sites + j];
-            float elapsed_time = parent_pair_length;
+            double elapsed_time = parent_pair_length;
             node_states_int[num_independent_sites + j] = sample_transition(num_independent_sites + j, starting_state, elapsed_time, false);
         }
 

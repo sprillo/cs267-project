@@ -1,6 +1,6 @@
 import multiprocessing
 import os
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -107,7 +107,7 @@ def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
 
 
 @caching.cached_computation(
-    exclude_args=["num_processes", "use_cpp_implementation"],
+    exclude_args=["num_processes", "use_cpp_implementation", "cpp_command_line_prefix", "cpp_command_line_suffix"],
     output_dirs=["output_count_matrices_dir"],
 )
 def count_transitions(
@@ -118,9 +118,11 @@ def count_transitions(
     amino_acids: List[str],
     quantization_points: List[Union[str, float]],
     edge_or_cherry: bool,
-    output_count_matrices_dir: str,
-    num_processes: int,
-    use_cpp_implementation: bool = False,
+    output_count_matrices_dir: Optional[str] = None,
+    num_processes: Optional[int] = 1,
+    use_cpp_implementation: bool = True,
+    cpp_command_line_prefix: str = "",
+    cpp_command_line_suffix: str = "",
 ) -> None:
     """
     Count the number of transitions.
@@ -159,11 +161,44 @@ def count_transitions(
         num_processes: Number of processes used to parallelize computation.
         use_cpp_implementation: If to use efficient C++ implementation
             instead of Python.
+        cpp_command_line_prefix: E.g. to run the C++ binary on slurm.
+        cpp_command_line_suffix: For extra C++ args related to performance.
     """
+    if not os.path.exists(output_count_matrices_dir):
+        os.makedirs(output_count_matrices_dir)
     quantization_points = [float(q) for q in quantization_points]
 
     if use_cpp_implementation:
-        raise NotImplementedError
+        # check if the binary exists
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        cpp_path = os.path.join(dir_path, '_count_transitions.cpp')
+        bin_path = os.path.join(dir_path, '_count_transitions')
+        print(f"cpp_path = {cpp_path}")
+        if not os.path.exists(bin_path):
+            # load openmpi/openmp modules
+            # Currently it should run on the interactive node
+            command = f"mpicxx -std=c++11 -O3 -o {bin_path} {cpp_path}"
+            os.system(command)
+            if not os.path.exists(bin_path):
+                raise Exception("Couldn't compile simulate.cpp")
+        # os.system("export OMP_NUM_THREADS=4")
+        command = cpp_command_line_prefix
+        command += f" {bin_path}"
+        command += f" {tree_dir}"
+        command += f" {msa_dir}"
+        command += f" {site_rates_dir}"
+        command += f" {len(families)}"
+        command += f" {len(amino_acids)}"
+        command += f" {len(quantization_points)}"
+        command += " " + " ".join(families)
+        command += " " + " ".join(amino_acids)
+        command += " " + " ".join([str(p) for p in quantization_points])
+        command += f" {edge_or_cherry}"
+        command += f" {output_count_matrices_dir}"
+        command += f" {cpp_command_line_suffix}"
+        print(f"Going to run:\n{command}")
+        os.system(command)
+        return
 
     map_args = [
         [

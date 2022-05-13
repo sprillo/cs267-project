@@ -142,9 +142,9 @@ def count_co_transitions(
     quantization_points: List[Union[str, float]],
     edge_or_cherry: str,
     minimum_distance_for_nontrivial_contact: int,
-    output_count_matrices_dir: str,
+    output_count_matrices_dir: Optional[str] = None,
     num_processes: Optional[int] = 1,
-    use_cpp_implementation: bool = False,
+    use_cpp_implementation: bool = True,
     cpp_command_line_prefix: str = "",
     cpp_command_line_suffix: str = "",
 ) -> None:
@@ -201,7 +201,7 @@ def count_co_transitions(
         # check if the binary exists
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cpp_path = os.path.join(dir_path, '_count_co_transitions.cpp')
-        bin_path = os.path.join(dir_path, 'count')
+        bin_path = os.path.join(dir_path, '_count_co_transitions')
         print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
