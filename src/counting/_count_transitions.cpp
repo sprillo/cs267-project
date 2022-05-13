@@ -10,6 +10,8 @@
 #include <utility> 
 #include <chrono>
 
+#include <mpi.h>
+
 #define PROFILE false
 
 using namespace std;
@@ -32,19 +34,65 @@ auto end_ = std::chrono::high_resolution_clock::now();
 auto start_time = std::chrono::high_resolution_clock::now();
 auto end_time = std::chrono::high_resolution_clock::now();
 
+int my_rank;
 vector<string> amino_acids_vec;
 map<string, int> aa_to_int;
 int num_of_amino_acids;
-map<string, string> msa;
 int num_sites;
 int count_matrix_size;
+int count_matrix_num_entries;
 int num_quantization_points;
-int num_of_families;
+int num_of_families_local;
+vector<double> quantization_points;
 
 struct count_matrix{
     double q;
     double* matrix;
 };
+
+vector<count_matrix> read_count_matrices(string count_matrices_path){
+    std::ifstream count_matrices_file;
+    count_matrices_file.open(count_matrices_path);
+    string tmp;
+    count_matrices_file >> num_quantization_points >> tmp;
+    if (tmp != "matrices") {
+        std::cerr << "Count matrices file:" << count_matrices_path << "should start with '[num_quantization_points] matrices'." << std::endl;
+        exit(1);
+    }
+
+    int num_states;
+    count_matrices_file >> num_states >> tmp;
+    if (tmp != "states") {
+        std::cerr << "Count matrices file:" << count_matrices_path << "should have line '[num_states] states'." << std::endl;
+        exit(1);
+    }
+
+    double* count_matrices_data = new double[num_quantization_points * count_matrix_num_entries];
+    for (int i=0; i<num_quantization_points * count_matrix_num_entries; i++){
+        count_matrices_data[i] = 0;
+    }
+
+    vector<double> q(num_quantization_points);
+    for(int c = 0; c < num_quantization_points; c++){
+        count_matrices_file >> q[c];
+        for(int i = 0; i < num_states; i++){
+            count_matrices_file >> tmp;
+        }
+        for(int i = 0; i < num_states; i++){
+            count_matrices_file >> tmp;
+            for(int j = 0; j < num_states; j++){
+                count_matrices_file >> count_matrices_data[c * count_matrix_num_entries + i * count_matrix_size + j];
+            }
+        }
+    }
+
+    vector<count_matrix> count_matrices;
+    for (int i=0; i<quantization_points.size(); i++){
+        count_matrices.push_back(count_matrix{quantization_points[i], &(count_matrices_data[i * count_matrix_num_entries])});
+    }
+
+    return count_matrices;
+}
 
 typedef struct {
     /* data */
@@ -166,7 +214,9 @@ Tree* read_tree(std::string treefilename) {
     std::fstream treefile;
     treefile.open(treefilename, ios::in);
     treefile >> tmp;
+    // cerr << "Rank " << my_rank << " going to stoi " << tmp << " from " << treefilename << endl;
     num_nodes = std::stoi(tmp);
+    // cerr << "Rank " << my_rank << " done stoi" << endl;
     treefile >> tmp;
     if (tmp != "nodes") {
         std::cerr << "Tree file:" << treefilename << "should start with '[num_nodes] nodes'." << std::endl;
@@ -223,7 +273,6 @@ map<string, string>* read_msa(const string & filename){
 
 // Read the site rates file
 std::vector<double> read_site_rates(std::string filename) {
-    int num_sites;
     std::string tmp;
 
     std::ifstream siteratefile;
@@ -267,16 +316,15 @@ vector<count_matrix> _map_func(
     const string & tree_dir,
     const string & msa_dir,
     const string & site_rates_dir,
-    const string* families,
+    const std::vector<std::string> & families,
     const unordered_set<string> & amino_acids,
-    const vector<double> & quantization_points,
     const string & edge_or_cherry
 ){
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
     vector<count_matrix> count_matrices;
     num_quantization_points = quantization_points.size();
     count_matrix_size = amino_acids_vec.size();
-    int count_matrix_num_entries = count_matrix_size * count_matrix_size;
+    count_matrix_num_entries = count_matrix_size * count_matrix_size;
     double* count_matrices_data = new double[num_quantization_points * count_matrix_num_entries];
     for (int i=0; i<num_quantization_points * count_matrix_num_entries; i++){
         count_matrices_data[i] = 0;
@@ -285,7 +333,7 @@ vector<count_matrix> _map_func(
     if (PROFILE) time_init_count_matrices_data += std::chrono::duration<double>(end_ - start_).count();
 
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-    for (int i=0; i<num_of_families; i++){
+    for (int i=0; i<num_of_families_local; i++){
         const string & family = families[i];
         if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
         Tree* tree = read_tree(tree_dir + "/" + family + ".txt");
@@ -315,14 +363,14 @@ vector<count_matrix> _map_func(
                     string child = edge.node;
                     double branch_length = edge.length;
                     string child_seq = (*msa)[child];
-                    for (int i = 0; i < int(child_seq.size()); i++){
-                        int q_idx = quantization_idx(branch_length * site_rates[i], quantization_points);
+                    for (int j = 0; j < int(child_seq.size()); j++){
+                        int q_idx = quantization_idx(branch_length * site_rates[j], quantization_points);
                         if (q_idx != -1){
-                            string start_state = string{node_seq[i]};
-                            string end_state = string{child_seq[i]};
+                            string start_state = string{node_seq[j]};
+                            string end_state = string{child_seq[j]};
                             if (
-                                amino_acids.find(string{node_seq[i]}) != amino_acids.end()
-                                && amino_acids.find(string{child_seq[i]}) != amino_acids.end()
+                                amino_acids.find(string{node_seq[j]}) != amino_acids.end()
+                                && amino_acids.find(string{child_seq[j]}) != amino_acids.end()
                             ){
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[start_state] * count_matrix_size + aa_to_int[end_state]] += 1.0;
                             }
@@ -339,14 +387,14 @@ vector<count_matrix> _map_func(
                     string leaf_seq_1 = (*msa)[leaf_1];
                     string leaf_seq_2 = (*msa)[leaf_2];
                     double branch_length_total = branch_length_1 + branch_length_2;
-                    for (int i=0; i<int(leaf_seq_1.size()); i++){
-                        int q_idx = quantization_idx(branch_length_total * site_rates[i], quantization_points);
+                    for (int j=0; j<int(leaf_seq_1.size()); j++){
+                        int q_idx = quantization_idx(branch_length_total * site_rates[j], quantization_points);
                         if (q_idx != -1){
-                            string start_state = string{leaf_seq_1[i]};
-                            string end_state = string{leaf_seq_2[i]};
+                            string start_state = string{leaf_seq_1[j]};
+                            string end_state = string{leaf_seq_2[j]};
                             if (
-                                amino_acids.find(string{leaf_seq_1[i]}) != amino_acids.end()
-                                && amino_acids.find(string{leaf_seq_2[i]}) != amino_acids.end()
+                                amino_acids.find(string{leaf_seq_1[j]}) != amino_acids.end()
+                                && amino_acids.find(string{leaf_seq_2[j]}) != amino_acids.end()
                             ){
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[start_state] * count_matrix_size + aa_to_int[end_state]] += 0.5;
                                 count_matrices_data[q_idx * count_matrix_num_entries + aa_to_int[end_state] * count_matrix_size + aa_to_int[start_state]] += 0.5;
@@ -373,6 +421,7 @@ vector<count_matrix> _map_func(
 }
 
 void write_count_matrices(const vector<count_matrix> & count_matrices, const string & output_count_matrices_dir){
+    // cerr << "Going to write" << endl;
     std::ofstream myfile;
     myfile.open (output_count_matrices_dir);
     myfile << num_quantization_points << " matrices\n" << count_matrix_size << " states\n";
@@ -397,13 +446,12 @@ void write_count_matrices(const vector<count_matrix> & count_matrices, const str
     myfile.close();
 }
 
-void count_co_transitions(
+void count_transitions(
     const string & tree_dir,
     const string & msa_dir,
     const string & site_rates_dir,
-    const string * families,
+    const std::vector<std::string> & families,
     const unordered_set<string> & amino_acids,
-    vector<double>& quantization_points,
     const string & edge_or_cherry,
     const string & output_count_matrices_dir
 ){
@@ -419,10 +467,10 @@ void count_co_transitions(
     if (PROFILE) time_init_aa_pairs += std::chrono::duration<double>(end_ - start_).count();
 
     vector<count_matrix> count_matrices = _map_func(tree_dir, msa_dir, site_rates_dir, families, 
-            amino_acids, quantization_points, edge_or_cherry);
+            amino_acids, edge_or_cherry);
 
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
-    write_count_matrices(count_matrices, output_count_matrices_dir + "/result.txt");
+    write_count_matrices(count_matrices, output_count_matrices_dir + "/result_" + std::to_string(my_rank) + ".txt");
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_write_count_matrices += std::chrono::duration<double>(end_ - start_).count();
 }
@@ -432,12 +480,19 @@ int main(int argc, char *argv[]) {
     if (PROFILE) start_time = std::chrono::high_resolution_clock::now();
     if (PROFILE) start_ = std::chrono::high_resolution_clock::now();
 
+    int num_procs;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+
+    // cerr << "Rank " << my_rank << " reporting. num_procs = " << num_procs << endl;
+
     string tree_dir = argv[1];
     string msa_dir = argv[2];
     string site_rates_dir = argv[3];
-    num_of_families = atoi(argv[4]);
+    int num_of_families = atoi(argv[4]);
     num_of_amino_acids = atoi(argv[5]);
-    int num_of_quantization_points = atoi(argv[6]);
+    num_quantization_points = atoi(argv[6]);
     string* families = new string[num_of_families];
     for (int i = 0; i < num_of_families; i++) {
         families[i] = argv[7 + i];
@@ -450,28 +505,63 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < num_of_amino_acids; i++){
         amino_acids_vec.push_back(string(argv[7 + num_of_families + i]));
     }
-    vector<double> quantization_points;
-    quantization_points.reserve(num_of_quantization_points);
-    for (int i = 0; i < num_of_quantization_points; i++) {
+    quantization_points.reserve(num_quantization_points);
+    for (int i = 0; i < num_quantization_points; i++) {
         quantization_points.push_back(atof(argv[7 + num_of_families + num_of_amino_acids + i]));
     } 
-    string edge_or_cherry = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points];
-    string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_of_quantization_points + 1];
+    string edge_or_cherry = argv[7 + num_of_families + num_of_amino_acids + num_quantization_points];
+    string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_quantization_points + 1];
     
-    cerr << "Done parsing input " << endl;
+    // Assign families to each rank.
+    std::vector<std::string> local_families;
+    for (int i = my_rank; i < num_of_families; i += num_procs) {
+        local_families.push_back(families[i]);
+    }
+    num_of_families_local = local_families.size();
+
+    // cerr << "Rank " << my_rank << " finish parsing command line" << endl;
+    // string msg = "Rank " + std::to_string(my_rank) + " families: ";
+    // for (int i = my_rank; i < num_of_families_local; i += num_procs) {
+    //     msg += " " + families[i] + " ";
+    // }
+    // cerr << msg << endl;
 
     if (PROFILE) end_ = std::chrono::high_resolution_clock::now();
     if (PROFILE) time_parse_param += std::chrono::duration<double>(end_ - start_).count();
-    count_co_transitions(
+    count_transitions(
         tree_dir,
         msa_dir,
         site_rates_dir,
-        families,
+        local_families,
         amino_acids,
-        quantization_points,
         edge_or_cherry,
         output_count_matrices_dir
     );
+
+    // cerr << "Rank " << my_rank << " done counting transitions" << endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if(my_rank == 0){
+        // need to merge outputs
+        vector<count_matrix> res;
+        for(int i = 0; i < num_procs; i++){
+            string count_matrices_for_rank_path = output_count_matrices_dir + "/result_" + std::to_string(i) + ".txt";
+            vector<count_matrix> count_matrices_for_rank = read_count_matrices(count_matrices_for_rank_path);
+            if(i == 0){
+                res = count_matrices_for_rank;
+            } else {
+                for(int c = 0; c < num_quantization_points; c++){
+                    for(int j = 0; j < count_matrix_num_entries; j++){
+                        res[c].matrix[j] += count_matrices_for_rank[c].matrix[j];
+                    }
+                }
+            }
+        }
+        write_count_matrices(res, output_count_matrices_dir + "/result.txt");
+    }
+
+    MPI_Finalize();
 
     if (PROFILE) end_time = std::chrono::high_resolution_clock::now();
     if (PROFILE) total_time += std::chrono::duration<double>(end_time - start_time).count();

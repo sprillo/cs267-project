@@ -215,7 +215,7 @@ class TestCountTransitionsTiny(unittest.TestCase):
 
 
 class TestCountTransitionsMedium(unittest.TestCase):
-    @parameterized.expand([("32 processes", 32)])
+    @parameterized.expand([("3 processes", 3)])
     @pytest.mark.slow
     def test_count_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
@@ -245,7 +245,7 @@ class TestCountTransitionsMedium(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("32 processes", 32)])
+    @parameterized.expand([("3 processes", 3)])
     @pytest.mark.slow
     def test_count_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
@@ -275,7 +275,7 @@ class TestCountTransitionsMedium(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("32 processes", 32)])
+    @parameterized.expand([("3 processes", 3)])
     @pytest.mark.slow
     def test_count_co_transitions_edges(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:
@@ -304,7 +304,7 @@ class TestCountTransitionsMedium(unittest.TestCase):
                 count_matrices,
             )
 
-    @parameterized.expand([("32 processes", 32)])
+    @parameterized.expand([("3 processes", 3)])
     @pytest.mark.slow
     def test_count_co_transitions_cherries(self, name, num_processes):
         with tempfile.TemporaryDirectory() as root_dir:

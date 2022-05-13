@@ -217,6 +217,7 @@ def count_co_transitions(
                 raise Exception("Couldn't compile simulate.cpp")
         # os.system("export OMP_NUM_THREADS=4")
         command = cpp_command_line_prefix
+        command += f" mpirun -np {num_processes}"
         command += f" {bin_path}"
         command += f" {tree_dir}"
         command += f" {msa_dir}"
