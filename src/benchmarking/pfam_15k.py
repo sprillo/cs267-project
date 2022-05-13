@@ -394,6 +394,7 @@ def simulate_ground_truth_data_single_site(
     num_rate_categories: int,
     num_processes: int,
     random_seed: int,
+    use_cpp_simulation_implementation: bool,
 ):
     """
     Simulate ground truth MSAs with LG.
@@ -447,7 +448,7 @@ def simulate_ground_truth_data_single_site(
         strategy="all_transitions",
         random_seed=random_seed,
         num_processes=num_processes,
-        use_cpp_implementation=False,
+        use_cpp_implementation=use_cpp_simulation_implementation,
     )["output_msa_dir"]
 
     # Now subset the MSAs to only the leaf nodes.

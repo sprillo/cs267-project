@@ -165,25 +165,26 @@ def _check_usefull_stuff_cached_computation(
             f"\nbut expected:"
             f"\n{unhashed_func_caching_dir}"
         )
-    binding = _get_func_binding(
-        func,
-        exclude_args,
-        output_dirs,
-        args,
-        kwargs,
-    )
-    func_binding_logfile = os.path.join(
-        kwargs[output_dir],
-        "_function_binding.log",
-    )
-    func_binding_logfile_contents = open(func_binding_logfile, "r").read()
-    if func_binding_logfile_contents != str(binding):
-        raise CacheUsageError(
-            f"File {func_binding_logfile} has contents:"
-            f"\n{func_binding_logfile_contents}"
-            f"\nbut expected:"
-            f"\n{str(binding)}"
-        )
+    # TODO: For this to work as expected, I need to exclude the excluded args
+    # binding = _get_func_binding(
+    #     func,
+    #     exclude_args,
+    #     output_dirs,
+    #     args,
+    #     kwargs,
+    # )
+    # func_binding_logfile = os.path.join(
+    #     kwargs[output_dir],
+    #     "_function_binding.log",
+    # )
+    # func_binding_logfile_contents = open(func_binding_logfile, "r").read()
+    # if func_binding_logfile_contents != str(binding):
+    #     raise CacheUsageError(
+    #         f"File {func_binding_logfile} has contents:"
+    #         f"\n{func_binding_logfile_contents}"
+    #         f"\nbut expected:"
+    #         f"\n{str(binding)}"
+    #     )
 
 
 def cached_computation(
