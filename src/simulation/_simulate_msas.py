@@ -350,7 +350,6 @@ def simulate_msas(
                 raise Exception("Couldn't compile simulate.cpp")
         with tempfile.NamedTemporaryFile("w") as families_file:
             families_path = families_file.name
-            families_path = "families_path.txt"
             open(families_path, "w").write(" ".join(families))
             command = ""
             command += cpp_command_line_prefix
