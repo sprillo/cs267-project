@@ -27,10 +27,10 @@
  * argv[10] (strategy): "all_transitions"
  * argv[11] (output_msa_dir): "./../../tests/simulation_tests/test_input_data/simulated_msa_dir"
  * argv[12] (random_seed): 0
- * argv[13 : 16] (families): ["fam1", "fam2", "fam3"]
- * argv[16 : 18] (amino_acids): ["S", "T"]
- * argv[19] (load_balancing_mode): 0 (0: naive version; 1: zig-zag)
- * argv[20] (familiy_file_path): ./test_familiy_sizes.txt (If load_balancing_mode == 1)
+ * argv[13] (families_path): contains ["fam1", "fam2", "fam3"]
+ * argv[14 : 16] (amino_acids): ["S", "T"]
+ * argv[17] (load_balancing_mode): 0 (0: naive version; 1: zig-zag)
+ * argv[18] (familiy_file_path): ./test_familiy_sizes.txt (If load_balancing_mode == 1)
  * 
  */
 #include <chrono>
