@@ -1,3 +1,4 @@
+import tempfile
 import multiprocessing
 import os
 from typing import List, Optional, Tuple, Union
@@ -215,25 +216,28 @@ def count_co_transitions(
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
-        # os.system("export OMP_NUM_THREADS=4")
-        command = cpp_command_line_prefix
-        command += f" mpirun -np {num_processes}"
-        command += f" {bin_path}"
-        command += f" {tree_dir}"
-        command += f" {msa_dir}"
-        command += f" {contact_map_dir}"
-        command += f" {len(families)}"
-        command += f" {len(amino_acids)}"
-        command += f" {len(quantization_points)}"
-        command += " " + " ".join(families)
-        command += " " + " ".join(amino_acids)
-        command += " " + " ".join([str(p) for p in quantization_points])
-        command += f" {edge_or_cherry}"
-        command += f" {minimum_distance_for_nontrivial_contact}"
-        command += f" {output_count_matrices_dir}"
-        command += f" {cpp_command_line_suffix}"
-        os.system(command)
-        return
+        with tempfile.NamedTemporaryFile("w") as families_file:
+            families_path = families_file.name
+            open(families_path, "w").write(" ".join(families))
+            command = ""
+            command += f" {cpp_command_line_prefix}"
+            command += f" mpirun -np {num_processes}"
+            command += f" {bin_path}"
+            command += f" {tree_dir}"
+            command += f" {msa_dir}"
+            command += f" {contact_map_dir}"
+            command += f" {len(families)}"
+            command += f" {len(amino_acids)}"
+            command += f" {len(quantization_points)}"
+            command += f" {families_path}"
+            command += " " + " ".join(amino_acids)
+            command += " " + " ".join([str(p) for p in quantization_points])
+            command += f" {edge_or_cherry}"
+            command += f" {minimum_distance_for_nontrivial_contact}"
+            command += f" {output_count_matrices_dir}"
+            command += f" {cpp_command_line_suffix}"
+            os.system(command)
+            return
 
     map_args = [
         [

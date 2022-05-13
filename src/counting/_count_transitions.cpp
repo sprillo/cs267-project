@@ -475,6 +475,16 @@ void count_transitions(
     if (PROFILE) time_write_count_matrices += std::chrono::duration<double>(end_ - start_).count();
 }
 
+std::vector<std::string> read_families(std::string families_path, int num_of_families){
+    std::vector<std::string> families(num_of_families);
+    std::ifstream families_file;
+    families_file.open(families_path);
+    for(int i = 0; i < num_of_families; i++){
+        families_file >> families[i];
+    }
+    return families;
+}
+
 int main(int argc, char *argv[]) {
     // Read in all the arguments
     if (PROFILE) start_time = std::chrono::high_resolution_clock::now();
@@ -493,24 +503,22 @@ int main(int argc, char *argv[]) {
     int num_of_families = atoi(argv[4]);
     num_of_amino_acids = atoi(argv[5]);
     num_quantization_points = atoi(argv[6]);
-    string* families = new string[num_of_families];
-    for (int i = 0; i < num_of_families; i++) {
-        families[i] = argv[7 + i];
-    }
+    std::string families_path = argv[7];
+    vector<string> families = read_families(families_path, num_of_families);
     unordered_set<string> amino_acids;
     for (int i = 0; i < num_of_amino_acids; i++) {
-        amino_acids.insert(argv[7 + num_of_families + i]);
+        amino_acids.insert(argv[7 + 1 + i]);
     }
 
     for (int i = 0; i < num_of_amino_acids; i++){
-        amino_acids_vec.push_back(string(argv[7 + num_of_families + i]));
+        amino_acids_vec.push_back(string(argv[7 + 1 + i]));
     }
     quantization_points.reserve(num_quantization_points);
     for (int i = 0; i < num_quantization_points; i++) {
-        quantization_points.push_back(atof(argv[7 + num_of_families + num_of_amino_acids + i]));
+        quantization_points.push_back(atof(argv[7 + 1 + num_of_amino_acids + i]));
     } 
-    string edge_or_cherry = argv[7 + num_of_families + num_of_amino_acids + num_quantization_points];
-    string output_count_matrices_dir = argv[7 + num_of_families + num_of_amino_acids + num_quantization_points + 1];
+    string edge_or_cherry = argv[7 + 1 + num_of_amino_acids + num_quantization_points];
+    string output_count_matrices_dir = argv[7 + 1 + num_of_amino_acids + num_quantization_points + 1];
     
     // Assign families to each rank.
     std::vector<std::string> local_families;

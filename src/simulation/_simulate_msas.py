@@ -352,7 +352,7 @@ def simulate_msas(
             families_path = families_file.name
             open(families_path, "w").write(" ".join(families))
             command = ""
-            command += cpp_command_line_prefix
+            command += f" {cpp_command_line_prefix}"
             command += f" {bin_path}"
             command += f" {tree_dir}"
             command += f" {site_rates_dir}"
