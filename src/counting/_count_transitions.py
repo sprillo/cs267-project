@@ -1,3 +1,4 @@
+import tempfile
 import multiprocessing
 import os
 from typing import List, Optional, Tuple, Union
@@ -196,7 +197,7 @@ def count_transitions(
         command += f" {edge_or_cherry}"
         command += f" {output_count_matrices_dir}"
         command += f" {cpp_command_line_suffix}"
-        print(f"Going to run:\n{command}")
+        # print(f"Going to run:\n{command}")
         os.system(command)
         return
 

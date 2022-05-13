@@ -361,7 +361,7 @@ def simulate_msas(
         command += " " + " ".join(families)
         command += " " + " ".join(amino_acids)
         command += " " + cpp_command_line_suffix
-        print(f"Going to run:\n{command}")
+        # print(f"Going to run:\n{command}")
         os.system(command)
         return
 
