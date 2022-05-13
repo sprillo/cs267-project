@@ -2,6 +2,7 @@ import hashlib
 import multiprocessing
 import os
 import random
+import tempfile
 import time
 from typing import Dict, List, Optional
 
@@ -274,7 +275,7 @@ def simulate_msas(
     strategy: str,
     random_seed: int,
     num_processes: Optional[int] = 1,
-    use_cpp_implementation: bool = False,
+    use_cpp_implementation: bool = True,
     cpp_command_line_prefix: str = "",
     cpp_command_line_suffix: str = "0",
     output_msa_dir: Optional[str] = None,
@@ -347,27 +348,31 @@ def simulate_msas(
             os.system(command)
             if not os.path.exists(bin_path):
                 raise Exception("Couldn't compile simulate.cpp")
-        command = ""
-        command += cpp_command_line_prefix
-        command += f" {bin_path}"
-        command += f" {tree_dir}"
-        command += f" {site_rates_dir}"
-        command += f" {contact_map_dir}"
-        command += f" {len(families)}"
-        command += f" {len(amino_acids)}"
-        command += f" {pi_1_path}"
-        command += f" {Q_1_path}"
-        command += f" {pi_2_path}"
-        command += f" {Q_2_path}"
-        command += f" {strategy}"
-        command += f" {output_msa_dir}"
-        command += f" {random_seed}"
-        command += " " + " ".join(families)
-        command += " " + " ".join(amino_acids)
-        command += " " + cpp_command_line_suffix
-        # print(f"Going to run:\n{command}")
-        os.system(command)
-        return
+        with tempfile.NamedTemporaryFile("w") as families_file:
+            families_path = families_file.name
+            families_path = "families_path.txt"
+            open(families_path, "w").write(" ".join(families))
+            command = ""
+            command += cpp_command_line_prefix
+            command += f" {bin_path}"
+            command += f" {tree_dir}"
+            command += f" {site_rates_dir}"
+            command += f" {contact_map_dir}"
+            command += f" {len(families)}"
+            command += f" {len(amino_acids)}"
+            command += f" {pi_1_path}"
+            command += f" {Q_1_path}"
+            command += f" {pi_2_path}"
+            command += f" {Q_2_path}"
+            command += f" {strategy}"
+            command += f" {output_msa_dir}"
+            command += f" {random_seed}"
+            command += f" {families_path}"
+            command += " " + " ".join(amino_acids)
+            command += " " + cpp_command_line_suffix
+            # print(f"Going to run:\n{command}")
+            os.system(command)
+            return
 
     map_args = [
         [

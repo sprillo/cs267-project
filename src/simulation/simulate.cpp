@@ -326,7 +326,7 @@ std::vector<double> read_probability_distribution(std::string filename, const st
     
     double diff = std::abs(sum - 1.0);
     if (diff > 0.000001) {
-        std::cout << "Probability distribution at " << filename << " should add to 1.0, with a tolerance of 1e-6." << std::endl;
+        std::cerr << "Probability distribution at " << filename << " should add to 1.0, with a tolerance of 1e-6." << std::endl;
         exit(1);
     }
 
@@ -739,6 +739,15 @@ void run_simulation(std::string tree_dir, std::string site_rates_dir, std::strin
     delete[] random_engines;
 }
 
+std::vector<std::string> read_families(std::string families_path, int num_of_families){
+    std::vector<std::string> families(num_of_families);
+    std::ifstream families_file;
+    families_file.open(families_path);
+    for(int i = 0; i < num_of_families; i++){
+        families_file >> families[i];
+    }
+    return families;
+}
 
 int main(int argc, char *argv[]) {
     // Init MPI
@@ -748,11 +757,11 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    if (rank == 0) {
-        // Start execution
-        std::cout << "This is the start of this testing file ..." << std::endl;
-        std::cout << "The number of process is " << num_procs << std::endl;
-    }
+    // if (rank == 0) {
+    //     // Start execution
+    //     std::cout << "This is the start of this testing file ..." << std::endl;
+    //     std::cout << "The number of process is " << num_procs << std::endl;
+    // }
 
     // Start the timer
     auto start = std::chrono::high_resolution_clock::now();
@@ -770,19 +779,16 @@ int main(int argc, char *argv[]) {
     std::string strategy = argv[10];
     std::string output_msa_dir = argv[11];
     int random_seed = std::atoi(argv[12]);
-    std::vector<std::string> families;
-    families.reserve(num_of_families);
-    for (int i = 0; i < num_of_families; i++) {
-        families.push_back(argv[13 + i]);
-    }
+    std::string families_path = argv[13];
+    std::vector<std::string> families = read_families(families_path, num_of_families);
     std::vector<std::string> amino_acids;
     amino_acids.reserve(num_of_amino_acids);
     for (int i = 0; i < num_of_amino_acids; i++) {
-        amino_acids.push_back(argv[13 + num_of_families + i]);
+        amino_acids.push_back(argv[13 + 1 + i]);
     }
-    int load_balancing_mode = std::atoi(argv[13 + num_of_families + num_of_amino_acids]);
+    int load_balancing_mode = std::atoi(argv[13 + 1 + num_of_amino_acids]);
     if(load_balancing_mode > 0){
-        std::string family_file_path = argv[13 + num_of_families + num_of_amino_acids + 1];
+        std::string family_file_path = argv[13 + 1 + num_of_amino_acids + 1];
         families = read_family_sizes(families, family_file_path, load_balancing_mode, num_procs);
         assert(int(families.size()) == num_of_families);
     }
@@ -799,7 +805,7 @@ int main(int argc, char *argv[]) {
     auto end_init = std::chrono::high_resolution_clock::now();
     double init_time = std::chrono::duration<double>(end_init - start).count();
     if (rank == 0) {
-        std::cout << "Finish Initializing in " << init_time << " seconds." << std::endl;
+        // std::cout << "Finish Initializing in " << init_time << " seconds." << std::endl;
         std::string outputfilename =  output_msa_dir + "/" + "profiling.txt";
         outprofilingfile.open(outputfilename);
         outprofilingfile << "This is the start of this testing file ..." << std::endl;
