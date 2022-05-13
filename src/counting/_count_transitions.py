@@ -1,4 +1,3 @@
-import tempfile
 import multiprocessing
 import os
 from typing import List, Optional, Tuple, Union
@@ -108,7 +107,12 @@ def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
 
 
 @caching.cached_computation(
-    exclude_args=["num_processes", "use_cpp_implementation", "cpp_command_line_prefix", "cpp_command_line_suffix"],
+    exclude_args=[
+        "num_processes",
+        "use_cpp_implementation",
+        "cpp_command_line_prefix",
+        "cpp_command_line_suffix",
+    ],
     output_dirs=["output_count_matrices_dir"],
 )
 def count_transitions(
@@ -172,8 +176,8 @@ def count_transitions(
     if use_cpp_implementation:
         # check if the binary exists
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        cpp_path = os.path.join(dir_path, '_count_transitions.cpp')
-        bin_path = os.path.join(dir_path, '_count_transitions')
+        cpp_path = os.path.join(dir_path, "_count_transitions.cpp")
+        bin_path = os.path.join(dir_path, "_count_transitions")
         print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules

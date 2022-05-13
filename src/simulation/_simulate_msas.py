@@ -254,7 +254,11 @@ def _map_func(args: Dict):
 # C++ generate their randomness is different.
 @cached_parallel_computation(
     parallel_arg="families",
-    exclude_args=["num_processes", "cpp_command_line_prefix", "cpp_command_line_suffix"],
+    exclude_args=[
+        "num_processes",
+        "cpp_command_line_prefix",
+        "cpp_command_line_suffix",
+    ],
     output_dirs=["output_msa_dir"],
 )
 def simulate_msas(
@@ -333,8 +337,8 @@ def simulate_msas(
     if use_cpp_implementation:
         # check if the binary exists
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        cpp_path = os.path.join(dir_path, 'simulate.cpp')
-        bin_path = os.path.join(dir_path, 'simulate')
+        cpp_path = os.path.join(dir_path, "simulate.cpp")
+        bin_path = os.path.join(dir_path, "simulate")
         print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
