@@ -353,6 +353,7 @@ def simulate_msas(
             open(families_path, "w").write(" ".join(families))
             command = ""
             command += f" {cpp_command_line_prefix}"
+            command += f" mpirun -np {num_processes}"
             command += f" {bin_path}"
             command += f" {tree_dir}"
             command += f" {site_rates_dir}"

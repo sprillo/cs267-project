@@ -13,6 +13,7 @@ import tqdm
 
 from src import caching
 from src.caching import secure_parallel_output
+from src.evaluation import create_maximal_matching_contact_map
 from src.io import read_msa, write_contact_map, write_msa
 from src.markov_chain import (
     get_lg_path,
@@ -433,6 +434,91 @@ def simulate_ground_truth_data_single_site(
         families=families,
         states=get_amino_acids(),
     )["output_contact_map_dir"]
+
+    # Now we simulate MSAs
+    gt_msa_dir = simulate_msas(
+        tree_dir=gt_trees,
+        site_rates_dir=gt_site_rates,
+        contact_map_dir=contact_map_dir,
+        families=families,
+        amino_acids=get_amino_acids(),
+        pi_1_path=get_lg_stationary_path(),
+        Q_1_path=get_lg_path(),
+        pi_2_path=get_lg_x_lg_stationary_path(),
+        Q_2_path=get_lg_x_lg_path(),
+        strategy="all_transitions",
+        random_seed=random_seed,
+        num_processes=num_processes,
+        use_cpp_implementation=use_cpp_simulation_implementation,
+    )["output_msa_dir"]
+
+    # Now subset the MSAs to only the leaf nodes.
+    msa_dir = subset_msa_to_leaf_nodes(
+        msa_dir=gt_msa_dir,
+        families=families,
+        states=get_amino_acids(),
+    )["output_msa_dir"]
+
+    return (
+        msa_dir,
+        contact_map_dir,
+        gt_msa_dir,
+        gt_trees,
+        gt_site_rates,
+        gt_likelihood_dir,
+    )
+
+
+def simulate_ground_truth_data_coevolution(
+    pfam_15k_msa_dir: str,
+    pfam_15k_pdb_dir: str,
+    minimum_distance_for_nontrivial_contact: int,
+    angstrom_cutoff: float,
+    families: List[str],
+    num_sequences: int,
+    num_rate_categories: int,
+    num_processes: int,
+    random_seed: int,
+    use_cpp_simulation_implementation: bool,
+):
+    """
+    Simulate ground truth MSAs with LG x LG.
+    """
+    real_msa_dir = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=pfam_15k_msa_dir,
+        num_sequences=num_sequences,
+        families=families,
+        num_processes=num_processes,
+    )["output_msa_dir"]
+
+    contact_map_dir = compute_contact_maps(
+        pfam_15k_pdb_dir=pfam_15k_pdb_dir,
+        families=families,
+        angstrom_cutoff=angstrom_cutoff,
+        num_processes=num_processes,
+    )["output_contact_map_dir"]
+
+    mdnc = minimum_distance_for_nontrivial_contact
+    contact_map_dir = create_maximal_matching_contact_map(
+        i_contact_map_dir=contact_map_dir,
+        families=families,
+        minimum_distance_for_nontrivial_contact=mdnc,
+        num_processes=num_processes,
+    )["o_contact_map_dir"]
+
+    fast_tree_output = fast_tree(
+        msa_dir=real_msa_dir,
+        families=families,
+        rate_matrix_path=get_lg_path(),
+        num_rate_categories=num_rate_categories,
+        num_processes=num_processes,
+    )
+
+    gt_trees, gt_site_rates, gt_likelihood_dir = (
+        fast_tree_output["output_tree_dir"],
+        fast_tree_output["output_site_rates_dir"],
+        fast_tree_output["output_likelihood_dir"],
+    )
 
     # Now we simulate MSAs
     gt_msa_dir = simulate_msas(
