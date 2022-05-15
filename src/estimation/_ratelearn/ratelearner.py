@@ -71,7 +71,7 @@ class RateMatrixLearner:
         num_epochs=2000,
         do_adam: bool = True,
     ):
-        logger = logging.getLogger("phylo_correction.ratelearner")
+        logger = logging.getLogger(__name__)
         logger.info(f"Starting, outdir: {self.output_dir}")
 
         torch.manual_seed(0)

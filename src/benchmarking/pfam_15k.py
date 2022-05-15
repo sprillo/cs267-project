@@ -28,7 +28,7 @@ from ._contact_generation.ContactMatrix import ContactMatrix
 
 
 def _init_logger():
-    logger = logging.getLogger("benchmarking.pfam_15k")
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(fmt_str)

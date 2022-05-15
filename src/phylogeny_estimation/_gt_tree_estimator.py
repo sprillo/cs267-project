@@ -19,7 +19,7 @@ from src.utils import get_process_args
 
 
 def _init_logger():
-    logger = logging.getLogger("phylogeny_estimation.gt_tree_estimator")
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(fmt_str)
@@ -88,7 +88,7 @@ def gt_tree_estimator(
     """
     Return the ground truth tree.
     """
-    logger = logging.getLogger("phylogeny_estimation.gt_tree_estimator")
+    logger = logging.getLogger(__name__)
 
     map_args = [
         [

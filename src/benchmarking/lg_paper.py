@@ -30,7 +30,7 @@ from src.utils import pushd
 
 
 def init_logger():
-    logger = logging.getLogger("phylo_correction.lg_paper")
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
     fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(fmt_str)
@@ -41,7 +41,7 @@ def init_logger():
 
 
 init_logger()
-logger = logging.getLogger("phylo_correction.lg_paper")
+logger = logging.getLogger(__name__)
 
 
 def verify_integrity(filepath: str, mode: str = "555"):

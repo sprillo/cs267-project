@@ -20,7 +20,7 @@ from ._common import name_internal_nodes, translate_tree
 
 
 def _init_logger():
-    logger = logging.getLogger("phylogeny_estimation.fast_tree")
+    logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
     formatter = logging.Formatter(fmt_str)
@@ -34,7 +34,7 @@ _init_logger()
 
 
 def _install_fast_tree():
-    logger = logging.getLogger("phylogeny_estimation.fast_tree")
+    logger = logging.getLogger(__name__)
     dir_path = os.path.dirname(os.path.realpath(__file__))
     c_path = os.path.join(dir_path, "FastTree.c")
     bin_path = os.path.join(dir_path, "FastTree")
@@ -320,7 +320,7 @@ def fast_tree(
     output_site_rates_dir: Optional[str] = None,
     output_likelihood_dir: Optional[str] = None,
 ) -> None:
-    logger = logging.getLogger("phylogeny_estimation.fast_tree")
+    logger = logging.getLogger(__name__)
 
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)

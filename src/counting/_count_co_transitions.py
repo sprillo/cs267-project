@@ -1,5 +1,7 @@
+import logging
 import multiprocessing
 import os
+import sys
 import tempfile
 from typing import List, Optional, Tuple, Union
 
@@ -10,6 +12,21 @@ import tqdm
 from src import caching
 from src.io import read_contact_map, read_msa, read_tree, write_count_matrices
 from src.utils import get_process_args, quantization_idx
+
+
+def init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+init_logger()
+logger = logging.getLogger(__name__)
 
 
 def _map_func(args) -> List[Tuple[float, pd.DataFrame]]:
@@ -236,6 +253,9 @@ def count_co_transitions(
             command += f" {minimum_distance_for_nontrivial_contact}"
             command += f" {output_count_matrices_dir}"
             command += f" {cpp_command_line_suffix}"
+            logger.info(
+                f"Going to run C++ implementation on {len(families)} families"
+            )
             os.system(command)
             return
 
@@ -252,6 +272,10 @@ def count_co_transitions(
         ]
         for process_rank in range(num_processes)
     ]
+
+    logger.info(
+        f"Going to run Python implementation on {len(families)} families"
+    )
 
     # Map step (distribute families among processes)
     if num_processes > 1:
