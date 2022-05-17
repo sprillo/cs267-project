@@ -8,6 +8,7 @@ pandas
 parameterized
 pytest
 scipy
+seaborn
 threadpoolctl
 torch
 tqdm

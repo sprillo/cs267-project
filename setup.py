@@ -21,6 +21,7 @@ setup(
         'parameterized',
         'pytest',
         'scipy',
+        'seaborn',
         'threadpoolctl',
         'torch',
         'tqdm',

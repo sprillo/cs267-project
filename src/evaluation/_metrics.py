@@ -1,5 +1,6 @@
 from typing import Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 RateMatrixType = np.array
@@ -68,3 +69,75 @@ def mre(
     Max relative error.
     """
     return np.exp(l_infty_norm(y, y_hat, mask_matrix)) - 1
+
+
+def relative_error(
+    y: float,
+    y_hat: float,
+) -> float:
+    assert y > 0
+    assert y_hat > 0
+    if y > y_hat:
+        return y / y_hat - 1
+    else:
+        return y_hat / y - 1
+
+
+def relative_errors(
+    y: RateMatrixType,
+    y_hat: RateMatrixType,
+    mask_matrix: Optional[MaskMatrixType] = None,
+) -> np.array:
+    """
+    Relative errors.
+    """
+    num_states = y.shape[0]
+    if mask_matrix is None:
+        mask_matrix = np.ones(
+            shape=(num_states, num_states), dtype=int
+        ) - np.eye(num_states, dtype=int)
+    nonzero_indices = list(zip(*np.where(mask_matrix == 1)))
+    nonzero_indices = [(i, j) for (i, j) in nonzero_indices if i != j]
+    relative_errors = [
+        relative_error(y[i, j], y_hat[i, j]) for (i, j) in nonzero_indices
+    ]
+    return relative_errors
+
+
+def mean_relative_error(
+    y: RateMatrixType,
+    y_hat: RateMatrixType,
+    mask_matrix: Optional[MaskMatrixType] = None,
+) -> float:
+    """
+    Average relative error.
+    """
+    return np.mean(
+        relative_errors(
+            y=y,
+            y_hat=y_hat,
+            mask_matrix=mask_matrix,
+        )
+    )
+
+
+def plot_rate_matrix_predictions(
+    y_true: RateMatrixType,
+    y_pred: RateMatrixType,
+    mask_matrix: Optional[MaskMatrixType] = None,
+) -> None:
+    num_states = y_true.shape[0]
+    if mask_matrix is None:
+        mask_matrix = np.ones(shape=(num_states, num_states), dtype=int)
+    nonzero_indices = list(zip(*np.where(mask_matrix == 1)))
+
+    ys_true = [np.log(y_true[i, j]) for (i, j) in nonzero_indices if i != j]
+
+    ys_pred = [np.log(y_pred[i, j]) for (i, j) in nonzero_indices if i != j]
+
+    plt.scatter(ys_true, ys_pred, alpha=0.3)
+    plt.title("True vs predicted rate matrix entries")
+    plt.xlabel("True entry $Q[i, j]$", fontsize=18)
+    plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)
+    min_y = min(ys_true + ys_pred)
+    plt.plot([min_y, 0], [min_y, 0], color="r")
