@@ -75,3 +75,21 @@ def pushd(new_dir):
         yield
     finally:
         os.chdir(previous_dir)
+
+
+def get_families(
+    msa_dir: str,
+) -> List[str]:
+    """
+    Get the list of protein families names.
+
+    Args:
+        msa_dir: Directory with the MSA files. There should be one file with
+            name family.txt for each protein family.
+
+    Returns:
+        The list of protein family names in the provided directory.
+    """
+    families = sorted(list(os.listdir(msa_dir)))
+    families = [x.split(".")[0] for x in families if x.endswith(".txt")]
+    return families

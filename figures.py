@@ -33,6 +33,48 @@ PFAM_15K_MSA_DIR = "input_data/a3m"
 PFAM_15K_PDB_DIR = "input_data/pdb"
 
 
+def add_annotations_to_violinplot(yss_relative_errors: List[float]):
+    yticks = [np.log(10**i) for i in range(-5, 2)]
+    ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
+    plt.grid()
+    plt.ylabel("relative error (%)")
+    plt.yticks(yticks, ytickslabels)
+    for i, ys in enumerate(yss_relative_errors):
+        ys = np.array(ys)
+        label = "{:.1f}%".format(100 * np.median(ys))
+        plt.annotate(
+            label,  # this is the text
+            (
+                i + 0.05,
+                np.log(np.max(ys)) - 1.5,
+            ),  # these are the coordinates to position the label
+            textcoords="offset points",  # how to position the text
+            xytext=(0, 10),  # distance from text to points (x,y)
+            ha="left",
+            va="top",
+            color="black",
+            fontsize=12,
+        )  # horizontal alignment can be left, right or center
+        label = "{:.0f}%".format(100 * np.max(ys))
+        plt.annotate(
+            label,  # this is the text
+            (
+                i + 0.05,
+                np.log(np.max(ys)),
+            ),  # these are the coordinates to position the label
+            textcoords="offset points",  # how to position the text
+            xytext=(0, 10),  # distance from text to points (x,y)
+            ha="left",
+            va="top",
+            color="red",
+            fontsize=12,
+        )  # horizontal alignment can be left, right or center
+    plt.title(
+        "Distribution of relative error as quantization improves\n(max and median error also reported)"
+    )
+    plt.tight_layout()
+
+
 def fig_single_site_quantization_error():
     """
     TODO: Use all 15051 families for this, to reduce finite sample size bias.
@@ -247,31 +289,7 @@ def fig_single_site_quantization_error():
         #     cut=0,
         #     bw=0.25
     )
-    yticks = [np.log(10**i) for i in range(-5, 2)]
-    ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
-    plt.grid()
-    plt.ylabel("relative error")
-    plt.yticks(yticks, ytickslabels)
-    for i, ys in enumerate(yss_relative_errors):
-        ys = np.array(ys)
-        label = "{:.1f}%".format(100 * np.median(ys))
-        plt.annotate(
-            label,  # this is the text
-            (
-                i + 0.05,
-                np.log(np.max(ys)),
-            ),  # these are the coordinates to position the label
-            textcoords="offset points",  # how to position the text
-            xytext=(0, 10),  # distance from text to points (x,y)
-            ha="left",
-            va="top",
-            color="black",
-            fontsize=12,
-        )  # horizontal alignment can be left, right or center
-    plt.title(
-        "Distribution of relative error as quantization improves\n(median also reported)"
-    )
-    plt.tight_layout()
+    add_annotations_to_violinplot(yss_relative_errors)
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
 
@@ -509,31 +527,10 @@ def fig_pair_site_quantization_error():
         #     cut=0,
         #     bw=0.25
     )
-    yticks = [np.log(10**i) for i in range(-5, 2)]
-    ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
-    plt.grid()
-    plt.ylabel("relative error")
-    plt.yticks(yticks, ytickslabels)
-    for i, ys in enumerate(yss_relative_errors):
-        ys = np.array(ys)
-        label = "{:.1f}%".format(100 * np.median(ys))
-        plt.annotate(
-            label,  # this is the text
-            (
-                i + 0.05,
-                np.log(np.max(ys)),
-            ),  # these are the coordinates to position the label
-            textcoords="offset points",  # how to position the text
-            xytext=(0, 10),  # distance from text to points (x,y)
-            ha="left",
-            va="top",
-            color="black",
-            fontsize=12,
-        )  # horizontal alignment can be left, right or center
-    plt.title(
-        "Distribution of relative error as quantization improves\n(median also reported)"
+    add_annotations_to_violinplot(
+        yss_relative_errors,
     )
-    plt.tight_layout()
+
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
 
@@ -741,31 +738,7 @@ def fig_single_site_cherry_vs_edge():
             #     cut=0,
             #     bw=0.25
         )
-        yticks = [np.log(10**i) for i in range(-5, 2)]
-        ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
-        plt.grid()
-        plt.ylabel("relative error")
-        plt.yticks(yticks, ytickslabels)
-        for i, ys in enumerate(yss_relative_errors):
-            ys = np.array(ys)
-            label = "{:.1f}%".format(100 * np.median(ys))
-            plt.annotate(
-                label,  # this is the text
-                (
-                    i + 0.05,
-                    np.log(np.max(ys)),
-                ),  # these are the coordinates to position the label
-                textcoords="offset points",  # how to position the text
-                xytext=(0, 10),  # distance from text to points (x,y)
-                ha="left",
-                va="top",
-                color="black",
-                fontsize=12,
-            )  # horizontal alignment can be left, right or center
-        plt.title(
-            "Distribution of relative error as quantization improves\n(median also reported)"
-        )
-        plt.tight_layout()
+        add_annotations_to_violinplot(yss_relative_errors)
         plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
         plt.close()
 
@@ -980,31 +953,7 @@ def fig_pair_site_number_of_families():
         #     cut=0,
         #     bw=0.25
     )
-    yticks = [np.log(10**i) for i in range(-5, 2)]
-    ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
-    plt.grid()
-    plt.ylabel("relative error")
-    plt.yticks(yticks, ytickslabels)
-    for i, ys in enumerate(yss_relative_errors):
-        ys = np.array(ys)
-        label = "{:.1f}%".format(100 * np.median(ys))
-        plt.annotate(
-            label,  # this is the text
-            (
-                i + 0.05,
-                np.log(np.max(ys)),
-            ),  # these are the coordinates to position the label
-            textcoords="offset points",  # how to position the text
-            xytext=(0, 10),  # distance from text to points (x,y)
-            ha="left",
-            va="top",
-            color="black",
-            fontsize=12,
-        )  # horizontal alignment can be left, right or center
-    plt.title(
-        "Distribution of relative error as quantization improves\n(median also reported)"
-    )
-    plt.tight_layout()
+    add_annotations_to_violinplot(yss_relative_errors)
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
     print("Done!")
