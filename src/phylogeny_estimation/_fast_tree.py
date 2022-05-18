@@ -321,6 +321,7 @@ def fast_tree(
     output_likelihood_dir: Optional[str] = None,
 ) -> None:
     logger = logging.getLogger(__name__)
+    logger.info(f"Going to run on {len(families)} families")
 
     if not os.path.exists(output_tree_dir):
         os.makedirs(output_tree_dir)
@@ -345,10 +346,10 @@ def fast_tree(
         for process_rank in range(num_processes)
     ]
 
-    logger.info(f"Going to run on {len(families)} families")
-
     if num_processes > 1:
         with multiprocessing.Pool(num_processes) as pool:
             list(tqdm.tqdm(pool.imap(_map_func, map_args), total=len(map_args)))
     else:
         list(tqdm.tqdm(map(_map_func, map_args), total=len(map_args)))
+
+    logger.info("Done!")

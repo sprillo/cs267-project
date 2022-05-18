@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from typing import Optional
 
 import numpy as np
@@ -6,6 +8,20 @@ import numpy as np
 from src import caching
 from src.io import read_count_matrices, read_mask_matrix, write_rate_matrix
 from src.markov_chain import normalized
+
+
+def _init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
 
 
 @caching.cached_computation(
@@ -18,6 +34,9 @@ def jtt_ipw(
     output_rate_matrix_dir: str,
     normalize: bool = False,
 ) -> None:
+    logger = logging.getLogger(__name__)
+    logger.info("Starting")
+
     # Open frequency matrices
     count_matrices = read_count_matrices(count_matrices_path)
     states = list(count_matrices[0][1].index)
@@ -78,3 +97,5 @@ def jtt_ipw(
     write_rate_matrix(
         res, states, os.path.join(output_rate_matrix_dir, "result.txt")
     )
+
+    logger.info("Done!")

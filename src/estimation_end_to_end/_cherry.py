@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from src.counting import count_co_transitions, count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
@@ -13,7 +13,7 @@ def cherry_estimator(
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
     num_iterations: int,
-    num_processes: int,
+    num_processes: Optional[int] = 1,
     quantization_grid_center: float = 0.06,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 50,
@@ -25,6 +25,8 @@ def cherry_estimator(
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
+    num_processes_tree_estimation: Optional[int] = None,
+    num_processes_counting: Optional[int] = None,
 ) -> Dict:
     """
     Cherry estimator.
@@ -32,6 +34,11 @@ def cherry_estimator(
     Returns a dictionary with the directories to the intermediate outputs. In
     particular, the learned rate matrix is indexed by "learned_rate_matrix_path"
     """
+    if num_processes_tree_estimation is None:
+        num_processes_tree_estimation = num_processes
+    if num_processes_counting is None:
+        num_processes_counting = num_processes
+
     res = {}
 
     quantization_points = [
@@ -49,7 +56,7 @@ def cherry_estimator(
             msa_dir=msa_dir,
             families=families,
             rate_matrix_path=current_estimate_rate_matrix_path,
-            num_processes=num_processes,
+            num_processes=num_processes_tree_estimation,
         )
         res[
             f"tree_estimator_output_dirs_{iteration}"
@@ -63,7 +70,7 @@ def cherry_estimator(
             amino_acids=get_amino_acids(),
             quantization_points=quantization_points,
             edge_or_cherry=edge_or_cherry,
-            num_processes=num_processes,
+            num_processes=num_processes_counting,
             use_cpp_implementation=use_cpp_counting_implementation,
             cpp_command_line_prefix=cpp_counting_command_line_prefix,
             cpp_command_line_suffix=cpp_counting_command_line_suffix,

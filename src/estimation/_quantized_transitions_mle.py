@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 import tempfile
 from typing import Optional
 
@@ -16,6 +18,20 @@ from src.io import (
 from ._ratelearn import RateMatrixLearner
 
 
+def _init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
+
+
 @caching.cached_computation(
     output_dirs=["output_rate_matrix_dir"],
 )
@@ -31,6 +47,9 @@ def quantized_transitions_mle(
     num_epochs: int = 2000,
     do_adam: bool = True,
 ):
+    logger = logging.getLogger(__name__)
+    logger.info("Starting")
+
     assert device in ["cpu", "cuda"]
     count_matrices = read_count_matrices(count_matrices_path)
     states = list(count_matrices[0][1].index)
@@ -91,3 +110,5 @@ def quantized_transitions_mle(
                 states,
                 os.path.join(output_rate_matrix_dir, "result.txt"),
             )
+
+    logger.info("Done!")
