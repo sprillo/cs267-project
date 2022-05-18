@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import Dict, List, Tuple
 
 from src.counting import count_co_transitions, count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
@@ -25,18 +25,23 @@ def cherry_estimator(
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
-) -> str:
+) -> Dict:
     """
     Cherry estimator.
 
-    Returns the path to the estimated rate matrix.
+    Returns a dictionary with the directories to the intermediate outputs. In
+    particular, the learned rate matrix is indexed by "learned_rate_matrix_path"
     """
+    res = {}
+
     quantization_points = [
         ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )
     ]
+
+    res["quantization_points"] = quantization_points
 
     current_estimate_rate_matrix_path = initial_tree_estimator_rate_matrix_path
     for iteration in range(num_iterations):
@@ -46,6 +51,9 @@ def cherry_estimator(
             rate_matrix_path=current_estimate_rate_matrix_path,
             num_processes=num_processes,
         )
+        res[
+            f"tree_estimator_output_dirs_{iteration}"
+        ] = tree_estimator_output_dirs
 
         count_matrices_dir = count_transitions(
             tree_dir=tree_estimator_output_dirs["output_tree_dir"],
@@ -61,12 +69,16 @@ def cherry_estimator(
             cpp_command_line_suffix=cpp_counting_command_line_suffix,
         )["output_count_matrices_dir"]
 
+        res[f"count_matrices_dir_{iteration}"] = count_matrices_dir
+
         jtt_ipw_dir = jtt_ipw(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
             mask_path=None,
             use_ipw=True,
             normalize=False,
         )["output_rate_matrix_dir"]
+
+        res[f"jtt_ipw_dir_{iteration}"] = jtt_ipw_dir
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
@@ -80,10 +92,15 @@ def cherry_estimator(
             do_adam=do_adam,
         )["output_rate_matrix_dir"]
 
+        res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
+
         current_estimate_rate_matrix_path = os.path.join(
             rate_matrix_dir, "result.txt"
         )
-    return current_estimate_rate_matrix_path
+
+    res["learned_rate_matrix_path"] = current_estimate_rate_matrix_path
+
+    return res
 
 
 def cherry_estimator_coevolution(
@@ -107,18 +124,24 @@ def cherry_estimator_coevolution(
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
-) -> str:
+) -> Dict:
     """
     Cherry estimator for coevolution.
 
-    Returns the path to the estimated coevolution rate matrix.
+    Returns a dictionary with the directories to the intermediate outputs. In
+    particular, the learned coevolution rate matrix is indexed by
+    "learned_rate_matrix_path"
     """
+    res = {}
+
     quantization_points = [
         ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )
     ]
+
+    res["quantization_points"] = quantization_points
 
     current_estimate_rate_matrix_path = initial_tree_estimator_rate_matrix_path
     for iteration in range(1):  # There is no iteration in this case.
@@ -128,6 +151,10 @@ def cherry_estimator_coevolution(
             rate_matrix_path=current_estimate_rate_matrix_path,
             num_processes=num_processes,
         )
+
+        res[
+            f"tree_estimator_output_dirs_{iteration}"
+        ] = tree_estimator_output_dirs
 
         mdnc = minimum_distance_for_nontrivial_contact
         count_matrices_dir = count_co_transitions(
@@ -145,12 +172,16 @@ def cherry_estimator_coevolution(
             cpp_command_line_suffix=cpp_counting_command_line_suffix,
         )["output_count_matrices_dir"]
 
+        res[f"count_matrices_dir_{iteration}"] = count_matrices_dir
+
         jtt_ipw_dir = jtt_ipw(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
             mask_path=coevolution_mask_path,
             use_ipw=True,
             normalize=False,
         )["output_rate_matrix_dir"]
+
+        res[f"jtt_ipw_dir_{iteration}"] = jtt_ipw_dir
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
@@ -164,7 +195,12 @@ def cherry_estimator_coevolution(
             do_adam=do_adam,
         )["output_rate_matrix_dir"]
 
+        res[f"output_rate_matrix_dir_{iteration}"] = rate_matrix_dir
+
         current_estimate_rate_matrix_path = os.path.join(
             rate_matrix_dir, "result.txt"
         )
-    return current_estimate_rate_matrix_path
+
+    res["learned_rate_matrix_path"] = current_estimate_rate_matrix_path
+
+    return res

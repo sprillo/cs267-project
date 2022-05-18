@@ -332,7 +332,7 @@ def run_rate_estimator(
             learning_rate=float(tokens[2]),
             num_epochs=int(tokens[3]),
             do_adam=True,
-        )
+        )["learned_rate_matrix_path"]
     else:
         raise ValueError(f"Unknown rate estimator name: {rate_estimator_name}")
     return res

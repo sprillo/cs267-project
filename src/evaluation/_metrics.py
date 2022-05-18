@@ -131,13 +131,27 @@ def plot_rate_matrix_predictions(
         mask_matrix = np.ones(shape=(num_states, num_states), dtype=int)
     nonzero_indices = list(zip(*np.where(mask_matrix == 1)))
 
-    ys_true = [np.log(y_true[i, j]) for (i, j) in nonzero_indices if i != j]
+    ys_true = [
+        np.log(y_true[i, j]) / np.log(10)
+        for (i, j) in nonzero_indices
+        if i != j
+    ]
 
-    ys_pred = [np.log(y_pred[i, j]) for (i, j) in nonzero_indices if i != j]
+    ys_pred = [
+        np.log(y_pred[i, j]) / np.log(10)
+        for (i, j) in nonzero_indices
+        if i != j
+    ]
 
     plt.scatter(ys_true, ys_pred, alpha=0.3)
     plt.title("True vs predicted rate matrix entries")
     plt.xlabel("True entry $Q[i, j]$", fontsize=18)
     plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)
+
+    ticks = [np.log(10**i) / np.log(10) for i in range(-5, 1)]
+    tickslabels = [f"$10^{{{i}}}$" for i in range(-5, 1)]
+    plt.xticks(ticks, tickslabels)
+    plt.yticks(ticks, tickslabels)
+
     min_y = min(ys_true + ys_pred)
     plt.plot([min_y, 0], [min_y, 0], color="r")
