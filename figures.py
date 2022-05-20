@@ -1,39 +1,43 @@
+import os
+from functools import partial
+from typing import Dict, List
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+from src import caching, cherry_estimator, cherry_estimator_coevolution
 from src.benchmarking.pfam_15k import (
-    simulate_ground_truth_data_single_site,
     get_families_within_cutoff,
     simulate_ground_truth_data_coevolution,
+    simulate_ground_truth_data_single_site,
 )
-from src.markov_chain import (
-    get_equ_path,
-    normalized,
-    get_lg_path,
-    get_lg_x_lg_path,
-)
-from src import cherry_estimator, cherry_estimator_coevolution
-from src import caching
 from src.evaluation import (
     l_infty_norm,
-    rmse,
-    mre,
     mean_relative_error,
-    relative_errors,
+    mre,
     plot_rate_matrix_predictions,
+    relative_errors,
+    rmse,
 )
-from src.io import read_rate_matrix, read_count_matrices, read_mask_matrix
+from src.io import read_count_matrices, read_mask_matrix, read_rate_matrix
+from src.markov_chain import (
+    get_equ_path,
+    get_lg_path,
+    get_lg_x_lg_path,
+    normalized,
+)
 from src.phylogeny_estimation import gt_tree_estimator
-from functools import partial
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import os
-from typing import Dict, List
 
 PFAM_15K_MSA_DIR = "input_data/a3m"
 PFAM_15K_PDB_DIR = "input_data/pdb"
 
 
-def add_annotations_to_violinplot(yss_relative_errors: List[float]):
+def add_annotations_to_violinplot(
+    yss_relative_errors: List[float],
+    title: str,
+):
     yticks = [np.log(10**i) for i in range(-5, 2)]
     ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
     plt.grid()
@@ -69,9 +73,7 @@ def add_annotations_to_violinplot(yss_relative_errors: List[float]):
             color="red",
             fontsize=12,
         )  # horizontal alignment can be left, right or center
-    plt.title(
-        "Distribution of relative error as quantization improves\n(max and median error also reported)"
-    )
+    plt.title(title + "\n(max and median error also reported)")
     plt.tight_layout()
 
 
@@ -289,7 +291,10 @@ def fig_single_site_quantization_error():
         #     cut=0,
         #     bw=0.25
     )
-    add_annotations_to_violinplot(yss_relative_errors)
+    add_annotations_to_violinplot(
+        yss_relative_errors,
+        title="Distribution of relative error as quantization improves",
+    )
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
 
@@ -529,6 +534,7 @@ def fig_pair_site_quantization_error():
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
+        title="Distribution of relative error as quantization improves",
     )
 
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
@@ -738,7 +744,10 @@ def fig_single_site_cherry_vs_edge():
             #     cut=0,
             #     bw=0.25
         )
-        add_annotations_to_violinplot(yss_relative_errors)
+        add_annotations_to_violinplot(
+            yss_relative_errors,
+            title="Distribution of relative error as sample size increases",
+        )
         plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
         plt.close()
 
@@ -953,7 +962,10 @@ def fig_pair_site_number_of_families():
         #     cut=0,
         #     bw=0.25
     )
-    add_annotations_to_violinplot(yss_relative_errors)
+    add_annotations_to_violinplot(
+        yss_relative_errors,
+        title="Distribution of relative error as sample size increases",
+    )
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
     print("Done!")

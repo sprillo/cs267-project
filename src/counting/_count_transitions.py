@@ -198,7 +198,7 @@ def count_transitions(
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cpp_path = os.path.join(dir_path, "_count_transitions.cpp")
         bin_path = os.path.join(dir_path, "_count_transitions")
-        print(f"cpp_path = {cpp_path}")
+        # print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
             # Currently it should run on the interactive node
@@ -227,6 +227,7 @@ def count_transitions(
             command += f" {cpp_command_line_suffix}"
             # print(f"Going to run:\n{command}")
             os.system(command)
+            logger.info("Done!")
             return
 
     map_args = [

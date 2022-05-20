@@ -225,7 +225,7 @@ def count_co_transitions(
         dir_path = os.path.dirname(os.path.realpath(__file__))
         cpp_path = os.path.join(dir_path, "_count_co_transitions.cpp")
         bin_path = os.path.join(dir_path, "_count_co_transitions")
-        print(f"cpp_path = {cpp_path}")
+        # print(f"cpp_path = {cpp_path}")
         if not os.path.exists(bin_path):
             # load openmpi/openmp modules
             # Currently it should run on the interactive node
