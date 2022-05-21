@@ -969,3 +969,128 @@ def fig_pair_site_number_of_families():
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
     print("Done!")
+
+
+def live_demo_single_site():
+    from functools import partial
+
+    from src import caching, cherry_estimator
+    from src.benchmarking.pfam_15k import get_families, subsample_pfam_15k_msas
+    from src.io import read_rate_matrix
+    from src.markov_chain import get_lg_path
+    from src.phylogeny_estimation import fast_tree
+
+    PFAM_15K_MSA_DIR = "input_data/a3m"
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    families = get_families(PFAM_15K_MSA_DIR)
+
+    # Subsample the MSAs
+    msa_dir_train = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+        num_sequences=1024,
+        families=families,
+        num_processes=32,
+    )["output_msa_dir"]
+
+    # Run the cherry method using FastTree tree estimator
+    learned_rate_matrix_path = cherry_estimator(
+        msa_dir=msa_dir_train,
+        families=families,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=20,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_iterations=1,
+        num_processes=32,
+        quantization_grid_center=0.06,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=50,
+        learning_rate=3e-2,
+        num_epochs=500,
+        do_adam=True,
+        use_cpp_counting_implementation=True,
+    )["learned_rate_matrix_path"]
+    learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
+
+    lg = read_rate_matrix(get_lg_path()).to_numpy()
+
+    # Now compare matrices
+    print("LG matrix:")
+    print(lg[:3, :3])
+    print("Learned rate matrix:")
+    print(learned_rate_matrix[:3, :3])
+
+
+def live_demo_pair_of_sites():
+    from functools import partial
+
+    from src import caching, cherry_estimator_coevolution
+    from src.benchmarking.pfam_15k import (
+        compute_contact_maps,
+        get_families,
+        subsample_pfam_15k_msas,
+    )
+    from src.io import read_rate_matrix
+    from src.markov_chain import get_lg_path, get_lg_x_lg_path
+    from src.phylogeny_estimation import fast_tree
+
+    PFAM_15K_MSA_DIR = "input_data/a3m"
+    PFAM_15K_PDB_DIR = (
+        "input_data/pdb"  # We'll need this for determining contacting residues!
+    )
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    families = get_families(PFAM_15K_MSA_DIR)
+
+    # Subsample the MSAs
+    msa_dir = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+        num_sequences=1024,
+        families=families,
+        num_processes=32,
+    )["output_msa_dir"]
+
+    # Create contact maps
+    contact_map_dir = compute_contact_maps(
+        pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
+        families=families,
+        angstrom_cutoff=8.0,
+        num_processes=32,
+    )["output_contact_map_dir"]
+
+    # Run the cherry method using FastTree tree estimator
+    learned_rate_matrix_path = cherry_estimator_coevolution(
+        msa_dir=msa_dir,
+        contact_map_dir=contact_map_dir,
+        minimum_distance_for_nontrivial_contact=7,
+        coevolution_mask_path="data/mask_matrices/aa_coevolution_mask.txt",
+        families=families,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=20,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_processes=32,
+        quantization_grid_center=0.06,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=50,
+        learning_rate=3e-2,
+        num_epochs=500,
+        do_adam=True,
+        use_cpp_counting_implementation=True,
+    )["learned_rate_matrix_path"]
+    learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
+
+    lg_x_lg = read_rate_matrix(get_lg_x_lg_path()).to_numpy()
+
+    # Now compare matrices
+    print("LGxLG matrix:")
+    print(lg_x_lg[:3, :3])
+    print("Learned rate matrix:")
+    print(learned_rate_matrix[:3, :3])
