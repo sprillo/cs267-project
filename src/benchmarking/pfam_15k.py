@@ -85,7 +85,7 @@ def compute_contact_maps(
     families: List[str],
     angstrom_cutoff: float,
     num_processes: int,
-    output_contact_map_dir: str,
+    output_contact_map_dir: Optional[str] = None,
 ):
     if not os.path.exists(pfam_15k_pdb_dir):
         raise ValueError(f"Could not find pfam_15k_pdb_dir {pfam_15k_pdb_dir}")
