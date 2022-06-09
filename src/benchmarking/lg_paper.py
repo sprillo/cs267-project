@@ -385,6 +385,7 @@ def reproduce_lg_paper_fig_4(
     """
     Reproduce Fig. 4 of the LG paper, extending it with the desired models.
     """
+    Qs = {}
     assert pfam_or_treebase == "pfam"
     assert family_name_len == 7
     df = pd.DataFrame(
@@ -424,6 +425,7 @@ def reproduce_lg_paper_fig_4(
                 families_train=families_train,
                 num_processes=num_processes,
             )
+            Qs[rate_estimator_name] = rate_matrix_path
             output_likelihood_dir = evaluation_phylogeny_estimator(
                 msa_dir=msa_test_dir,
                 families=families_test,
@@ -527,6 +529,7 @@ def reproduce_lg_paper_fig_4(
             pd.DataFrame(
                 y_bootstraps, columns=[x[1] for x in rate_estimator_names]
             ),
+            Qs,
         )
     else:
-        return y, df, None
+        return y, df, None, Qs
