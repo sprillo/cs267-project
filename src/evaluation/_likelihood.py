@@ -5,8 +5,6 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import tqdm
-from threadpoolctl import threadpool_limits
-from torch import multiprocessing
 
 from src.io import (
     Tree,
@@ -20,6 +18,8 @@ from src.io import (
 )
 from src.markov_chain import FactorizedReversibleModel, matrix_exponential
 from src.utils import get_process_args
+from threadpoolctl import threadpool_limits
+from torch import multiprocessing
 
 try:
     multiprocessing.set_start_method("spawn")

@@ -9,8 +9,8 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 import tqdm
-from ete3 import Tree as TreeETE
 
+from ete3 import Tree as TreeETE
 from src.caching import cached_parallel_computation, secure_parallel_output
 from src.io import read_rate_matrix, write_tree
 from src.markov_chain import compute_stationary_distribution

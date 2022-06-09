@@ -1,7 +1,6 @@
 from typing import Optional
 
 from ete3 import Tree as TreeETE
-
 from src.io import Tree
 
 

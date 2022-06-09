@@ -6,8 +6,8 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import pytest
-from parameterized import parameterized
 
+from parameterized import parameterized
 from src.counting import count_co_transitions, count_transitions
 from src.io import read_count_matrices
 from src.utils import amino_acids

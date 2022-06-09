@@ -347,7 +347,9 @@ def simulate_msas(
             command = f"mpicxx -std=c++11 -O3 -o {bin_path} {cpp_path}"
             os.system(command)
             if not os.path.exists(bin_path):
-                raise Exception("Couldn't compile simulate.cpp")
+                raise Exception(
+                    f"Couldn't compile simulate.cpp. Command: {command}"
+                )
         with tempfile.NamedTemporaryFile("w") as families_file:
             families_path = families_file.name
             open(families_path, "w").write(" ".join(families))

@@ -3,9 +3,9 @@ import tempfile
 import unittest
 
 import numpy as np
+
 import torch
 from parameterized import parameterized
-
 from src.estimation import quantized_transitions_mle
 from src.io import read_mask_matrix, read_rate_matrix
 

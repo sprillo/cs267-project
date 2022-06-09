@@ -1,9 +1,9 @@
 import os
 
 import numpy as np
-from biotite.structure.io.pdb import PDBFile
 from scipy.spatial.distance import pdist, squareform
 
+from biotite.structure.io.pdb import PDBFile
 from src.io import write_contact_map
 
 

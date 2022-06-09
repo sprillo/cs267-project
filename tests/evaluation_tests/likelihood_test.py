@@ -6,10 +6,10 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
-import torch
-from parameterized import parameterized
 
 import src
+import torch
+from parameterized import parameterized
 from src.evaluation import compute_log_likelihoods
 from src.io import (
     Tree,
@@ -1359,6 +1359,9 @@ class Test_real_data_pair_site_medium_multiprocess(unittest.TestCase):
         """
         Test on family 1a92_1_A using WAG x WAG co-evolution model!
         """
+        if device == "cuda" and not torch.cuda.is_available():
+            return
+
         num_cats = 20
         tree = read_tree(
             os.path.join(DATA_DIR, f"tree_dir_{num_cats}_cat_wag/1a92_1_A.txt")

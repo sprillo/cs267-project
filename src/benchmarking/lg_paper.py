@@ -15,8 +15,8 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import wget
 
+import wget
 from src import PhylogenyEstimatorType, caching, cherry_estimator
 from src.io import read_log_likelihood
 from src.markov_chain import (

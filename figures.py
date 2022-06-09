@@ -1,3 +1,17 @@
+"""
+Module to reproduce and extend all figures.
+
+trRosetta dataset: https://www.pnas.org/doi/10.1073/pnas.1914677117
+
+Prerequisites:
+- input_data/a3m should point to the trRosetta alignments (e.g. via a symbolic
+    link)
+- input_data/pdb should point to the trRosetta structures (e.g. via a symbolic
+    link)
+
+The caching directories which contain all subsequent data are _cache_benchmarking
+and _cache_lg_paper. You can similarly use a symbolic link to point to these.
+"""
 import os
 from functools import partial
 from typing import Dict, List

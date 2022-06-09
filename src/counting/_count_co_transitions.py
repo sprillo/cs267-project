@@ -232,7 +232,10 @@ def count_co_transitions(
             command = f"mpicxx -std=c++11 -O3 -o {bin_path} {cpp_path}"
             os.system(command)
             if not os.path.exists(bin_path):
-                raise Exception("Couldn't compile simulate.cpp")
+                raise Exception(
+                    "Couldn't compile _count_co_transitions.cpp. "
+                    f"Command: {command}"
+                )
         with tempfile.NamedTemporaryFile("w") as families_file:
             families_path = families_file.name
             open(families_path, "w").write(" ".join(families))

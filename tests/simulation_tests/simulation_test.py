@@ -5,8 +5,8 @@ from collections import defaultdict
 
 import numpy as np
 import pandas as pd
-from parameterized import parameterized
 
+from parameterized import parameterized
 from src.io import (
     read_msa,
     read_probability_distribution,

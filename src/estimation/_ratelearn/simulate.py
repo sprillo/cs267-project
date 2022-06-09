@@ -1,10 +1,11 @@
 import numpy as np
 import pandas as pd
+from tqdm.auto import tqdm
+
 import torch
 import torch.distributions as db
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
-from tqdm.auto import tqdm
 
 
 def generate_data(
