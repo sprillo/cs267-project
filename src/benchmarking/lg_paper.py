@@ -381,6 +381,7 @@ def reproduce_lg_paper_fig_4(
     figsize: Tuple[float, float] = (6.4, 4.8),
     num_bootstraps: int = 0,
     show_legend: bool = True,
+    output_image_dir: str = "./",
 ):
     """
     Reproduce Fig. 4 of the LG paper, extending it with the desired models.
@@ -519,7 +520,7 @@ def reproduce_lg_paper_fig_4(
     # plt.grid()
     plt.tight_layout()
     plt.title("Results on Pfam data from LG paper")
-    plt.savefig("lg_paper_figure.jpg", bbox_inches="tight")
+    plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight")
     plt.show()
 
     if num_bootstraps:

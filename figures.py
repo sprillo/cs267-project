@@ -1108,3 +1108,93 @@ def live_demo_pair_of_sites():
     print(lg_x_lg[:3, :3])
     print("Learned rate matrix:")
     print(learned_rate_matrix[:3, :3])
+
+
+def fig_lg_paper():
+    """
+    LG paper figure 4.
+    """
+    from src.benchmarking.lg_paper import reproduce_lg_paper_fig_4
+    from src.phylogeny_estimation import phyml, fast_tree
+    from typing import List
+    from src.benchmarking.lg_paper import get_lg_PfamTrainingAlignments_data, get_lg_PfamTestingAlignments_data
+    from src import caching
+    from functools import partial
+    import os
+
+    num_processes = 32
+
+    caching.set_cache_dir("_cache_lg_paper")
+    caching.set_hash_len(64)
+
+    LG_PFAM_TRAINING_ALIGNMENTS_DIR = "./lg_paper_data/lg_PfamTrainingAlignments"
+    LG_PFAM_TESTING_ALIGNMENTS_DIR = "./lg_paper_data/lg_PfamTestingAlignments"
+
+    get_lg_PfamTrainingAlignments_data(LG_PFAM_TRAINING_ALIGNMENTS_DIR)
+    get_lg_PfamTestingAlignments_data(LG_PFAM_TESTING_ALIGNMENTS_DIR)
+
+    output_image_dir = "images/lg_paper/"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    def get_families(
+        msa_dir: str,
+    ) -> List[str]:
+        """
+        TODO: Remove this function; import it from src.utils directly
+        Get the list of protein families names.
+
+        Args:
+            msa_dir: Directory with the MSA files. There should be one file with
+                name family.txt for each protein family.
+
+        Returns:
+            The list of protein family names in the provided directory.
+        """
+        families = sorted(list(os.listdir(msa_dir)))
+        families = [x.split(".")[0] for x in families if x.endswith(".txt")]
+        return families
+
+    fast_tree_partial = partial(
+        fast_tree,
+        num_rate_categories=4,
+        num_processes=num_processes,
+        extra_command_line_args="-gamma",
+    )
+
+    phyml_partial = partial(
+        phyml,
+        num_rate_categories=4,
+        num_processes=num_processes,
+    )
+
+    y, df, bootstraps, Qs = reproduce_lg_paper_fig_4(
+        msa_train_dir=LG_PFAM_TRAINING_ALIGNMENTS_DIR,
+        families_train=get_families(LG_PFAM_TRAINING_ALIGNMENTS_DIR),
+        msa_test_dir=LG_PFAM_TESTING_ALIGNMENTS_DIR,
+        families_test=get_families(LG_PFAM_TESTING_ALIGNMENTS_DIR),
+        rate_estimator_names=[
+            # "EQU",
+            ("reported JTT", "JTT\n(reported)"),
+            ("reproduced JTT", "JTT\n(reproduced)"),
+            ("reported WAG", "WAG\n(reported)"),
+            ("reproduced WAG", "WAG\n(reproduced)"),
+            ("reported LG", "LG\n(reported)"),
+            ("reproduced LG", "LG\n(reproduced)"),
+            ("Cherry__1__3e-2__2000", "Cherry\n1st iteration"),
+            ("Cherry__2__3e-2__2000", "Cherry\n2nd iteration"),
+            ("Cherry__3__3e-2__2000", "Cherry\n3rd iteration"),
+            ("Cherry__4__3e-2__2000", "Cherry\n4th iteration"),
+            ("Cherry__5__3e-2__2000", "Cherry\n5th iteration"),
+            ("Cherry__6__3e-2__2000", "Cherry\n6th iteration"),
+        ],
+        baseline_rate_estimator_name="reported JTT",
+        evaluation_phylogeny_estimator=phyml_partial,
+        # evaluation_phylogeny_estimator=fast_tree_partial,
+        num_processes=num_processes,
+        pfam_or_treebase='pfam',
+        family_name_len=7,
+        figsize=(14.4, 4.8),
+        num_bootstraps=100,
+        output_image_dir=output_image_dir,
+    )
