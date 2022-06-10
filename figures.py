@@ -598,6 +598,7 @@ def fig_single_site_cherry_vs_edge():
         caching.set_hash_len(64)
 
         num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
 
         yss_relative_errors = []
         Qs = []
@@ -609,9 +610,9 @@ def fig_single_site_cherry_vs_edge():
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,  # We use the PFAM 15K dataset as reference for the simulated MSA sizes
-                min_num_sites=min_num_sites,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
-                max_num_sites=max_num_sites,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
-                min_num_sequences=min_num_sequences,  # We only select families with at least 1024 sequences, such that all the simulated MSAs have exactly the same size. (Even though we don't explore this dimension here, in other experiments we do, and it is nice to be able to compare the results in this figure to those of the other figures, so we use the same training sets across figures if possible.)
+                min_num_sites=min_num_sites if num_families_train <= 1024 else 0,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+                max_num_sites=max_num_sites if num_families_train <= 1024 else 1000000,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+                min_num_sequences=min_num_sequences if num_families_train <= 1024 else 0,  # We only select families with at least 1024 sequences, such that all the simulated MSAs have exactly the same size. (Even though we don't explore this dimension here, in other experiments we do, and it is nice to be able to compare the results in this figure to those of the other figures, so we use the same training sets across figures if possible.)
                 max_num_sequences=max_num_sequences,  # We don't want to filter families with more that 1024 sequences, since they will be subsapled later down to 1024.
             )
             families_train = families_all[:num_families_train]
