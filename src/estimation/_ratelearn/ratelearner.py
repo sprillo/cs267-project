@@ -64,7 +64,7 @@ class RateMatrixLearner:
         self._df_res_filepath = os.path.join(
             self.output_dir, "training_df.pickle"
         )
-        self._figpath = os.path.join(self.output_dir, "training_plot.pdf")
+        self._figpath = os.path.join(self.output_dir, "training_plot.png")
 
     def train(
         self,
@@ -152,15 +152,12 @@ class RateMatrixLearner:
         learned_matrix_path = self._learned_matrix_path
         Q = self.Qfinal.detach().cpu().numpy()
         np.savetxt(learned_matrix_path, Q)
-        os.system(f"chmod 555 {learned_matrix_path}")
 
         normalized_learned_matrix_path = self._normalized_learned_matrix_path
         np.savetxt(normalized_learned_matrix_path, normalized(Q))
-        os.system(f"chmod 555 {normalized_learned_matrix_path}")
 
         df_res_filepath = self._df_res_filepath
         self.df_res.to_pickle(df_res_filepath)
-        os.system(f"chmod 555 {df_res_filepath}")
 
         figpath = self._figpath
         FT_SIZE = 13
@@ -171,4 +168,3 @@ class RateMatrixLearner:
         plt.xlabel("# of iterations", fontsize=FT_SIZE)
         plt.tight_layout()
         plt.savefig(figpath)
-        os.system(f"chmod 555 {figpath}")

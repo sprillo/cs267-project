@@ -110,5 +110,9 @@ def quantized_transitions_mle(
                 states,
                 os.path.join(output_rate_matrix_dir, "result.txt"),
             )
+            # Copy learning curve too
+            os.system(
+                f"cp {output_dir}/training_plot.png {output_rate_matrix_dir}/training_plot.png"
+            )
 
     logger.info("Done!")
