@@ -67,11 +67,11 @@ def write_count_matrices(
     count_matrices: List[Tuple[float, pd.DataFrame]], count_matrices_path: str
 ) -> None:
     count_matrix_dir = os.path.dirname(count_matrices_path)
-    if not os.path.exists(count_matrix_dir):
+    if count_matrix_dir != "" and not os.path.exists(count_matrix_dir):
         os.makedirs(count_matrix_dir)
     num_matrices = len(count_matrices)
     num_states = len(count_matrices[0][1])
-    with open(count_matrices_path, "a") as out_file:
+    with open(count_matrices_path, "w") as out_file:
         out_file.write(f"{num_matrices} matrices\n{num_states} states\n")
     for (q, count_matrix) in count_matrices:
         with open(count_matrices_path, "a") as out_file:
