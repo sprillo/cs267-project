@@ -139,7 +139,8 @@ def train_quantization(
     start = time.time()
     df_res_tuples = []
     loss = 0.0
-    rg = tqdm(range(num_epochs))
+    # rg = tqdm(range(num_epochs))
+    rg = range(num_epochs)
     st_all = time.time()
     total_time_train = 0
     total_time_eval = 0
@@ -159,12 +160,18 @@ def train_quantization(
             mats = torch.log(
                 torch.matrix_exp(branch_length_[:, None, None] * Q)
             )
+            # mats = torch.matrix_exp(branch_length_[:, None, None] * Q)
+            # print(f"mats = {mats}")
             mats = mats * cmat
             loss += -1 / m * mats.sum()
+            # print(f"cmat = {cmat}")
         # Take a gradient step.
+        loss = loss * 1e0
         loss.backward(retain_graph=True)
+        print(f"{list(rate_module.parameters())[1].grad}")
+        print(f"loss = {loss}")
         optimizer.step()
-        rg.set_description(str(loss.item()), refresh=True)
+        # rg.set_description(str(loss.item()), refresh=True)
         total_time_train += time.time() - st_train
 
         st_eval = time.time()

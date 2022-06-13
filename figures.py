@@ -597,8 +597,8 @@ def fig_single_site_cherry_vs_edge():
         caching.set_cache_dir("_cache_benchmarking")
         caching.set_hash_len(64)
 
-        num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
+        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+        num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
 
         yss_relative_errors = []
         Qs = []
@@ -1199,3 +1199,339 @@ def fig_lg_paper():
         num_bootstraps=100,
         output_image_dir=output_image_dir,
     )
+
+
+def fig_single_site_learning_rate_robustness():
+    output_image_dir = "images/fig_single_site_learning_rate_robustness"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    num_processes = 1  # Leave some processes open for other work.
+    num_sequences = (
+        1024  # We use a lot of sequences per family to take variance to 0.
+    )
+    num_rate_categories = (
+        20  # Only used for creating the GT trees with FastTree.
+    )
+
+    # for num_families_train in [1024, 2048, 512, 256, 128, 4096, 8192, 15051, 64, 32, 16, 8, 4, 2, 1]:
+    # for num_families_train in [1024, 2048, 512, 256, 128, 4096, 8192, 64, 32, 16, 8, 4, 2, 1]:
+    for num_families_train in [2048]:
+        msg = f"***** num_families_train = {num_families_train} *****"
+        print(len(msg) * "*")
+        print(msg)
+        print(len(msg) * "*")
+        num_families_test = 0  # We just evaluate l_infty_norm and rmse, we don't look at held out likelihood (we are less interested in held out since we know the ground truth rate matrix)
+        ##### To use just the 1448 families with ~210 sites:
+        min_num_sites = 190  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+        max_num_sites = 230  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+        min_num_sequences = num_sequences  # We only select families with at least 1024 sequences, such that all the simulated MSAs have exactly the same size. (Even though we don't explore this dimension here, in other experiments we do, and it is nice to be able to compare the results in this figure to those of the other figures, so we use the same training sets across figures if possible.)
+        max_num_sequences = 1000000  # We don't want to filter families with more that 1024 sequences, since they will be subsapled later down to 1024.
+        rule_cutoff = 1024
+
+        quantization_grid_center = 0.06  # A good grid
+        quantization_grid_step = 1.1  # A good grid
+        quantization_grid_num_steps = 50  # A good grid
+        random_seed = 0  # We fix this, since the number of sequences and sites is large enough to ensure convergence of variance to 0. I.e. there is no variance in this experiment, so we can just set the random seed to 0.
+        learning_rate = None  # This we will iterate over
+        num_epochs = 2000  # Make sure it converges!
+        do_adam = False  # TODO: True  We use a highly precise optimizer for this
+        use_cpp_implementation = (
+            True  # For simulating MSAs and counting, super fast.
+        )
+
+        caching.set_cache_dir("_cache_benchmarking")
+        caching.set_hash_len(64)
+
+        # learning_rates = [
+        #     # 1e-6,
+        #     # 3e-6,
+        #     # 1e-5,
+        #     # 3e-5,
+        #     1e-4,
+        #     3e-4,
+        #     1e-3,
+        #     3e-3,
+        #     1e-2,
+        #     3e-2,
+        #     1e-1,
+        #     3e-1,
+        #     1e-0,
+        #     # 3e-0,
+        #     # 1e1,
+        #     # 3e1,
+        #     # 1e2,
+        #     # 3e2,
+        #     # 1e3,
+        #     # 3e3,
+        # ]
+        learning_rates = [
+            5e-7,
+            # 1e-6,
+            # 3e-6,
+            # 1e-5,
+            # 3e-5,
+            # 1e-4,
+            # 3e-4,
+            # 1e-3,
+            # 3e-3,
+            # 1e-2,
+            # 3e-2,
+            # 1e-1,
+            # 3e-1,
+            # 1e-0,
+            # 3e-0,
+            # 1e1,
+            # 3e1,
+            # 1e2,
+            # 3e2,
+            # 1e3,
+            # 3e3,
+        ]
+        ys_mre = []
+        yss_relative_errors = []
+        Qs = []
+        for i, lr in enumerate(learning_rates):
+            msg = f"***** lr = {lr} *****"
+            print("*" * len(msg))
+            print(msg)
+            print("*" * len(msg))
+
+            families_all = get_families_within_cutoff(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,  # We use the PFAM 15K dataset as reference for the simulated MSA sizes
+                min_num_sites=min_num_sites if num_families_train <= rule_cutoff else 0,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+                max_num_sites=max_num_sites if num_families_train <= rule_cutoff else 1000000,  # We make sure that our simulated MSAs all have roughly the same number of sites, and equal to the median number of sites over the whole dataset (which is 210)
+                min_num_sequences=min_num_sequences if num_families_train <= rule_cutoff else 0,  # We only select families with at least 1024 sequences, such that all the simulated MSAs have exactly the same size. (Even though we don't explore this dimension here, in other experiments we do, and it is nice to be able to compare the results in this figure to those of the other figures, so we use the same training sets across figures if possible.)
+                max_num_sequences=max_num_sequences,  # We don't want to filter families with more that 1024 sequences, since they will be subsapled later down to 1024.
+            )
+            families_train = families_all[:num_families_train]
+            if num_families_test == 0:
+                families_test = []
+            else:
+                families_test = families_all[-num_families_test:]
+            print(f"len(families_all) = {len(families_all)}")
+            if num_families_train + num_families_test > len(families_all):
+                raise Exception(f"Training and testing set would overlap!")
+            assert len(set(families_train + families_test)) == len(
+                families_train
+            ) + len(families_test)
+
+            (
+                msa_dir,
+                contact_map_dir,
+                gt_msa_dir,
+                gt_tree_dir,
+                gt_site_rates_dir,
+                gt_likelihood_dir,
+            ) = simulate_ground_truth_data_single_site(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,  # We use the PFAM 15K as the reference to build the GT trees.
+                num_sequences=num_sequences,  # 1024
+                families=families_train + families_test,
+                num_rate_categories=num_rate_categories,  # 20, since this is the standard number of rate categories to use.
+                num_processes=num_processes,
+                random_seed=random_seed,  # This will be fixed to 0, since the dataset is large, making variance vanish and bias show itself.
+                use_cpp_simulation_implementation=use_cpp_implementation,  # Fastest!
+            )
+
+            # Now run the cherry method with access to GT trees
+            cherry_estimator_res = cherry_estimator(
+                msa_dir=msa_dir,  # Simulated MSAs
+                families=families_train,
+                tree_estimator=partial(  # We use the GT tree estimator
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,  # This doesn't matter because we are using GT Trees
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),  # This doesn't matter because we are using GT Trees
+                num_iterations=1,  # We use GT trees, so no need to iterate.
+                num_processes=num_processes,
+                quantization_grid_center=quantization_grid_center,  # This is what we iterate over
+                quantization_grid_step=quantization_grid_step,  # This is what we iterate over
+                quantization_grid_num_steps=quantization_grid_num_steps,  # This is what we iterate over
+                learning_rate=lr,
+                num_epochs=num_epochs,
+                do_adam=do_adam,
+                use_cpp_counting_implementation=use_cpp_implementation,  # Fastest!
+            )
+
+            try:
+
+                print(
+                    f"tree_estimator_output_dirs_{i} = ",
+                    cherry_estimator_res["tree_estimator_output_dirs_0"],
+                )
+
+                count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
+                print(f"count_matrices_dir_{i} = {count_matrices_dir}")
+                # assert(False)
+                count_matrices = read_count_matrices(
+                    os.path.join(count_matrices_dir, "result.txt")
+                )
+                quantization_points = [
+                    float(x) for x in cherry_estimator_res["quantization_points"]
+                ]
+                plt.title("Number of transitions per time bucket")
+                plt.bar(
+                    np.log(quantization_points),
+                    [x.to_numpy().sum().sum() for (_, x) in count_matrices],
+                )
+                plt.xlabel("Quantization Point")
+                plt.ylabel("Number of Transitions")
+                ticks = [0.0006, 0.006, 0.06, 0.6, 6.0]
+                plt.xticks(np.log(ticks), ticks)
+                plt.savefig(f"{output_image_dir}/count_matrices_{i}_{num_families_train}", dpi=300)
+                plt.close()
+
+                learned_rate_matrix_path = cherry_estimator_res[
+                    "learned_rate_matrix_path"
+                ]
+
+                learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+
+                # TODO: Don't normalize!
+                learned_rate_matrix = learned_rate_matrix.to_numpy()
+                # learned_rate_matrix = normalized(learned_rate_matrix.to_numpy())
+                Qs.append(learned_rate_matrix)
+
+                lg = read_rate_matrix(get_lg_path()).to_numpy()  # GT rate matrix
+
+                yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
+
+            except:
+                pass
+
+        for i in range(len(learning_rates)):
+            try:
+                plot_rate_matrix_predictions(
+                    read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
+                )
+                plt.title(
+                    f"True vs predicted rate matrix entries\nlearning rate = %f"
+                    % lr
+                )
+                plt.tight_layout()
+                plt.savefig(f"{output_image_dir}/log_log_plot_{i}_{num_families_train}", dpi=300)
+                plt.close()
+            except:
+                pass
+
+        try:
+            df = pd.DataFrame(
+                {
+                    "learning rate": sum(
+                        [
+                            [learning_rates[i]] * len(yss_relative_errors[i])
+                            for i in range(len(yss_relative_errors))
+                        ],
+                        [],
+                    ),
+                    "relative error": sum(yss_relative_errors, []),
+                }
+            )
+            df["log relative error"] = np.log(df["relative error"])
+
+            sns.violinplot(
+                x="learning rate",
+                y="log relative error",
+                #     hue=None,
+                data=df,
+                #     palette="muted",
+                inner=None,
+                #     cut=0,
+                #     bw=0.25
+            )
+            add_annotations_to_violinplot(
+                yss_relative_errors,
+                title="Distribution of relative error as learning rate varies",
+            )
+            plt.savefig(f"{output_image_dir}/violin_plot_{num_families_train}", dpi=300)
+            plt.close()
+        except:
+            pass
+
+
+def debug_pytorch_optimizer():
+    """
+    Test that the pytorch optimizer converges, and does better with more data.
+
+    No caching used here since I am debugging.
+    """
+    from src.markov_chain import matrix_exponential
+    from src.io import write_count_matrices
+    from src.estimation import quantized_transitions_mle
+
+    # Hyperparameters of the test
+    samples_per_row = 1000
+    sample_repetitions = 1
+    # learning_rate = 3e-2
+    learning_rate = 1.0 * 1e-6
+    do_adam = True
+    num_epochs = 1
+
+    Q_df = read_rate_matrix(get_lg_path())
+    Q_numpy = Q_df.to_numpy()
+
+    quantization_grid_center = 0.06
+    quantization_grid_step = 1.1
+    # quantization_grid_num_steps = 50
+    quantization_grid_num_steps = 0
+
+    quantization_points_str = [
+        ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
+        for i in range(
+            -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
+        )
+    ]
+    quantization_points = map(float, quantization_points_str)
+
+    # Fist create synthetic data.
+    count_matrices = [
+        [
+            q,
+            sample_repetitions * pd.DataFrame(
+                (
+                    samples_per_row * matrix_exponential(
+                        exponents=np.array([q]),
+                        Q=Q_numpy,
+                        fact=None,
+                        reversible=False,
+                        device='cpu',
+                    ).reshape([Q_numpy.shape[0], Q_numpy.shape[1]])
+                ).astype(int),
+                columns=Q_df.columns,
+                index=Q_df.index,
+            ),
+        ]
+        for q in quantization_points
+    ]
+    count_matrices_path = "./count_matrices_path.txt"
+    write_count_matrices(
+        count_matrices=count_matrices,
+        count_matrices_path=count_matrices_path,
+    )
+
+    # Then run the optimizer.
+    initialization_path = get_equ_path()
+    output_rate_matrix_dir = "output_rate_matrix_dir"
+    os.system(f"chmod -R 777 {output_rate_matrix_dir}")
+    quantized_transitions_mle(
+        count_matrices_path=count_matrices_path,
+        initialization_path=initialization_path,
+        mask_path=None,
+        output_rate_matrix_dir=output_rate_matrix_dir,
+        stationary_distribution_path=None,
+        rate_matrix_parameterization="pande_reversible",
+        device="cpu",
+        learning_rate=learning_rate,
+        num_epochs=num_epochs,
+        do_adam=do_adam,
+    )
+
+    learned_rate_matrix = read_rate_matrix(
+        os.path.join(output_rate_matrix_dir, "result.txt")
+    ).to_numpy()
+
+    res = relative_errors(Q_numpy, learned_rate_matrix)
+    print(f"mean relative error: {np.mean(res)}")
