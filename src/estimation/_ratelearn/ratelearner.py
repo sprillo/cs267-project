@@ -71,6 +71,7 @@ class RateMatrixLearner:
         lr=1e-1,
         num_epochs=2000,
         do_adam: bool = True,
+        loss_normalization: bool = False,
     ):
         logger = logging.getLogger(__name__)
         logger.info(f"Starting, outdir: {self.output_dir}")
@@ -135,6 +136,7 @@ class RateMatrixLearner:
             num_epochs=num_epochs,
             Q_true=None,
             optimizer=optim,
+            loss_normalization=loss_normalization,
         )
         self.df_res = df_res
         self.Qfinal = Q

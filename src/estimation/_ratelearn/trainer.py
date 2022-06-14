@@ -123,6 +123,7 @@ def train_quantization(
     num_epochs=1000,
     Q_true=None,
     optimizer=None,
+    loss_normalization=False,
 ):
     """
     Quantization baseline
@@ -150,6 +151,7 @@ def train_quantization(
         device = Q.device
         # Now compute the loss
         loss = 0.0
+        sample_size = 0.0
         for datapoint in dlb:
             branch_length, cmat = datapoint
             branch_length = branch_length.to(device=device)
@@ -161,6 +163,9 @@ def train_quantization(
             )
             mats = mats * cmat
             loss += -1 / m * mats.sum()
+            sample_size += cmat.sum()
+        if loss_normalization:
+            loss = loss / sample_size
         # Take a gradient step.
         loss.backward(retain_graph=True)
         optimizer.step()

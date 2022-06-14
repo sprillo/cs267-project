@@ -46,6 +46,7 @@ def quantized_transitions_mle(
     learning_rate: float = 1e-1,
     num_epochs: int = 2000,
     do_adam: bool = True,
+    loss_normalization: bool = True,
 ):
     logger = logging.getLogger(__name__)
     logger.info("Starting")
@@ -101,6 +102,7 @@ def quantized_transitions_mle(
                 lr=learning_rate,
                 num_epochs=num_epochs,
                 do_adam=do_adam,
+                loss_normalization=loss_normalization,
             )
             rate_matrix = np.loadtxt(
                 os.path.join(output_dir, "learned_matrix.txt")
