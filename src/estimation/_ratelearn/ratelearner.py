@@ -170,3 +170,4 @@ class RateMatrixLearner:
         plt.xlabel("# of iterations", fontsize=FT_SIZE)
         plt.tight_layout()
         plt.savefig(figpath)
+        plt.close()
