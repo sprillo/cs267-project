@@ -27,6 +27,7 @@ def cherry_estimator(
     cpp_counting_command_line_suffix: str = "",
     num_processes_tree_estimation: Optional[int] = None,
     num_processes_counting: Optional[int] = None,
+    num_processes_optimization: Optional[int] = None,
 ) -> Dict:
     """
     Cherry estimator.
@@ -38,6 +39,8 @@ def cherry_estimator(
         num_processes_tree_estimation = num_processes
     if num_processes_counting is None:
         num_processes_counting = num_processes
+    if num_processes_optimization is None:
+        num_processes_optimization = num_processes
 
     res = {}
 
@@ -97,6 +100,8 @@ def cherry_estimator(
             learning_rate=learning_rate,
             num_epochs=num_epochs,
             do_adam=do_adam,
+            OMP_NUM_THREADS=num_processes_optimization,
+            OPENBLAS_NUM_THREADS=num_processes_optimization,
         )["output_rate_matrix_dir"]
 
         res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
@@ -131,6 +136,9 @@ def cherry_estimator_coevolution(
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
+    num_processes_tree_estimation: Optional[int] = None,
+    num_processes_counting: Optional[int] = None,
+    num_processes_optimization: Optional[int] = None,
 ) -> Dict:
     """
     Cherry estimator for coevolution.
@@ -139,6 +147,13 @@ def cherry_estimator_coevolution(
     particular, the learned coevolution rate matrix is indexed by
     "learned_rate_matrix_path"
     """
+    if num_processes_tree_estimation is None:
+        num_processes_tree_estimation = num_processes
+    if num_processes_counting is None:
+        num_processes_counting = num_processes
+    if num_processes_optimization is None:
+        num_processes_optimization = num_processes
+
     res = {}
 
     quantization_points = [
@@ -156,7 +171,7 @@ def cherry_estimator_coevolution(
             msa_dir=msa_dir,
             families=families,
             rate_matrix_path=current_estimate_rate_matrix_path,
-            num_processes=num_processes,
+            num_processes=num_processes_tree_estimation,
         )
 
         res[
@@ -173,7 +188,7 @@ def cherry_estimator_coevolution(
             quantization_points=quantization_points,
             edge_or_cherry=edge_or_cherry,
             minimum_distance_for_nontrivial_contact=mdnc,
-            num_processes=num_processes,
+            num_processes=num_processes_counting,
             use_cpp_implementation=use_cpp_counting_implementation,
             cpp_command_line_prefix=cpp_counting_command_line_prefix,
             cpp_command_line_suffix=cpp_counting_command_line_suffix,
@@ -200,6 +215,8 @@ def cherry_estimator_coevolution(
             learning_rate=learning_rate,
             num_epochs=num_epochs,
             do_adam=do_adam,
+            OMP_NUM_THREADS=num_processes_optimization,
+            OPENBLAS_NUM_THREADS=num_processes_optimization,
         )["output_rate_matrix_dir"]
 
         res[f"output_rate_matrix_dir_{iteration}"] = rate_matrix_dir

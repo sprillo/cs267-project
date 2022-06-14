@@ -627,7 +627,7 @@ def fig_single_site_cherry_vs_edge():
                 ),
                 initial_tree_estimator_rate_matrix_path=get_equ_path(),
                 num_iterations=1,
-                num_processes=num_processes,
+                num_processes=2,
                 quantization_grid_center=quantization_grid_center,
                 quantization_grid_step=quantization_grid_step,
                 quantization_grid_num_steps=quantization_grid_num_steps,
@@ -1398,10 +1398,9 @@ def debug_pytorch_optimizer():
     # Hyperparameters of the test
     samples_per_row = 100000000
     sample_repetitions = 1
-    learning_rate = 1e-1
-    # learning_rate = 1.0 * 1e-6
+    learning_rate = 3e-2
     do_adam = True
-    num_epochs = 4000
+    num_epochs = 10000
 
     Q_df = read_rate_matrix(get_lg_path())
     Q_numpy = Q_df.to_numpy()
@@ -1460,6 +1459,8 @@ def debug_pytorch_optimizer():
         learning_rate=learning_rate,
         num_epochs=num_epochs,
         do_adam=do_adam,
+        OMP_NUM_THREADS=2,
+        OPENBLAS_NUM_THREADS=2,
     )
 
     learned_rate_matrix = read_rate_matrix(

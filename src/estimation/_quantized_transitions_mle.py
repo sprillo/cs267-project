@@ -14,6 +14,7 @@ from src.io import (
     read_rate_matrix,
     write_rate_matrix,
 )
+from threadpoolctl import threadpool_limits
 
 from ._ratelearn import RateMatrixLearner
 
@@ -34,6 +35,7 @@ _init_logger()
 
 @caching.cached_computation(
     output_dirs=["output_rate_matrix_dir"],
+    exclude_args=["device", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS"]
 )
 def quantized_transitions_mle(
     count_matrices_path: str,
@@ -47,6 +49,8 @@ def quantized_transitions_mle(
     num_epochs: int = 2000,
     do_adam: bool = True,
     loss_normalization: bool = True,
+    OMP_NUM_THREADS: Optional[int] = 1,
+    OPENBLAS_NUM_THREADS: Optional[int] = 1,
 ):
     logger = logging.getLogger(__name__)
     logger.info("Starting")
@@ -88,22 +92,24 @@ def quantized_transitions_mle(
                 initialization = None
             # print(f"stationnary_distribution =\n{stationnary_distribution}")
             # print(f"initialization =\n{initialization}")
-            rate_matrix_learner = RateMatrixLearner(
-                branches=[x[0] for x in count_matrices],
-                mats=[x[1].to_numpy() for x in count_matrices],
-                output_dir=output_dir,
-                stationnary_distribution=stationnary_distribution,
-                mask=mask2_path,
-                rate_matrix_parameterization=rate_matrix_parameterization,
-                device=device,
-                initialization=initialization,
-            )
-            rate_matrix_learner.train(
-                lr=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=do_adam,
-                loss_normalization=loss_normalization,
-            )
+            with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
+                with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
+                    rate_matrix_learner = RateMatrixLearner(
+                        branches=[x[0] for x in count_matrices],
+                        mats=[x[1].to_numpy() for x in count_matrices],
+                        output_dir=output_dir,
+                        stationnary_distribution=stationnary_distribution,
+                        mask=mask2_path,
+                        rate_matrix_parameterization=rate_matrix_parameterization,
+                        device=device,
+                        initialization=initialization,
+                    )
+                    rate_matrix_learner.train(
+                        lr=learning_rate,
+                        num_epochs=num_epochs,
+                        do_adam=do_adam,
+                        loss_normalization=loss_normalization,
+                    )
             rate_matrix = np.loadtxt(
                 os.path.join(output_dir, "learned_matrix.txt")
             )
