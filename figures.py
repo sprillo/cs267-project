@@ -319,207 +319,6 @@ def fig_pair_site_quantization_error():
     plt.close()
 
 
-def fig_single_site_cherry_vs_edge():
-    for edge_or_cherry in ["edge", "cherry"]:
-        output_image_dir = (
-            f"images/fig_single_site_cherry_vs_edge/{edge_or_cherry}"
-        )
-        if not os.path.exists(output_image_dir):
-            os.makedirs(output_image_dir)
-
-        num_processes = 32
-        num_sequences = 1024
-        num_rate_categories = (
-            20
-        )
-
-        num_families_train = None
-        num_families_test = 0
-        min_num_sites = 190
-        max_num_sites = 230
-        min_num_sequences = num_sequences
-        max_num_sequences = 1000000
-
-        quantization_grid_center = 0.06
-        quantization_grid_step = 1.1
-        quantization_grid_num_steps = 50
-        random_seed = 0
-        learning_rate = 3e-2
-        num_epochs = 10000
-        do_adam = True
-        use_cpp_implementation = (
-            True
-        )
-
-        caching.set_cache_dir("_cache_benchmarking")
-        caching.set_hash_len(64)
-
-        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-        num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
-
-        yss_relative_errors = []
-        Qs = []
-        for (i, num_families_train) in enumerate(num_families_train_list):
-            msg = f"***** num_families_train = {num_families_train} *****"
-            print("*" * len(msg))
-            print(msg)
-            print("*" * len(msg))
-
-            families_all = get_families_within_cutoff(
-                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                min_num_sites=min_num_sites if num_families_train <= 1024 else 0,
-                max_num_sites=max_num_sites if num_families_train <= 1024 else 1000000,
-                min_num_sequences=min_num_sequences if num_families_train <= 1024 else 0,
-                max_num_sequences=max_num_sequences,
-            )
-            families_train = families_all[:num_families_train]
-            if num_families_test == 0:
-                families_test = []
-            else:
-                families_test = families_all[-num_families_test:]
-            print(f"len(families_all) = {len(families_all)}")
-            if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
-            assert len(set(families_train + families_test)) == len(
-                families_train
-            ) + len(families_test)
-
-            (
-                msa_dir,
-                contact_map_dir,
-                gt_msa_dir,
-                gt_tree_dir,
-                gt_site_rates_dir,
-                gt_likelihood_dir,
-            ) = simulate_ground_truth_data_single_site(
-                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                num_sequences=num_sequences,
-                families=families_all,
-                num_rate_categories=num_rate_categories,
-                num_processes=num_processes,
-                random_seed=random_seed,
-                use_cpp_simulation_implementation=use_cpp_implementation,
-            )
-
-            # Now run the cherry and oracle edge methods.
-            print(f"**** edge_or_cherry = {edge_or_cherry} *****")
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir
-                if edge_or_cherry == "cherry"
-                else gt_msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes=2,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=do_adam,
-                edge_or_cherry=edge_or_cherry,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
-            )
-
-            learned_rate_matrix_path = cherry_estimator_res[
-                "learned_rate_matrix_path"
-            ]
-            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
-            learned_rate_matrix = learned_rate_matrix.to_numpy()
-
-            lg = read_rate_matrix(get_lg_path()).to_numpy()  # GT rate matrix
-            print(
-                f"tree_estimator_output_dirs_{i} = ",
-                cherry_estimator_res["tree_estimator_output_dirs_0"],
-            )
-
-            count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
-            print(f"count_matrices_dir_{i} = {count_matrices_dir}")
-            count_matrices = read_count_matrices(
-                os.path.join(count_matrices_dir, "result.txt")
-            )
-            quantization_points = [
-                float(x) for x in cherry_estimator_res["quantization_points"]
-            ]
-            # plt.title("Number of transitions per time bucket")
-            # plt.bar(
-            #     np.log(quantization_points),
-            #     [x.to_numpy().sum().sum() for (_, x) in count_matrices],
-            # )
-            # plt.xlabel("Quantization Point")
-            # plt.ylabel("Number of Transitions")
-            # ticks = [0.0006, 0.006, 0.06, 0.6, 6.0]
-            # plt.xticks(np.log(ticks), ticks)
-            # plt.savefig(f"{output_image_dir}/count_matrices_{i}", dpi=300)
-            # plt.close()
-
-            learned_rate_matrix_path = cherry_estimator_res[
-                "learned_rate_matrix_path"
-            ]
-            print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
-
-            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
-
-            learned_rate_matrix = learned_rate_matrix.to_numpy()
-            Qs.append(learned_rate_matrix)
-
-            lg = read_rate_matrix(get_lg_path()).to_numpy()
-
-            yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
-
-        for i in range(len(num_families_train_list)):
-            plot_rate_matrix_predictions(
-                read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
-            )
-            plt.title(
-                f"True vs predicted rate matrix entries\nnumber of families = %i"
-                % num_families_train_list[i]
-            )
-            plt.tight_layout()
-            plt.savefig(f"{output_image_dir}/log_log_plot_{i}", dpi=300)
-            plt.close()
-
-        df = pd.DataFrame(
-            {
-                "number of families": sum(
-                    [
-                        [num_families_train_list[i]]
-                        * len(yss_relative_errors[i])
-                        for i in range(len(yss_relative_errors))
-                    ],
-                    [],
-                ),
-                "relative error": sum(yss_relative_errors, []),
-            }
-        )
-        df["log relative error"] = np.log(df["relative error"])
-
-        sns.violinplot(
-            x="number of families",
-            y="log relative error",
-            #     hue=None,
-            data=df,
-            #     palette="muted",
-            inner=None,
-            #     cut=0,
-            #     bw=0.25
-        )
-        add_annotations_to_violinplot(
-            yss_relative_errors,
-            title="Distribution of relative error as sample size increases",
-        )
-        plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
-        plt.close()
-
-
 def fig_pair_site_number_of_families():
     output_image_dir = "images/fig_pair_site_number_of_families"
     if not os.path.exists(output_image_dir):
@@ -1618,7 +1417,7 @@ def fig_convergence_on_large_data_single_site():
 
 def fig_single_site_quantization_error():
     """
-    Ww show that ~100 quantization points (geometric increments of 10%) is
+    We show that ~100 quantization points (geometric increments of 10%) is
     enough.
     """
     caching.set_cache_dir("_cache_benchmarking")
@@ -1818,3 +1617,187 @@ def fig_single_site_quantization_error():
     )
     plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
     plt.close()
+
+
+def fig_single_site_cherry_vs_edge():
+    """
+    We compare the efficiency of our Cherry method ("cherry") against that of
+    the oracle method ("edge"), and show that it is off by 4-8x, as suggested
+    by the back-of-envelope estimate.
+    """
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    for edge_or_cherry in ["edge", "cherry"]:
+        output_image_dir = (
+            f"images/fig_single_site_cherry_vs_edge/{edge_or_cherry}"
+        )
+        if not os.path.exists(output_image_dir):
+            os.makedirs(output_image_dir)
+
+        num_processes = 32
+        num_sequences = 1024
+        num_rate_categories = (
+            20
+        )
+
+        num_families_train = None
+        num_families_test = 0
+        min_num_sites = 190
+        max_num_sites = 230
+        min_num_sequences = num_sequences
+        max_num_sequences = 1000000
+
+        quantization_grid_center = 0.03
+        quantization_grid_step = 1.1
+        quantization_grid_num_steps = 64
+        random_seed = 0
+        learning_rate = 1e-1
+        num_epochs = 2000
+        use_cpp_implementation = (
+            True
+        )
+
+        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+        num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
+
+        yss_relative_errors = []
+        Qs = []
+        for (i, num_families_train) in enumerate(num_families_train_list):
+            msg = f"***** num_families_train = {num_families_train} *****"
+            print("*" * len(msg))
+            print(msg)
+            print("*" * len(msg))
+
+            families_all = get_families_within_cutoff(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                min_num_sites=min_num_sites if num_families_train <= 1024 else 0,
+                max_num_sites=max_num_sites if num_families_train <= 1024 else 1000000,
+                min_num_sequences=min_num_sequences if num_families_train <= 1024 else 0,
+                max_num_sequences=max_num_sequences,
+            )
+            families_train = families_all[:num_families_train]
+            if num_families_test == 0:
+                families_test = []
+            else:
+                families_test = families_all[-num_families_test:]
+            print(f"len(families_all) = {len(families_all)}")
+            if num_families_train + num_families_test > len(families_all):
+                raise Exception(f"Training and testing set would overlap!")
+            assert len(set(families_train + families_test)) == len(
+                families_train
+            ) + len(families_test)
+
+            (
+                msa_dir,
+                contact_map_dir,
+                gt_msa_dir,
+                gt_tree_dir,
+                gt_site_rates_dir,
+                gt_likelihood_dir,
+            ) = simulate_ground_truth_data_single_site(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                num_sequences=num_sequences,
+                families=families_all,
+                num_rate_categories=num_rate_categories,
+                num_processes=num_processes,
+                random_seed=random_seed,
+                use_cpp_simulation_implementation=use_cpp_implementation,
+            )
+
+            # Now run the cherry and oracle edge methods.
+            print(f"**** edge_or_cherry = {edge_or_cherry} *****")
+            cherry_estimator_res = cherry_estimator(
+                msa_dir=msa_dir
+                if edge_or_cherry == "cherry"
+                else gt_msa_dir,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                num_iterations=1,
+                num_processes=2,
+                quantization_grid_center=quantization_grid_center,
+                quantization_grid_step=quantization_grid_step,
+                quantization_grid_num_steps=quantization_grid_num_steps,
+                learning_rate=learning_rate,
+                num_epochs=num_epochs,
+                do_adam=True,
+                edge_or_cherry=edge_or_cherry,
+                use_cpp_counting_implementation=use_cpp_implementation,
+                num_processes_optimization=2,
+            )
+
+            learned_rate_matrix_path = cherry_estimator_res[
+                "learned_rate_matrix_path"
+            ]
+            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+            learned_rate_matrix = learned_rate_matrix.to_numpy()
+
+            lg = read_rate_matrix(get_lg_path()).to_numpy()
+            print(
+                f"tree_estimator_output_dirs_{i} = ",
+                cherry_estimator_res["tree_estimator_output_dirs_0"],
+            )
+
+            learned_rate_matrix_path = cherry_estimator_res[
+                "learned_rate_matrix_path"
+            ]
+            print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
+            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+
+            learned_rate_matrix = learned_rate_matrix.to_numpy()
+            Qs.append(learned_rate_matrix)
+
+            lg = read_rate_matrix(get_lg_path()).to_numpy()
+
+            yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
+
+        for i in range(len(num_families_train_list)):
+            plot_rate_matrix_predictions(
+                read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
+            )
+            plt.title(
+                f"True vs predicted rate matrix entries\nnumber of families = %i"
+                % num_families_train_list[i]
+            )
+            plt.tight_layout()
+            plt.savefig(f"{output_image_dir}/log_log_plot_{i}", dpi=300)
+            plt.close()
+
+        df = pd.DataFrame(
+            {
+                "number of families": sum(
+                    [
+                        [num_families_train_list[i]]
+                        * len(yss_relative_errors[i])
+                        for i in range(len(yss_relative_errors))
+                    ],
+                    [],
+                ),
+                "relative error": sum(yss_relative_errors, []),
+            }
+        )
+        df["log relative error"] = np.log(df["relative error"])
+
+        sns.violinplot(
+            x="number of families",
+            y="log relative error",
+            #     hue=None,
+            data=df,
+            #     palette="muted",
+            inner=None,
+            #     cut=0,
+            #     bw=0.25
+        )
+        add_annotations_to_violinplot(
+            yss_relative_errors,
+            title="Distribution of relative error as sample size increases",
+        )
+        plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
+        plt.close()
