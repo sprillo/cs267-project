@@ -270,5 +270,13 @@ def get_lg_x_lg_path():
     return "data/rate_matrices/lg_x_lg.txt"
 
 
+def get_equ_x_equ_path():
+    return "data/rate_matrices/equ_x_equ.txt"
+
+
 def get_lg_x_lg_stationary_path():
     return "data/rate_matrices/lg_x_lg_stationary.txt"
+
+
+def get_aa_coevolution_mask():
+    return "data/mask_matrices/aa_coevolution_mask.txt"
