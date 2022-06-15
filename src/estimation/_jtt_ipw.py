@@ -33,7 +33,16 @@ def jtt_ipw(
     use_ipw: bool,
     output_rate_matrix_dir: str,
     normalize: bool = False,
+    max_time: Optional[float] = None,
 ) -> None:
+    """
+    JTT-IPW estimator.
+
+    Args:
+        max_time: Only data from transitions with length <= max_time will be
+            used to compute the estimator. The estimator works best on short
+            transitions, which poses a bias-variance tradeoff.
+    """
     logger = logging.getLogger(__name__)
     logger.info("Starting")
 
@@ -48,8 +57,13 @@ def jtt_ipw(
         mask_mat = np.ones(shape=(num_states, num_states))
 
     qtimes, cmats = zip(*count_matrices)
+    del count_matrices
     qtimes = list(qtimes)
     cmats = list(cmats)
+    if max_time is not None:
+        valid_time_indices = [i for i in range(len(qtimes)) if qtimes[i] <= max_time]
+        qtimes = [qtimes[i] for i in valid_time_indices]
+        cmats = [cmats[i] for i in valid_time_indices]
     cmats = [cmat.to_numpy() for cmat in cmats]
 
     # Coalesce transitions a->b and b->a together
