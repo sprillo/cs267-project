@@ -1533,7 +1533,7 @@ def fig_convergence_on_infinite_data_single_site():
     """
     We show that on "infinite" single-site data, the pytorch optimizer converges
     to the solution for a variety of learning rates, and we identify the optimal
-    learning rate to be 0.03: small - so as to be numerically stable - but not
+    learning rate to be 0.1: small - so as to be numerically stable - but not
     too small - so as to converge fast.
     """
     caching.set_cache_dir("_cache_benchmarking")
@@ -1546,11 +1546,6 @@ def fig_convergence_on_infinite_data_single_site():
 
     # Hyperparameters of the Adam optimizer
     learning_rate_grid = [
-        1e-5,
-        3e-5,
-        1e-4,
-        3e-4,
-        1e-3,
         3e-3,
         1e-2,
         3e-2,
@@ -1616,6 +1611,180 @@ def fig_convergence_on_infinite_data_single_site():
                 os.path.join(output_rate_matrix_dir, "result.txt")
             ).to_numpy()
 
+            res = relative_errors(Q_numpy, learned_rate_matrix)
+            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
+            res_2d_row['mean'].append(np.mean(res))
+            res_2d_row['median'].append(np.median(res))
+            res_2d_row['max'].append(np.max(res))
+        res_2d['mean'].append(res_2d_row['mean'])
+        res_2d['median'].append(res_2d_row['median'])
+        res_2d['max'].append(res_2d_row['max'])
+
+    res = pd.DataFrame(
+        result_tuples,
+        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+    )
+    # print(res)
+
+    for metric_name in ['max', 'median']:
+        sns.heatmap(
+            np.array(res_2d[metric_name]).T,
+            yticklabels=num_epochs_grid,
+            xticklabels=learning_rate_grid,
+            cmap="YlGnBu",  # "RdBu_r"
+            annot=True,
+            annot_kws={"size": 6},
+            fmt=".1",
+            # vmin=0,
+            # vmax=vmax,
+            # center=center,
+            norm=LogNorm(),
+        )
+        plt.xlabel("learning rate")
+        plt.ylabel("number of epochs")
+        plt.title(f"{metric_name} relative error")
+        # plt.gcf().set_size_inches(16, 16)
+        plt.tight_layout()
+        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}.png", dpi=300)
+        plt.close()
+
+
+def fig_convergence_on_large_data_single_site():
+    """
+    We show that on single-site data simulated on top of real trees, the pytorch
+    optimizer converges to the solution for a variety of learning rates, and we
+    validate the optimal learning rate to be 0.1. This figure provides more
+    information than:
+    fig_convergence_on_infinite_data_single_site
+    in that the branch lengths come from real data, and they are also getting
+    quntized.
+    """
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    output_image_dir = "images/fig_convergence_on_large_data_single_site"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    # Hyperparameters of the Adam optimizer
+    learning_rate_grid = [
+        3e-3,
+        1e-2,
+        3e-2,
+        1e-1,
+        3e-1,
+        1e-0,
+        # 3e-0,  # Training diverges starting at this learning rate
+    ]
+    num_epochs_grid = [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384,
+        32768,
+    ]
+
+    Q_numpy = read_rate_matrix(get_lg_path()).to_numpy()
+
+    num_processes = 2
+    num_sequences = (
+        1024
+    )
+    num_rate_categories = (
+        20
+    )
+
+    result_tuples = []
+    res_2d = {'mean': [], 'median': [], 'max': []}
+
+    for learning_rate in learning_rate_grid:
+        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        for num_epochs in num_epochs_grid:
+            num_families_train = 15051
+            num_families_test = 0
+            
+            quantization_grid_center = 0.03
+            quantization_grid_step = 1.1
+            quantization_grid_num_steps = 64
+            random_seed = 0
+            use_cpp_implementation = (
+                True
+            )
+
+            families_all = get_families_within_cutoff(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                min_num_sites=0,
+                max_num_sites=1000000,
+                min_num_sequences=0,
+                max_num_sequences=1000000,
+            )
+            families_train = families_all[:num_families_train]
+            if num_families_test == 0:
+                families_test = []
+            else:
+                families_test = families_all[-num_families_test:]
+            if num_families_train + num_families_test > len(families_all):
+                raise Exception(f"Training and testing set would overlap!")
+            assert len(set(families_train + families_test)) == len(
+                families_train
+            ) + len(families_test)
+
+            (
+                msa_dir,
+                contact_map_dir,
+                gt_msa_dir,
+                gt_tree_dir,
+                gt_site_rates_dir,
+                gt_likelihood_dir,
+            ) = simulate_ground_truth_data_single_site(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                num_sequences=num_sequences,
+                families=families_train + families_test,
+                num_rate_categories=num_rate_categories,
+                num_processes=num_processes,
+                random_seed=random_seed,
+                use_cpp_simulation_implementation=use_cpp_implementation,
+            )
+
+            cherry_estimator_res = cherry_estimator(
+                msa_dir=msa_dir,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                num_iterations=1,
+                num_processes=num_processes,
+                quantization_grid_center=quantization_grid_center,
+                quantization_grid_step=quantization_grid_step,
+                quantization_grid_num_steps=quantization_grid_num_steps,
+                learning_rate=learning_rate,
+                num_epochs=num_epochs,
+                do_adam=True,
+                use_cpp_counting_implementation=use_cpp_implementation,
+                num_processes_optimization=2,
+            )
+
+            learned_rate_matrix_path = cherry_estimator_res[
+                "learned_rate_matrix_path"
+            ]
+            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+            learned_rate_matrix = learned_rate_matrix.to_numpy()
             res = relative_errors(Q_numpy, learned_rate_matrix)
             result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
             res_2d_row['mean'].append(np.mean(res))
