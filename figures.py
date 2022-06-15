@@ -14,12 +14,17 @@ and _cache_lg_paper. You can similarly use a symbolic link to point to these.
 """
 import os
 from functools import partial
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from src.markov_chain import matrix_exponential
+from src.io import write_count_matrices
+from src.estimation import quantized_transitions_mle
+from matplotlib.colors import LogNorm
+from src.estimation import jtt_ipw
 
 from src import caching, cherry_estimator, cherry_estimator_coevolution
 from src.benchmarking.pfam_15k import (
@@ -107,11 +112,7 @@ def fig_single_site_quantization_error():
         20
     )
 
-    min_num_sites = 190
-    max_num_sites = 230
-    min_num_sequences = num_sequences
-    max_num_sequences = 1000000
-    num_families_train = 1024
+    num_families_train = 15051
     num_families_test = 0
 
     quantization_grid_center = None
@@ -119,7 +120,7 @@ def fig_single_site_quantization_error():
     quantization_grid_num_steps = None
     random_seed = 0
     learning_rate = 3e-2
-    num_epochs = 2000
+    num_epochs = 10000
     do_adam = True
     use_cpp_implementation = (
         True
@@ -162,10 +163,10 @@ def fig_single_site_quantization_error():
 
         families_all = get_families_within_cutoff(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=min_num_sites,
-            max_num_sites=max_num_sites,
-            min_num_sequences=min_num_sequences,
-            max_num_sequences=max_num_sequences,
+            min_num_sites=190 if num_families_train <= 1024 else 0,
+            max_num_sites=230 if num_families_train <= 1024 else 1000000,
+            min_num_sequences=1024 if num_families_train <= 1024 else 0,
+            max_num_sequences=1000000,
         )
         families_train = families_all[:num_families_train]
         if num_families_test == 0:
@@ -216,6 +217,7 @@ def fig_single_site_quantization_error():
             num_epochs=num_epochs,
             do_adam=do_adam,
             use_cpp_counting_implementation=use_cpp_implementation,
+            num_processes_optimization=2,
         )
 
         print(
@@ -302,7 +304,6 @@ def fig_single_site_quantization_error():
 
 
 def fig_pair_site_quantization_error():
-    # TODO: Use all 15051 families
     output_image_dir = "images/fig_pair_site_quantization_error"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
@@ -314,12 +315,8 @@ def fig_pair_site_quantization_error():
     num_rate_categories = (
         20
     )
-    
-    min_num_sites = 190
-    max_num_sites = 230
-    min_num_sequences = num_sequences
-    max_num_sequences = 1000000
-    num_families_train = 1024
+
+    num_families_train = 15051
     num_families_test = 0
 
     quantization_grid_center = None
@@ -350,7 +347,7 @@ def fig_pair_site_quantization_error():
         #     (0.06, 1.1, 50),
         (0.06, 1.1, 64),
         (0.06, 1.048, 128),
-        # (0.06, 1.024, 256),
+        (0.06, 1.024, 256),
         #     (0.06, 1.012, 512),
         #     (0.06, 1.006, 1024),
     ]
@@ -373,10 +370,10 @@ def fig_pair_site_quantization_error():
 
         families_all = get_families_within_cutoff(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=min_num_sites,
-            max_num_sites=max_num_sites,
-            min_num_sequences=min_num_sequences,
-            max_num_sequences=max_num_sequences,
+            min_num_sites=190 if num_families_train <= 1024 else 0,
+            max_num_sites=230 if num_families_train <= 1024 else 1000000,
+            min_num_sequences=1024 if num_families_train <= 1024 else 0,
+            max_num_sequences=1000000,
         )
         families_train = families_all[:num_families_train]
         if num_families_test == 0:
@@ -424,7 +421,6 @@ def fig_pair_site_quantization_error():
                 num_rate_categories=num_rate_categories,
             ),
             initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=1,
             num_processes=num_processes,
             quantization_grid_center=quantization_grid_center,
             quantization_grid_step=quantization_grid_step,
@@ -433,6 +429,7 @@ def fig_pair_site_quantization_error():
             num_epochs=num_epochs,
             do_adam=do_adam,
             use_cpp_counting_implementation=use_cpp_implementation,
+            num_processes_optimization=2,
         )
 
         print(
@@ -442,7 +439,7 @@ def fig_pair_site_quantization_error():
 
         count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
         print(f"count_matrices_dir_{i} = {count_matrices_dir}")
-        # assert(False)
+
         count_matrices = read_count_matrices(
             os.path.join(count_matrices_dir, "result.txt")
         )
@@ -555,7 +552,7 @@ def fig_single_site_cherry_vs_edge():
         quantization_grid_num_steps = 50
         random_seed = 0
         learning_rate = 3e-2
-        num_epochs = 2000
+        num_epochs = 10000
         do_adam = True
         use_cpp_implementation = (
             True
@@ -636,6 +633,7 @@ def fig_single_site_cherry_vs_edge():
                 do_adam=do_adam,
                 edge_or_cherry=edge_or_cherry,
                 use_cpp_counting_implementation=use_cpp_implementation,
+                num_processes_optimization=2,
             )
 
             learned_rate_matrix_path = cherry_estimator_res[
@@ -764,10 +762,21 @@ def fig_pair_site_number_of_families():
     caching.set_hash_len(64)
 
     num_families_train_list = [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
         1024,
         2048,
         4096,
         8192,
+        15051,
     ]
     yss_relative_errors = []
     Qs = []
@@ -839,7 +848,6 @@ def fig_pair_site_number_of_families():
                 num_rate_categories=num_rate_categories,
             ),
             initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=1,
             num_processes=num_processes,
             quantization_grid_center=quantization_grid_center,
             quantization_grid_step=quantization_grid_step,
@@ -848,6 +856,7 @@ def fig_pair_site_number_of_families():
             num_epochs=num_epochs,
             do_adam=do_adam,
             use_cpp_counting_implementation=use_cpp_implementation,
+            num_processes_optimization=2,
         )
 
         print(
@@ -983,9 +992,10 @@ def live_demo_single_site():
         quantization_grid_step=1.1,
         quantization_grid_num_steps=50,
         learning_rate=3e-2,
-        num_epochs=500,
+        num_epochs=10000,
         do_adam=True,
         use_cpp_counting_implementation=True,
+        num_processes_optimization=2,
     )["learned_rate_matrix_path"]
     learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
 
@@ -1054,9 +1064,10 @@ def live_demo_pair_of_sites():
         quantization_grid_step=1.1,
         quantization_grid_num_steps=50,
         learning_rate=3e-2,
-        num_epochs=500,
+        num_epochs=200,
         do_adam=True,
         use_cpp_counting_implementation=True,
+        num_processes_optimization=2,
     )["learned_rate_matrix_path"]
     learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
 
@@ -1081,7 +1092,7 @@ def fig_lg_paper():
     from functools import partial
     import os
 
-    num_processes = 32
+    num_processes = 4
 
     caching.set_cache_dir("_cache_lg_paper")
     caching.set_hash_len(64)
@@ -1140,12 +1151,12 @@ def fig_lg_paper():
             ("reproduced WAG", "WAG\n(reproduced)"),
             ("reported LG", "LG\n(reported)"),
             ("reproduced LG", "LG\n(reproduced)"),
-            ("Cherry__1__3e-2__2000", "Cherry\n1st iteration"),
-            ("Cherry__2__3e-2__2000", "Cherry\n2nd iteration"),
-            ("Cherry__3__3e-2__2000", "Cherry\n3rd iteration"),
-            ("Cherry__4__3e-2__2000", "Cherry\n4th iteration"),
-            ("Cherry__5__3e-2__2000", "Cherry\n5th iteration"),
-            ("Cherry__6__3e-2__2000", "Cherry\n6th iteration"),
+            ("Cherry__1__3e-2__10000", "Cherry\n1st iteration"),
+            ("Cherry__2__3e-2__10000", "Cherry\n2nd iteration"),
+            ("Cherry__3__3e-2__10000", "Cherry\n3rd iteration"),
+            ("Cherry__4__3e-2__10000", "Cherry\n4th iteration"),
+            ("Cherry__5__3e-2__10000", "Cherry\n5th iteration"),
+            ("Cherry__6__3e-2__10000", "Cherry\n6th iteration"),
         ],
         baseline_rate_estimator_name="reported JTT",
         evaluation_phylogeny_estimator=phyml_partial,
@@ -1289,6 +1300,7 @@ def fig_single_site_learning_rate_robustness():
                 num_epochs=num_epochs,
                 do_adam=do_adam,
                 use_cpp_counting_implementation=use_cpp_implementation,
+                num_processes_optimization=2,
             )
 
             try:
@@ -1470,3 +1482,173 @@ def debug_pytorch_optimizer():
     res = relative_errors(Q_numpy, learned_rate_matrix)
     print(f"mean relative error: {np.mean(res)}")
     print(f"max relative error: {np.max(res)}")
+
+
+@caching.cached_computation(
+    output_dirs=["output_count_matrices_dir"],
+)
+def create_synthetic_count_matrices(
+    quantization_points: List[float],
+    samples_per_row: int,
+    rate_matrix_path: str,
+    output_count_matrices_dir: Optional[str] = None,
+):
+    """
+    Create synthetic count matrices.
+
+    Args:
+        quantization_points: The branch lengths.
+        samples_per_row: For each branch length, this number of transitions will
+            be observed for each state (up to transitions lost from taking
+            floor)
+        rate_matrix_path: Path to the ground truth rate matrix.
+    """
+    Q_df = read_rate_matrix(rate_matrix_path)
+    Q_numpy = Q_df.to_numpy()
+    count_matrices = [
+        [
+            q,
+            pd.DataFrame(
+                (
+                    samples_per_row * matrix_exponential(
+                        exponents=np.array([q]),
+                        Q=Q_numpy,
+                        fact=None,
+                        reversible=False,
+                        device='cpu',
+                    ).reshape([Q_numpy.shape[0], Q_numpy.shape[1]])
+                ).astype(int),
+                columns=Q_df.columns,
+                index=Q_df.index,
+            ),
+        ]
+        for q in quantization_points
+    ]
+    write_count_matrices(
+        count_matrices, os.path.join(output_count_matrices_dir, "result.txt")
+    )
+
+
+def fig_convergence_on_infinite_data_single_site():
+    """
+    We show that on "infinite" single-site data, the pytorch optimizer converges
+    to the solution for a variety of learning rates, and we identify the optimal
+    learning rate to be 0.03: small - so as to be numerically stable - but not
+    too small - so as to converge fast.
+    """
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    output_image_dir = "images/fig_convergence_on_infinite_data_single_site"
+    if not os.path.exists(output_image_dir):
+        print(f"Creating {output_image_dir}")
+        os.makedirs(output_image_dir)
+
+    # Hyperparameters of the Adam optimizer
+    learning_rate_grid = [
+        1e-5,
+        3e-5,
+        1e-4,
+        3e-4,
+        1e-3,
+        3e-3,
+        1e-2,
+        3e-2,
+        1e-1,
+        3e-1,
+        1e-0,
+        # 3e-0,  # Training diverges starting at this learning rate
+    ]
+    num_epochs_grid = [
+        1,
+        2,
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
+        1024,
+        2048,
+        4096,
+        8192,
+        16384,
+        32768,
+    ]
+
+    rate_matrix_path = get_lg_path()
+    Q_df = read_rate_matrix(rate_matrix_path)
+    Q_numpy = Q_df.to_numpy()
+
+    # Create synthetic training data (in the form of count matrices)
+    output_count_matrices_dir = create_synthetic_count_matrices(
+        quantization_points=[0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+        samples_per_row=100000000,
+        rate_matrix_path=rate_matrix_path,
+    )["output_count_matrices_dir"]
+    count_matrices_path = os.path.join(output_count_matrices_dir, "result.txt")
+
+    result_tuples = []
+    res_2d = {'mean': [], 'median': [], 'max': []}
+
+    for learning_rate in learning_rate_grid:
+        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        for num_epochs in num_epochs_grid:
+            initialization_path = get_equ_path()
+            # Run the Adam optimizer.
+            output_rate_matrix_dir = quantized_transitions_mle(
+                count_matrices_path=count_matrices_path,
+                initialization_path=initialization_path,
+                mask_path=None,
+                stationary_distribution_path=None,
+                rate_matrix_parameterization="pande_reversible",
+                device="cpu",
+                learning_rate=learning_rate,
+                num_epochs=num_epochs,
+                do_adam=True,
+                OMP_NUM_THREADS=2,
+                OPENBLAS_NUM_THREADS=2,
+            )["output_rate_matrix_dir"]
+
+            learned_rate_matrix = read_rate_matrix(
+                os.path.join(output_rate_matrix_dir, "result.txt")
+            ).to_numpy()
+
+            res = relative_errors(Q_numpy, learned_rate_matrix)
+            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
+            res_2d_row['mean'].append(np.mean(res))
+            res_2d_row['median'].append(np.median(res))
+            res_2d_row['max'].append(np.max(res))
+        res_2d['mean'].append(res_2d_row['mean'])
+        res_2d['median'].append(res_2d_row['median'])
+        res_2d['max'].append(res_2d_row['max'])
+
+    res = pd.DataFrame(
+        result_tuples,
+        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+    )
+    # print(res)
+
+    for metric_name in ['max', 'median']:
+        sns.heatmap(
+            np.array(res_2d[metric_name]).T,
+            yticklabels=num_epochs_grid,
+            xticklabels=learning_rate_grid,
+            cmap="YlGnBu",  # "RdBu_r"
+            annot=True,
+            annot_kws={"size": 6},
+            fmt=".1",
+            # vmin=0,
+            # vmax=vmax,
+            # center=center,
+            norm=LogNorm(),
+        )
+        plt.xlabel("learning rate")
+        plt.ylabel("number of epochs")
+        plt.title(f"{metric_name} relative error")
+        # plt.gcf().set_size_inches(16, 16)
+        plt.tight_layout()
+        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}.png", dpi=300)
+        plt.close()
