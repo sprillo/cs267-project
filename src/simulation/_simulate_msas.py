@@ -1,7 +1,9 @@
 import hashlib
+import logging
 import multiprocessing
 import os
 import random
+import sys
 import tempfile
 import time
 from typing import Dict, List, Optional
@@ -19,6 +21,20 @@ from src.io import (
     write_msa,
 )
 from src.utils import get_process_args
+
+
+def _init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
 
 
 def sample(probability_distribution: np.array) -> int:
@@ -332,6 +348,9 @@ def simulate_msas(
         cpp_command_line_prefix: E.g. to run the C++ binary on slurm.
         cpp_command_line_suffix: For extra C++ args related to performance.
     """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Going to simulate MSAs for {len(families)} families")
+
     if not os.path.exists(output_msa_dir):
         os.makedirs(output_msa_dir)
 
