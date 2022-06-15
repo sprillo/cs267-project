@@ -545,61 +545,6 @@ def fig_pair_site_number_of_families():
     print("Done!")
 
 
-def live_demo_single_site():
-    from functools import partial
-
-    from src import caching, cherry_estimator
-    from src.benchmarking.pfam_15k import get_families, subsample_pfam_15k_msas
-    from src.io import read_rate_matrix
-    from src.markov_chain import get_lg_path
-    from src.phylogeny_estimation import fast_tree
-
-    PFAM_15K_MSA_DIR = "input_data/a3m"
-
-    caching.set_cache_dir("_cache_benchmarking")
-    caching.set_hash_len(64)
-
-    families = get_families(PFAM_15K_MSA_DIR)
-
-    # Subsample the MSAs
-    msa_dir_train = subsample_pfam_15k_msas(
-        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-        num_sequences=1024,
-        families=families,
-        num_processes=32,
-    )["output_msa_dir"]
-
-    # Run the cherry method using FastTree tree estimator
-    learned_rate_matrix_path = cherry_estimator(
-        msa_dir=msa_dir_train,
-        families=families,
-        tree_estimator=partial(
-            fast_tree,
-            num_rate_categories=20,
-        ),
-        initial_tree_estimator_rate_matrix_path=get_lg_path(),
-        num_iterations=1,
-        num_processes=32,
-        quantization_grid_center=0.06,
-        quantization_grid_step=1.1,
-        quantization_grid_num_steps=50,
-        learning_rate=3e-2,
-        num_epochs=10000,
-        do_adam=True,
-        use_cpp_counting_implementation=True,
-        num_processes_optimization=2,
-    )["learned_rate_matrix_path"]
-    learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
-
-    lg = read_rate_matrix(get_lg_path()).to_numpy()
-
-    # Now compare matrices
-    print("LG matrix:")
-    print(lg[:3, :3])
-    print("Learned rate matrix:")
-    print(learned_rate_matrix[:3, :3])
-
-
 def live_demo_pair_of_sites():
     from functools import partial
 
@@ -1801,3 +1746,58 @@ def fig_single_site_cherry_vs_edge():
         )
         plt.savefig(f"{output_image_dir}/violin_plot", dpi=300)
         plt.close()
+
+
+def live_demo_single_site():
+    from functools import partial
+
+    from src import caching, cherry_estimator
+    from src.benchmarking.pfam_15k import get_families, subsample_pfam_15k_msas
+    from src.io import read_rate_matrix
+    from src.markov_chain import get_lg_path
+    from src.phylogeny_estimation import fast_tree
+
+    PFAM_15K_MSA_DIR = "input_data/a3m"
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    families = get_families(PFAM_15K_MSA_DIR)
+
+    # Subsample the MSAs
+    msa_dir_train = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+        num_sequences=1024,
+        families=families,
+        num_processes=32,
+    )["output_msa_dir"]
+
+    # Run the cherry method using FastTree tree estimator
+    learned_rate_matrix_path = cherry_estimator(
+        msa_dir=msa_dir_train,
+        families=families,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=20,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_iterations=1,
+        num_processes=32,
+        quantization_grid_center=0.03,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=64,
+        learning_rate=1e-1,
+        num_epochs=2000,
+        do_adam=True,
+        use_cpp_counting_implementation=True,
+        num_processes_optimization=2,
+    )["learned_rate_matrix_path"]
+    learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
+
+    lg = read_rate_matrix(get_lg_path()).to_numpy()
+
+    # Now compare matrices
+    print("LG matrix:")
+    print(lg[:3, :3])
+    print("Learned rate matrix:")
+    print(learned_rate_matrix[:3, :3])
