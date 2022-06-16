@@ -3,7 +3,7 @@ from ._markov_chain import (
     chain_product,
     compute_stationary_distribution,
     equ_matrix,
-    get_aa_coevolution_mask,
+    get_aa_coevolution_mask_path,
     get_equ_path,
     get_equ_x_equ_path,
     get_jtt_path,

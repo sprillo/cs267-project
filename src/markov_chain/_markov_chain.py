@@ -278,5 +278,5 @@ def get_lg_x_lg_stationary_path():
     return "data/rate_matrices/lg_x_lg_stationary.txt"
 
 
-def get_aa_coevolution_mask():
+def get_aa_coevolution_mask_path():
     return "data/mask_matrices/aa_coevolution_mask.txt"
