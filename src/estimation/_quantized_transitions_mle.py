@@ -41,7 +41,7 @@ def quantized_transitions_mle(
     count_matrices_path: str,
     initialization_path: Optional[str],
     mask_path: Optional[str],
-    output_rate_matrix_dir: str,
+    output_rate_matrix_dir: Optional[str],
     stationary_distribution_path: Optional[str] = None,
     rate_matrix_parameterization: str = "pande_reversible",
     device: str = "cpu",
