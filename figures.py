@@ -2459,4 +2459,4 @@ def fig_pfam15k():
                 num_rate_categories=num_rate_categories,
             ),
         )
-        print(f"ll for {rate_matrix_
+        print(f"ll for {rate_matrix_path} = {ll}")
