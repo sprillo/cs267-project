@@ -5,6 +5,7 @@ from src.counting import count_co_transitions, count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
 from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids
+from src.markov_chain import get_equ_path, get_equ_x_equ_path
 
 
 def cherry_estimator(
@@ -13,11 +14,11 @@ def cherry_estimator(
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
     num_iterations: int,
-    num_processes: Optional[int] = 1,
-    quantization_grid_center: float = 0.06,
+    num_processes: Optional[int] = 2,
+    quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
-    quantization_grid_num_steps: int = 50,
-    use_cpp_counting_implementation: bool = False,
+    quantization_grid_num_steps: int = 64,
+    use_cpp_counting_implementation: bool = True,
     device: str = "cpu",
     learning_rate: float = 1e-1,
     num_epochs: int = 2000,
@@ -27,7 +28,8 @@ def cherry_estimator(
     cpp_counting_command_line_suffix: str = "",
     num_processes_tree_estimation: Optional[int] = None,
     num_processes_counting: Optional[int] = None,
-    num_processes_optimization: Optional[int] = None,
+    num_processes_optimization: Optional[int] = 2,
+    optimizer_initialization: str = "jtt-ipw",
 ) -> Dict:
     """
     Cherry estimator.
@@ -90,9 +92,19 @@ def cherry_estimator(
 
         res[f"jtt_ipw_dir_{iteration}"] = jtt_ipw_dir
 
+        initialization_path = None
+        if optimizer_initialization == "jtt-ipw":
+            initialization_path = os.path.join(jtt_ipw_dir, "result.txt")
+        elif optimizer_initialization == "equ":
+            initialization_path = get_equ_path()
+        elif optimizer_initialization == "random":
+            initialization_path = None
+        else:
+            raise ValueError(f"Uknown optimizer_initialization = {optimizer_initialization}")
+
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
-            initialization_path=os.path.join(jtt_ipw_dir, "result.txt"),
+            initialization_path=initialization_path,
             mask_path=None,
             stationary_distribution_path=None,
             rate_matrix_parameterization="pande_reversible",
@@ -124,11 +136,11 @@ def cherry_estimator_coevolution(
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
     # num_iterations: int,  # There is no iteration in this case!
-    num_processes: int,
-    quantization_grid_center: float = 0.06,
+    num_processes: int = 8,
+    quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
-    quantization_grid_num_steps: int = 50,
-    use_cpp_counting_implementation: bool = False,
+    quantization_grid_num_steps: int = 64,
+    use_cpp_counting_implementation: bool = True,
     device: str = "cpu",
     learning_rate: float = 1e-1,
     num_epochs: int = 2000,
@@ -138,7 +150,8 @@ def cherry_estimator_coevolution(
     cpp_counting_command_line_suffix: str = "",
     num_processes_tree_estimation: Optional[int] = None,
     num_processes_counting: Optional[int] = None,
-    num_processes_optimization: Optional[int] = None,
+    num_processes_optimization: Optional[int] = 8,
+    optimizer_initialization: str = "jtt-ipw",
 ) -> Dict:
     """
     Cherry estimator for coevolution.
@@ -204,6 +217,16 @@ def cherry_estimator_coevolution(
         )["output_rate_matrix_dir"]
 
         res[f"jtt_ipw_dir_{iteration}"] = jtt_ipw_dir
+
+        initialization_path = None
+        if optimizer_initialization == "jtt-ipw":
+            initialization_path = os.path.join(jtt_ipw_dir, "result.txt")
+        elif optimizer_initialization == "equ_x_equ":
+            initialization_path = get_equ_x_equ_path()
+        elif optimizer_initialization == "random":
+            initialization_path = None
+        else:
+            raise ValueError(f"Uknown optimizer_initialization = {optimizer_initialization}")
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
