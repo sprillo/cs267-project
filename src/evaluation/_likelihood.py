@@ -20,6 +20,7 @@ from src.markov_chain import FactorizedReversibleModel, matrix_exponential
 from src.utils import get_process_args
 from threadpoolctl import threadpool_limits
 from torch import multiprocessing
+from src import caching
 
 try:
     multiprocessing.set_start_method("spawn")
@@ -30,7 +31,7 @@ except RuntimeError:
 def dp_likelihood_computation(
     tree: Tree,
     msa: Dict[str, str],
-    contact_map: np.array,
+    contact_map: Optional[np.array],
     site_rates: List[float],
     amino_acids: List[str],
     pi_1: np.array,
@@ -38,11 +39,11 @@ def dp_likelihood_computation(
     fact_1: Optional[FactorizedReversibleModel],
     reversible_1: bool,
     device_1: bool,
-    pi_2: np.array,
-    Q_2: np.array,
+    pi_2: Optional[np.array],
+    Q_2: Optional[np.array],
     fact_2: Optional[FactorizedReversibleModel],
-    reversible_2: bool,
-    device_2: bool,
+    reversible_2: Optional[bool],
+    device_2: Optional[bool],
     output_profiling_path: str,
 ) -> Tuple[float, List[float]]:
     """
@@ -61,8 +62,11 @@ def dp_likelihood_computation(
 
     num_sites = len(site_rates)
 
-    contacting_pairs = list(zip(*np.where(contact_map == 1)))
-    contacting_pairs = [(i, j) for (i, j) in contacting_pairs if i < j]
+    if contact_map is not None:
+        contacting_pairs = list(zip(*np.where(contact_map == 1)))
+        contacting_pairs = [(i, j) for (i, j) in contacting_pairs if i < j]
+    else:
+        contacting_pairs = []
     # Validate that each site is in contact with at most one other site
     contacting_sites = list(sum(contacting_pairs, ()))
     if len(set(contacting_sites)) != len(contacting_sites):
@@ -332,16 +336,16 @@ def _map_func(args: Dict):
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
-        contact_map_path = os.path.join(contact_map_dir, family + ".txt")
+        contact_map_path = os.path.join(contact_map_dir, family + ".txt") if contact_map_dir is not None else None
 
         tree = read_tree(tree_path)
         msa = read_msa(msa_path)
         site_rates = read_site_rates(site_rates_path)
-        contact_map = read_contact_map(contact_map_path)
+        contact_map = read_contact_map(contact_map_path) if contact_map_path is not None else None
         pi_1_df = read_probability_distribution(pi_1_path)
         Q_1_df = read_rate_matrix(Q_1_path)
-        pi_2_df = read_probability_distribution(pi_2_path)
-        Q_2_df = read_rate_matrix(Q_2_path)
+        pi_2_df = read_probability_distribution(pi_2_path) if pi_2_path is not None else None
+        Q_2_df = read_rate_matrix(Q_2_path) if Q_2_path is not None else None
 
         pairs_of_amino_acids = [
             aa1 + aa2 for aa1 in amino_acids for aa2 in amino_acids
@@ -352,7 +356,7 @@ def _map_func(args: Dict):
                 f"pi_1 index is:\n{list(pi_1_df.index)}\nbut expected amino "
                 f"acids:\n{amino_acids}"
             )
-        if list(pi_2_df.index) != pairs_of_amino_acids:
+        if pi_2_df is not None and list(pi_2_df.index) != pairs_of_amino_acids:
             raise Exception(
                 f"pi_2 index is:\n{list(pi_2_df.index)}\nbut expected pairs of "
                 f"amino acids:\n{pairs_of_amino_acids}"
@@ -367,12 +371,12 @@ def _map_func(args: Dict):
                 f"Q_1 columns are:\n{list(Q_1_df.columns)}\n\nbut expected "
                 f"amino acids:\n{amino_acids}"
             )
-        if list(Q_2_df.index) != pairs_of_amino_acids:
+        if Q_2_df is not None and list(Q_2_df.index) != pairs_of_amino_acids:
             raise Exception(
                 f"Q_2 index is:\n{list(Q_2_df.index)}\n\nbut expected pairs of "
                 f"amino acids:\n{pairs_of_amino_acids}"
             )
-        if list(Q_2_df.columns) != pairs_of_amino_acids:
+        if Q_2_df is not None and list(Q_2_df.columns) != pairs_of_amino_acids:
             raise Exception(
                 f"Q_1 columns are:\n{list(Q_2_df.columns)}\n\nbut expected "
                 f"pairs of amino acids:\n{pairs_of_amino_acids}"
@@ -383,11 +387,14 @@ def _map_func(args: Dict):
             if reversible_1
             else None
         )
-        fact_2 = (
-            FactorizedReversibleModel(Q_2_df.to_numpy())
-            if reversible_1
-            else None
-        )
+        if Q_2_df is not None:
+            fact_2 = (
+                FactorizedReversibleModel(Q_2_df.to_numpy())
+                if reversible_2
+                else None
+            )
+        else:
+            fact_2 = None
 
         output_profiling_path = os.path.join(
             output_likelihood_dir, family + ".profiling"
@@ -403,8 +410,8 @@ def _map_func(args: Dict):
             fact_1=fact_1,
             reversible_1=reversible_1,
             device_1=device_1,
-            pi_2=pi_2_df.to_numpy(),
-            Q_2=Q_2_df.to_numpy(),
+            pi_2=pi_2_df.to_numpy() if pi_2_df is not None else None,
+            Q_2=Q_2_df.to_numpy() if Q_2_df is not None else None,
             fact_2=fact_2,
             reversible_2=reversible_2,
             device_2=device_2,
@@ -420,22 +427,36 @@ def _map_func(args: Dict):
     open(output_profiling_path, "w").write(profiling_str)
 
 
+@caching.cached_parallel_computation(
+    parallel_arg="families",
+    exclude_args=[
+        "device_1",
+        "device_2",
+        "num_processes",
+        "use_cpp_implementation",
+        "OMP_NUM_THREADS",
+        "OPENBLAS_NUM_THREADS",
+    ],
+    output_dirs=[
+        "output_likelihood_dir",
+    ],
+)
 def compute_log_likelihoods(
     tree_dir: str,
     msa_dir: str,
     site_rates_dir: str,
-    contact_map_dir: str,
+    contact_map_dir: Optional[str],
     families: List[str],
     amino_acids: List[str],
     pi_1_path: str,
     Q_1_path: str,
     reversible_1: bool,
     device_1: str,
-    pi_2_path: str,
-    Q_2_path: str,
-    reversible_2: bool,
-    device_2: str,
-    output_likelihood_dir: str,
+    pi_2_path: Optional[str],
+    Q_2_path: Optional[str],
+    reversible_2: Optional[bool],
+    device_2: Optional[str],
+    output_likelihood_dir: Optional[str],
     num_processes: int,
     use_cpp_implementation: bool = False,
     OMP_NUM_THREADS: Optional[int] = 1,
