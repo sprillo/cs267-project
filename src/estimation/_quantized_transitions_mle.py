@@ -51,6 +51,7 @@ def quantized_transitions_mle(
     loss_normalization: bool = True,
     OMP_NUM_THREADS: Optional[int] = 1,
     OPENBLAS_NUM_THREADS: Optional[int] = 1,
+    return_best_iter: bool = True,
 ):
     logger = logging.getLogger(__name__)
     logger.info("Starting")
@@ -59,6 +60,7 @@ def quantized_transitions_mle(
     count_matrices = read_count_matrices(count_matrices_path)
     states = list(count_matrices[0][1].index)
     with tempfile.NamedTemporaryFile("w") as mask2_file:
+        # We need to convert the mask matrix to the ratelearn format.
         mask2_path = mask2_file.name
         # mask2_path = "mask2_path.txt"
         if mask_path is not None:
@@ -74,53 +76,39 @@ def quantized_transitions_mle(
             open(mask2_path, "w").write(mask_str)
         else:
             mask2_path = None
-        with tempfile.TemporaryDirectory() as output_dir:
-            # TODO: Fill in frequency_matrices_path
-            # TODO: Convert mask to mask2
-            # initialization = TODO
-            if stationary_distribution_path is not None:
-                stationnary_distribution = read_probability_distribution(
-                    stationary_distribution_path
-                ).to_numpy()
-            else:
-                stationnary_distribution = None
-            if initialization_path is not None:
-                initialization = read_rate_matrix(
-                    initialization_path
-                ).to_numpy()
-            else:
-                initialization = None
-            # print(f"stationnary_distribution =\n{stationnary_distribution}")
-            # print(f"initialization =\n{initialization}")
-            with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
-                with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
-                    rate_matrix_learner = RateMatrixLearner(
-                        branches=[x[0] for x in count_matrices],
-                        mats=[x[1].to_numpy() for x in count_matrices],
-                        output_dir=output_dir,
-                        stationnary_distribution=stationnary_distribution,
-                        mask=mask2_path,
-                        rate_matrix_parameterization=rate_matrix_parameterization,
-                        device=device,
-                        initialization=initialization,
-                    )
-                    rate_matrix_learner.train(
-                        lr=learning_rate,
-                        num_epochs=num_epochs,
-                        do_adam=do_adam,
-                        loss_normalization=loss_normalization,
-                    )
-            rate_matrix = np.loadtxt(
-                os.path.join(output_dir, "learned_matrix.txt")
-            )
-            write_rate_matrix(
-                rate_matrix,
-                states,
-                os.path.join(output_rate_matrix_dir, "result.txt"),
-            )
-            # Copy learning curve too
-            os.system(
-                f"cp {output_dir}/training_plot.png {output_rate_matrix_dir}/training_plot.png"
-            )
+
+        if stationary_distribution_path is not None:
+            stationnary_distribution = read_probability_distribution(
+                stationary_distribution_path
+            ).to_numpy()
+        else:
+            stationnary_distribution = None
+        if initialization_path is not None:
+            initialization = read_rate_matrix(
+                initialization_path
+            ).to_numpy()
+        else:
+            initialization = None
+
+        with threadpool_limits(limits=OPENBLAS_NUM_THREADS, user_api="blas"):
+            with threadpool_limits(limits=OMP_NUM_THREADS, user_api="openmp"):
+                rate_matrix_learner = RateMatrixLearner(
+                    branches=[x[0] for x in count_matrices],
+                    mats=[x[1].to_numpy() for x in count_matrices],
+                    states=states,
+                    output_dir=output_rate_matrix_dir,
+                    stationnary_distribution=stationnary_distribution,
+                    mask=mask2_path,
+                    rate_matrix_parameterization=rate_matrix_parameterization,
+                    device=device,
+                    initialization=initialization,
+                )
+                rate_matrix_learner.train(
+                    lr=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=do_adam,
+                    loss_normalization=loss_normalization,
+                    return_best_iter=return_best_iter,
+                )
 
     logger.info("Done!")

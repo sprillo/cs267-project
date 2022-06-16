@@ -11,6 +11,7 @@ from torch.utils.data import TensorDataset
 
 from .rate import RateMatrix
 from .trainer import train_quantization
+from src.io import write_rate_matrix
 
 
 def solve_stationery_dist(rate_matrix):
@@ -35,6 +36,7 @@ class RateMatrixLearner:
         self,
         branches: List[float],
         mats: List[np.array],
+        states: List[str],
         output_dir: str,
         stationnary_distribution: str,
         device: str,
@@ -44,6 +46,7 @@ class RateMatrixLearner:
     ):
         self.branches = branches
         self.mats = mats
+        self.states = states
         self.output_dir = output_dir
         self.stationnary_distribution = stationnary_distribution
         self.mask = mask
@@ -55,16 +58,6 @@ class RateMatrixLearner:
         self.trained_ = False
         self.device = device
         self.initialization = initialization
-        self._learned_matrix_path = os.path.join(
-            self.output_dir, "learned_matrix.txt"
-        )
-        self._normalized_learned_matrix_path = os.path.join(
-            self.output_dir, "learned_matrix_normalized.txt"
-        )
-        self._df_res_filepath = os.path.join(
-            self.output_dir, "training_df.pickle"
-        )
-        self._figpath = os.path.join(self.output_dir, "training_plot.png")
 
     def train(
         self,
@@ -72,6 +65,7 @@ class RateMatrixLearner:
         num_epochs=2000,
         do_adam: bool = True,
         loss_normalization: bool = False,
+        return_best_iter: bool = True,
     ):
         logger = logging.getLogger(__name__)
         logger.info(f"Starting, outdir: {self.output_dir}")
@@ -130,7 +124,7 @@ class RateMatrixLearner:
                 params=self.mat_module.parameters(), lr=self.lr
             )
 
-        df_res, Q = train_quantization(
+        df_res, Q_dict = train_quantization(
             rate_module=self.mat_module,
             quantized_dataset=self.quantized_data,
             num_epochs=num_epochs,
@@ -139,7 +133,7 @@ class RateMatrixLearner:
             loss_normalization=loss_normalization,
         )
         self.df_res = df_res
-        self.Qfinal = Q
+        self.Q_dict = Q_dict
         self.trained = True
         self.process_results()
 
@@ -151,17 +145,19 @@ class RateMatrixLearner:
         return quantized_data, n_features
 
     def process_results(self):
-        learned_matrix_path = self._learned_matrix_path
-        Q = self.Qfinal.detach().cpu().numpy()
-        np.savetxt(learned_matrix_path, Q)
+        output_dir = self.output_dir
+        states = self.states
+        df_res = self.df_res
+        Q_dict = self.Q_dict
+        for key, value in Q_dict.items():
+            write_rate_matrix(
+                value,
+                states,
+                os.path.join(output_dir, key + ".txt")
+            )
 
-        normalized_learned_matrix_path = self._normalized_learned_matrix_path
-        np.savetxt(normalized_learned_matrix_path, normalized(Q))
+        self.df_res.to_csv(os.path.join(output_dir, "df_res.txt"))
 
-        df_res_filepath = self._df_res_filepath
-        self.df_res.to_pickle(df_res_filepath)
-
-        figpath = self._figpath
         FT_SIZE = 13
         fig, axes = plt.subplots(figsize=(5, 4))
         self.df_res.loss.plot()
@@ -169,5 +165,5 @@ class RateMatrixLearner:
         plt.ylabel("Negative likelihood", fontsize=FT_SIZE)
         plt.xlabel("# of iterations", fontsize=FT_SIZE)
         plt.tight_layout()
-        plt.savefig(figpath)
+        plt.savefig(os.path.join(output_dir, "training_plot.png"))
         plt.close()

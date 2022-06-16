@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 import torch
 from torch.utils.data import DataLoader
+from typing import Dict, Tuple
 
 
 def init_logger():
@@ -124,11 +125,14 @@ def train_quantization(
     Q_true=None,
     optimizer=None,
     loss_normalization=False,
-):
+    return_best_iter: bool = True,
+) -> Tuple[pd.DataFrame, Dict]:
     """
     Quantization baseline
     """
     logger = logging.getLogger(__name__)
+
+    Q_dict = {}
 
     if optimizer is None:
         optimizer = torch.optim.SGD(
@@ -144,6 +148,8 @@ def train_quantization(
     st_all = time.time()
     total_time_train = 0
     total_time_eval = 0
+    best_loss = None
+    Q_best = None
     for epoch in rg:
         st_train = time.time()
         optimizer.zero_grad()
@@ -166,6 +172,13 @@ def train_quantization(
             sample_size += cmat.sum()
         if loss_normalization:
             loss = loss / sample_size
+        # Update best Q if necessary
+        if best_loss is None or loss < best_loss:
+            best_loss = loss
+            Q_best = Q.detach().cpu().numpy().copy()
+        # Save Q at powers of 2
+        if (epoch & (epoch + 1)) == 0:
+            Q_dict[f"Q_{epoch + 1}"] = Q.detach().cpu().numpy().copy()
         # Take a gradient step.
         loss.backward(retain_graph=True)
         optimizer.step()
@@ -218,7 +231,13 @@ def train_quantization(
         f"training time: {total_time_train}; "
         f"eval time: {total_time_eval}"
     )
-    return df_res, Q
+    Q_dict["Q_best"] = Q_best.copy()
+    Q_dict["Q_last"] = Q.detach().cpu().numpy().copy()
+    if return_best_iter:
+        Q_dict["result"] = Q_best.copy()
+    else:
+        Q_dict["result"] = Q.detach().cpu().numpy().copy()
+    return df_res, Q_dict
 
 
 def train_quantization_N(
