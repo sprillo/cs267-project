@@ -2,7 +2,7 @@ import itertools
 import os
 import tempfile
 import unittest
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -117,13 +117,16 @@ def likelihood_computation_wrapper(
     pi_2: np.array,
     Q_2: np.array,
     reversible_2: bool,
-    device_2: str,
+    device_2: Optional[str],
     method: str,
     num_processes: int = 1,
     num_families: int = 1,
 ) -> Tuple[float, List[float]]:
     """
     Compute data loglikelihood by one of several methods
+
+    If device_2 is None, then all the coevolution parameters will be replaced
+    by None in the call to compute_log_likelihoods.
 
     TODO: Generalize to many families! And add a test to make sure that when
     multiprocessing, there is no contention for resources (e.g. GPU); and env
@@ -183,22 +186,23 @@ def likelihood_computation_wrapper(
                                         write_rate_matrix(
                                             Q_2, amino_acid_pairs, Q_2_path
                                         )
+                                        need_coevolution = device_2 is not None
                                         with tempfile.TemporaryDirectory() as d:
                                             compute_log_likelihoods(
                                                 tree_dir=tree_dir,
                                                 msa_dir=msa_dir,
                                                 site_rates_dir=site_rates_dir,
-                                                contact_map_dir=contact_map_dir,
+                                                contact_map_dir=contact_map_dir if need_coevolution else None,
                                                 families=families,
                                                 amino_acids=amino_acids,
                                                 pi_1_path=pi_1_path,
                                                 Q_1_path=Q_1_path,
                                                 reversible_1=reversible_1,
                                                 device_1=device_1,
-                                                pi_2_path=pi_2_path,
-                                                Q_2_path=Q_2_path,
-                                                reversible_2=reversible_2,
-                                                device_2=device_2,
+                                                pi_2_path=pi_2_path if need_coevolution else None,
+                                                Q_2_path=Q_2_path if need_coevolution else None,
+                                                reversible_2=reversible_2 if need_coevolution else None,
+                                                device_2=device_2 if need_coevolution else None,
                                                 output_likelihood_dir=d,
                                                 num_processes=num_processes,
                                                 use_cpp_implementation=cpp,
@@ -267,7 +271,7 @@ class Test_small_wag_3_seqs(unittest.TestCase):
             pi_2=pi_x_pi,
             Q_2=equ_x_equ,
             reversible_2=reversible,
-            device_2=device,
+            device_2=None,  # Passing in None to exercise case of no coevolution
             method="python",
         )
         np.testing.assert_almost_equal(ll, -7.343870, decimal=4)
