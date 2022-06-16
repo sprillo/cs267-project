@@ -289,6 +289,7 @@ def get_family_sizes(
     return family_size_df
 
 
+@caching.cached()
 def get_families_within_cutoff(
     pfam_15k_msa_dir: str,
     min_num_sites: int,
@@ -388,6 +389,7 @@ def subset_msa_to_leaf_nodes(
         secure_parallel_output(output_msa_dir, family)
 
 
+@caching.cached()
 def simulate_ground_truth_data_single_site(
     pfam_15k_msa_dir: str,
     families: List[str],
@@ -469,6 +471,7 @@ def simulate_ground_truth_data_single_site(
     )
 
 
+@caching.cached()
 def simulate_ground_truth_data_coevolution(
     pfam_15k_msa_dir: str,
     pfam_15k_pdb_dir: str,
