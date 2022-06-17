@@ -333,6 +333,7 @@ def run_rate_estimator(
             num_epochs=int(tokens[3]),
             do_adam=True,
             num_processes_optimization=2,
+            optimizer_return_best_iter=True,
         )["learned_rate_matrix_path"]
     else:
         raise ValueError(f"Unknown rate estimator name: {rate_estimator_name}")
@@ -420,6 +421,8 @@ def reproduce_lg_paper_fig_4(
                 df.loc[family, rate_estimator_name] = reported_results_df.loc[
                     family[:family_name_len], rate_matrix_name
                 ]
+        elif rate_estimator_name.startswith("path__"):
+            rate_matrix_path = rate_estimator_name[6:]
         else:
             rate_matrix_path = run_rate_estimator(
                 rate_estimator_name=rate_estimator_name,
