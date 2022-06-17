@@ -30,6 +30,7 @@ def cherry_estimator(
     num_processes_counting: Optional[int] = None,
     num_processes_optimization: Optional[int] = 2,
     optimizer_initialization: str = "jtt-ipw",
+    optimizer_return_best_iter: bool = True,
 ) -> Dict:
     """
     Cherry estimator.
@@ -114,6 +115,7 @@ def cherry_estimator(
             do_adam=do_adam,
             OMP_NUM_THREADS=num_processes_optimization,
             OPENBLAS_NUM_THREADS=num_processes_optimization,
+            return_best_iter=optimizer_return_best_iter,
         )["output_rate_matrix_dir"]
 
         res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
@@ -152,6 +154,7 @@ def cherry_estimator_coevolution(
     num_processes_counting: Optional[int] = None,
     num_processes_optimization: Optional[int] = 8,
     optimizer_initialization: str = "jtt-ipw",
+    optimizer_return_best_iter: bool = True,
 ) -> Dict:
     """
     Cherry estimator for coevolution.
@@ -230,7 +233,7 @@ def cherry_estimator_coevolution(
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
-            initialization_path=os.path.join(jtt_ipw_dir, "result.txt"),
+            initialization_path=initialization_path,
             mask_path=coevolution_mask_path,
             stationary_distribution_path=None,
             rate_matrix_parameterization="pande_reversible",
@@ -240,9 +243,10 @@ def cherry_estimator_coevolution(
             do_adam=do_adam,
             OMP_NUM_THREADS=num_processes_optimization,
             OPENBLAS_NUM_THREADS=num_processes_optimization,
+            return_best_iter=optimizer_return_best_iter,
         )["output_rate_matrix_dir"]
 
-        res[f"output_rate_matrix_dir_{iteration}"] = rate_matrix_dir
+        res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
 
         current_estimate_rate_matrix_path = os.path.join(
             rate_matrix_dir, "result.txt"
