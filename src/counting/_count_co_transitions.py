@@ -260,6 +260,14 @@ def count_co_transitions(
                 f"Going to run C++ implementation on {len(families)} families"
             )
             os.system(command)
+
+            # Remove auxiliary files
+            for pid in range(num_processes):
+                result_pid_path = os.path.join(output_count_matrices_dir, f"result_{pid}.txt")
+                if os.path.exists(result_pid_path):
+                    os.remove(result_pid_path)
+
+            logger.info("Done!")
             return
 
     map_args = [
