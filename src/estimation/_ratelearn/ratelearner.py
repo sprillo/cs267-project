@@ -131,6 +131,7 @@ class RateMatrixLearner:
             Q_true=None,
             optimizer=optim,
             loss_normalization=loss_normalization,
+            return_best_iter=return_best_iter,
         )
         self.df_res = df_res
         self.Q_dict = Q_dict
