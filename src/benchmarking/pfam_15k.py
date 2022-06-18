@@ -87,6 +87,9 @@ def compute_contact_maps(
     num_processes: int,
     output_contact_map_dir: Optional[str] = None,
 ):
+    logger = logging.getLogger(__name__)
+    logger.info(f"Going to compute contact maps for {len(families)} families")
+
     if not os.path.exists(pfam_15k_pdb_dir):
         raise ValueError(f"Could not find pfam_15k_pdb_dir {pfam_15k_pdb_dir}")
 
