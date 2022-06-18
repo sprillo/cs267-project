@@ -1,5 +1,7 @@
 import argparse
+import logging
 import os
+import sys
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -26,6 +28,20 @@ try:
     multiprocessing.set_start_method("spawn")
 except RuntimeError:
     pass
+
+
+def init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+init_logger()
 
 
 def dp_likelihood_computation(
@@ -519,6 +535,13 @@ def compute_log_likelihoods(
         torch_num_threads: Number of threads to use in Pytorch. Pytorch is
             only used for irreversible models.
     """
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Going to compute likelihoods on {len(families)} families "
+        f"using {num_processes} processes. Output dir: "
+        f"{output_likelihood_dir}"
+    )
+
     if use_cpp_implementation:
         raise NotImplementedError
 
