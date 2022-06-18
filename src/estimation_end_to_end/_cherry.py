@@ -6,6 +6,8 @@ from src.estimation import jtt_ipw, quantized_transitions_mle
 from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids
 from src.markov_chain import get_equ_path, get_equ_x_equ_path
+from src.evaluation import create_maximal_matching_contact_map
+from src.benchmarking.pfam_15k import compute_contact_maps
 
 
 def cherry_estimator(
@@ -145,7 +147,7 @@ def cherry_estimator_coevolution(
     use_cpp_counting_implementation: bool = True,
     device: str = "cpu",
     learning_rate: float = 1e-1,
-    num_epochs: int = 2000,
+    num_epochs: int = 500,
     do_adam: bool = True,
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
@@ -155,6 +157,7 @@ def cherry_estimator_coevolution(
     num_processes_optimization: Optional[int] = 8,
     optimizer_initialization: str = "jtt-ipw",
     optimizer_return_best_iter: bool = True,
+    use_maximal_matching: bool = False,
 ) -> Dict:
     """
     Cherry estimator for coevolution.
@@ -195,6 +198,17 @@ def cherry_estimator_coevolution(
         ] = tree_estimator_output_dirs
 
         mdnc = minimum_distance_for_nontrivial_contact
+
+        if use_maximal_matching:
+            # Need to compute a maximal matching instead of using the whole
+            # contact maps
+            contact_map_dir = create_maximal_matching_contact_map(
+                i_contact_map_dir=contact_map_dir,
+                families=families,
+                minimum_distance_for_nontrivial_contact=mdnc,
+                num_processes=num_processes_counting,
+            )["o_contact_map_dir"]
+
         count_matrices_dir = count_co_transitions(
             tree_dir=tree_estimator_output_dirs["output_tree_dir"],
             msa_dir=msa_dir,
