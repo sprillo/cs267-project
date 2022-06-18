@@ -257,7 +257,9 @@ def count_co_transitions(
             command += f" {output_count_matrices_dir}"
             command += f" {cpp_command_line_suffix}"
             logger.info(
-                f"Going to run C++ implementation on {len(families)} families"
+                f"Going to run C++ implementation on {len(families)} families "
+                f"using {num_processes} ranks. Output dir: "
+                f"{output_count_matrices_dir}"
             )
             os.system(command)
 

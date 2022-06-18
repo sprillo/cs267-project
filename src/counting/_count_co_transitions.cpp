@@ -513,6 +513,8 @@ int main(int argc, char *argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
 
+    auto time_start = std::chrono::high_resolution_clock::now();
+
     string tree_dir = argv[1];
     string msa_dir = argv[2];
     string contact_map_dir = argv[3];
@@ -539,6 +541,16 @@ int main(int argc, char *argv[]) {
     int minimum_distance_for_nontrivial_contact = atoi(argv[7 + 1 + num_of_amino_acids + num_quantization_points + 1]);
     string output_count_matrices_dir = argv[7 + 1 + num_of_amino_acids + num_quantization_points + 2];
     
+    std::string outputfilename = output_count_matrices_dir + "/" + "profiling.txt";
+    std::ofstream outprofilingfile;
+    if (my_rank == 0) {
+        outprofilingfile.open(outputfilename);
+    }
+
+    std::string outputfilename_local =  output_count_matrices_dir + "/profiling_" + std::to_string(my_rank) + ".txt";
+    std::ofstream outprofilingfile_local;
+    outprofilingfile_local.open(outputfilename_local);
+
     // Assign families to each rank.
     std::vector<std::string> local_families;
     for (int i = my_rank; i < num_of_families; i += num_procs) {
@@ -565,10 +577,23 @@ int main(int argc, char *argv[]) {
         minimum_distance_for_nontrivial_contact,
         output_count_matrices_dir
     );
+    auto time_local_counting_done = std::chrono::high_resolution_clock::now();
+    double count_local_time = std::chrono::duration<double>(time_local_counting_done - time_start).count();
+    outprofilingfile_local << "Finish counting locally in " << count_local_time << " seconds." << std::endl;
 
     // cerr << "Rank " << my_rank << " done counting transitions" << endl;
 
+    outprofilingfile_local << "Waiting at barrier" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
+
+    auto time_barrier_done = std::chrono::high_resolution_clock::now();
+    double barrier_local_time = std::chrono::duration<double>(time_barrier_done - time_local_counting_done).count();
+    outprofilingfile_local << "Done barrier after " << barrier_local_time << " second." << std::endl;
+
+    if (my_rank == 0) {
+        double count_time = std::chrono::duration<double>(time_barrier_done - time_start).count();
+        outprofilingfile << "Finish counting in " << count_time << " seconds." << std::endl;
+    }
 
     if(my_rank == 0){
         // need to merge outputs
@@ -588,6 +613,16 @@ int main(int argc, char *argv[]) {
         }
         write_count_matrices(res, output_count_matrices_dir + "/result.txt");
     }
+
+    auto time_outputs_reduced = std::chrono::high_resolution_clock::now();
+    if (my_rank == 0) {
+        double reduce_time = std::chrono::duration<double>(time_outputs_reduced - time_barrier_done).count();
+        double entire_time = std::chrono::duration<double>(time_outputs_reduced - time_start).count();
+        outprofilingfile << "Finish reducing in " << reduce_time << " seconds." << std::endl;
+        outprofilingfile << "Finish the entire program in " << entire_time << " seconds." << std::endl;
+        outprofilingfile.close();
+    }
+    outprofilingfile_local.close();
 
     MPI_Finalize();
 
