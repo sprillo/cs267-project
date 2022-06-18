@@ -545,7 +545,7 @@ int main(int argc, char *argv[]) {
     std::ofstream outprofilingfile;
     if (my_rank == 0) {
         outprofilingfile.open(outputfilename);
-        outprofilingfile << "Starting with " << num_procs << " ranks." << std::endl;
+        outprofilingfile << "Starting with " << num_procs << " ranks on " << families.size() << " families." << std::endl;
     }
 
     std::string outputfilename_local =  output_count_matrices_dir + "/profiling_" + std::to_string(my_rank) + ".txt";
