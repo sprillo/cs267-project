@@ -21,17 +21,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from src.markov_chain import compute_stationary_distribution, matrix_exponential
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution
+from src.markov_chain import compute_stationary_distribution, matrix_exponential, normalized, compute_mutation_rate
+from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix
 from src.estimation import quantized_transitions_mle
 from matplotlib.colors import LogNorm
 from src.estimation import jtt_ipw
 from src.phylogeny_estimation import fast_tree
 from src.types import PhylogenyEstimatorType
-from src.evaluation import compute_log_likelihoods
+from src.evaluation import compute_log_likelihoods, create_maximal_matching_contact_map
 
 from src import caching, cherry_estimator, cherry_estimator_coevolution
 from src.benchmarking.pfam_15k import (
+    compute_contact_maps,
     get_families,
     get_families_within_cutoff,
     simulate_ground_truth_data_coevolution,
@@ -1179,7 +1180,7 @@ def fig_convergence_on_large_data_single_site__variance():
 
     Q_numpy = read_rate_matrix(get_lg_path()).to_numpy()
 
-    num_processes = 32  # TODO: 2
+    num_processes = 2
     num_sequences = (
         1024
     )
@@ -2261,7 +2262,7 @@ def fig_pair_site_quantization_error():
     minimum_distance_for_nontrivial_contact = (
         7
     )
-    num_epochs = 500  # TODO: 2000
+    num_epochs = 500
     angstrom_cutoff = 8.0
 
     caching.set_cache_dir("_cache_benchmarking")
@@ -2468,6 +2469,19 @@ def get_stationary_distribution(
     write_probability_distribution(pi, rate_matrix.index, os.path.join(output_probability_distribution_dir, "result.txt"))
 
 
+@caching.cached_computation(
+    output_dirs=["output_rate_matrix_dir"],
+)
+def normalize_rate_matrix(
+    rate_matrix_path: str,
+    new_rate: float,
+    output_rate_matrix_dir: Optional[str] = None,
+):
+    rate_matrix = read_rate_matrix(rate_matrix_path)
+    normalized_rate_matrix = new_rate * normalized(rate_matrix.to_numpy())
+    write_rate_matrix(normalized_rate_matrix, rate_matrix.index, os.path.join(output_rate_matrix_dir, "result.txt"))
+
+
 def evaluate_single_site_model_on_held_out_msas(
     msa_dir: str,
     families: List[str],
@@ -2518,10 +2532,65 @@ def evaluate_single_site_model_on_held_out_msas(
     return np.sum(lls)
 
 
+def evaluate_pair_site_model_on_held_out_msas(
+    msa_dir: str,
+    contact_map_dir: str,
+    families: List[str],
+    rate_matrix_1_path: str,
+    rate_matrix_2_path: str,
+    num_processes: int,
+    tree_estimator: PhylogenyEstimatorType,
+):
+    """
+    Evaluate a reversible single-site model and coevolution model on held out
+    msas.
+    """
+    # First estimate the trees
+    tree_estimator_output_dirs = tree_estimator(
+        msa_dir=msa_dir,
+        families=families,
+        rate_matrix_path=rate_matrix_1_path,
+        num_processes=num_processes,
+    )
+    tree_dir = tree_estimator_output_dirs["output_tree_dir"]
+    site_rates_dir = tree_estimator_output_dirs["output_site_rates_dir"]
+    output_probability_distribution_1_dir = get_stationary_distribution(
+        rate_matrix_path=rate_matrix_1_path,
+    )["output_probability_distribution_dir"]
+    pi_1_path = os.path.join(output_probability_distribution_1_dir, "result.txt")
+    output_probability_distribution_2_dir = get_stationary_distribution(
+        rate_matrix_path=rate_matrix_2_path,
+    )["output_probability_distribution_dir"]
+    pi_2_path = os.path.join(output_probability_distribution_2_dir, "result.txt")
+    output_likelihood_dir = compute_log_likelihoods(
+        tree_dir=tree_dir,
+        msa_dir=msa_dir,
+        site_rates_dir=site_rates_dir,
+        contact_map_dir=contact_map_dir,
+        families=families,
+        amino_acids=utils.get_amino_acids(),
+        pi_1_path=pi_1_path,
+        Q_1_path=rate_matrix_1_path,
+        reversible_1=True,
+        device_1="cpu",
+        pi_2_path=pi_2_path,
+        Q_2_path=rate_matrix_2_path,
+        reversible_2=True,
+        device_2="cpu",
+        num_processes=num_processes,
+        use_cpp_implementation=False,
+        OMP_NUM_THREADS=1,
+        OPENBLAS_NUM_THREADS=1,
+    )["output_likelihood_dir"]
+    lls = []
+    for family in families:
+        ll = read_log_likelihood(os.path.join(output_likelihood_dir, f"{family}.txt"))
+        lls.append(ll[0])
+    return np.sum(lls)
+
+
 def fig_pfam15k():
     """
-    TODO: WIP
-
     We use 12K families for training and 3K for testing.
 
     We fit trees with LG and then learn a single-site model (Cherry) and a
@@ -2546,7 +2615,11 @@ def fig_pfam15k():
     num_families_test = 3000
     train_test_split_seed = 0
     use_cpp_implementation = True
-    num_rate_categories = 4  # To be fair with LG, since LG was trained with 4 rate categories
+    num_rate_categories = 1  #  TODO: 4  To be fair with LG, since LG was trained with 4 rate categories
+    use_Q_best = True
+    angstrom_cutoff = 8.0
+    minimum_distance_for_nontrivial_contact = 7
+    use_maximal_matching = True
 
     families_all = get_families(
         pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
@@ -2572,7 +2645,6 @@ def fig_pfam15k():
     )["output_msa_dir"]
 
     # Run the cherry method using FastTree tree estimator
-    use_Q_best = True
     cherry_path = cherry_estimator(
         msa_dir=msa_dir_train,
         families=families_train,
@@ -2600,9 +2672,9 @@ def fig_pfam15k():
     lg = read_rate_matrix(get_lg_path()).to_numpy()
 
     # Now compare matrices
-    print(f"TODO: Compare LG and Cherry. Evaluate held-out likelihood.")
-
+    print("Cherry topleft 3x3 corner:")
     print(cherry[:3, :3])
+    print("LG topleft 3x3 corner:")
     print(lg[:3, :3])
 
     # Subsample the MSAs
@@ -2613,7 +2685,14 @@ def fig_pfam15k():
         num_processes=num_processes,
     )["output_msa_dir"]
 
-    for rate_matrix_path in [get_lg_path(), cherry_path, get_equ_path(), get_jtt_path(), get_wag_path()]:
+    for rate_matrix_name, rate_matrix_path in [
+        ("EQU", get_equ_path()),
+        ("JTT", get_jtt_path()),
+        ("WAG", get_wag_path()),
+        ("LG", get_lg_path()),
+        ("Cherry", cherry_path),
+    ]:
+        print(f"***** Evaluating: {rate_matrix_name} ({num_rate_categories} rate categories) *****")
         ll = evaluate_single_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             families=families_test,
@@ -2624,4 +2703,86 @@ def fig_pfam15k():
                 num_rate_categories=num_rate_categories,
             ),
         )
-        print(f"ll for {rate_matrix_path} = {ll}")
+        print(f"ll for {rate_matrix_name} = {ll}")
+
+    ##### Now estimate and evaluate the coevolution model #####
+    contact_map_dir_train = compute_contact_maps(
+        pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
+        families=families_train,
+        angstrom_cutoff=angstrom_cutoff,
+        num_processes=num_processes,
+    )["output_contact_map_dir"]
+
+    mdnc = minimum_distance_for_nontrivial_contact
+    cherry_2_path = cherry_estimator_coevolution(
+        msa_dir=msa_dir_train,
+        contact_map_dir=contact_map_dir_train,
+        minimum_distance_for_nontrivial_contact=mdnc,
+        coevolution_mask_path=get_aa_coevolution_mask_path(),
+        families=families_train,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=num_rate_categories,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_processes=num_processes,
+        quantization_grid_center=0.03,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=64,
+        learning_rate=1e-1,
+        num_epochs=500,
+        do_adam=True,
+        use_cpp_counting_implementation=use_cpp_implementation,
+        num_processes_optimization=8,
+        optimizer_return_best_iter=use_Q_best,
+        use_maximal_matching=use_maximal_matching,
+    )["learned_rate_matrix_path"]
+
+    cherry_2_normalized_to_rate_of_2_x_cherry__path = os.path.join(
+        normalize_rate_matrix(
+            rate_matrix_path=cherry_2_path,
+            new_rate=2.0 * compute_mutation_rate(read_rate_matrix(cherry_path).to_numpy())
+        )["output_rate_matrix_dir"],
+        "result.txt",
+    )
+
+    cherry_2_normalized_to_rate_2__path = os.path.join(
+        normalize_rate_matrix(
+            rate_matrix_path=cherry_2_path,
+            new_rate=2.0
+        )["output_rate_matrix_dir"],
+        "result.txt",
+    )
+
+    contact_map_dir_test = compute_contact_maps(
+        pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
+        families=families_test,
+        angstrom_cutoff=angstrom_cutoff,
+        num_processes=num_processes,
+    )["output_contact_map_dir"]
+    contact_map_dir_test = create_maximal_matching_contact_map(
+        i_contact_map_dir=contact_map_dir_test,
+        families=families_test,
+        minimum_distance_for_nontrivial_contact=mdnc,
+        num_processes=num_processes,
+    )["o_contact_map_dir"]
+
+    for rate_matrix_2_name, rate_matrix_2_path in [
+        ("Cherry2", cherry_2_path),
+        ("Cherry2 normalized to rate of 2 x Cherry", cherry_2_normalized_to_rate_of_2_x_cherry__path),
+        ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),
+    ]:
+        print(f"***** Evaluating: {rate_matrix_2_name} ({num_rate_categories} rate categories) *****")
+        ll = evaluate_pair_site_model_on_held_out_msas(
+            msa_dir=msa_dir_test,
+            contact_map_dir=contact_map_dir_test,
+            families=families_test,
+            rate_matrix_1_path=cherry_path,
+            rate_matrix_2_path=rate_matrix_2_path,
+            num_processes=num_processes,
+            tree_estimator=partial(
+                fast_tree,
+                num_rate_categories=num_rate_categories,
+            ),
+        )
+        print(f"ll for {rate_matrix_2_name} = {ll}")
