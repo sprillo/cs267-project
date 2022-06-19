@@ -1,6 +1,7 @@
 from ._markov_chain import (
     FactorizedReversibleModel,
     chain_product,
+    compute_mutation_rate,
     compute_stationary_distribution,
     equ_matrix,
     get_aa_coevolution_mask_path,

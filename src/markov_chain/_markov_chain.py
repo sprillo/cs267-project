@@ -239,9 +239,14 @@ def chain_product(rate_matrix_1: np.array, rate_matrix_2: np.array) -> np.array:
     return product_matrix
 
 
-def normalized(rate_matrix: np.array) -> np.array:
+def compute_mutation_rate(rate_matrix: np.array) -> float:
     pi = compute_stationary_distribution(rate_matrix)
     mutation_rate = pi @ -np.diag(rate_matrix)
+    return mutation_rate
+
+
+def normalized(rate_matrix: np.array) -> np.array:
+    mutation_rate = compute_mutation_rate(rate_matrix)
     res = rate_matrix / mutation_rate
     return res
 
