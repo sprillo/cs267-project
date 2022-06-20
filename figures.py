@@ -2838,6 +2838,8 @@ def fig_pfam15k():
         # ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),  # Pointless: Cherry2 is the right thing to do
     ]:
         print(f"***** Evaluating: {rate_matrix_2_name} ({num_rate_categories} rate categories) *****")
+        if num_rate_categories > 1:
+            print("***** TODO: It is unclear to me whether the evaluation makes sense when num_rate_categories > 1, because of unidentifiability between site rates and branch lengths, and the fact that we are using branch lengths as the time unit for the coevolution models. In other words, we might be unfair with the coevolution model *****")
         ll = evaluate_pair_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             contact_map_dir=contact_map_dir_test,
