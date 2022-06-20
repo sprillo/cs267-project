@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from src.markov_chain import compute_stationary_distribution, matrix_exponential, normalized, compute_mutation_rate
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix
+from src.markov_chain import compute_stationary_distribution, matrix_exponential, normalized, compute_mutation_rate, chain_product
+from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates
 from src.estimation import quantized_transitions_mle
 from matplotlib.colors import LogNorm
 from src.estimation import jtt_ipw
@@ -2482,6 +2482,23 @@ def normalize_rate_matrix(
     write_rate_matrix(normalized_rate_matrix, rate_matrix.index, os.path.join(output_rate_matrix_dir, "result.txt"))
 
 
+@caching.cached_computation(
+    output_dirs=["output_rate_matrix_dir"],
+)
+def chain_product_cached(
+    rate_matrix_1_path: str,
+    rate_matrix_2_path: str,
+    output_rate_matrix_dir: Optional[str] = None,
+):
+    rate_matrix_1 = read_rate_matrix(rate_matrix_1_path)
+    rate_matrix_2 = read_rate_matrix(rate_matrix_2_path)
+    res = chain_product(rate_matrix_1.to_numpy(), rate_matrix_2.to_numpy())
+    if list(rate_matrix_1.index) != list(rate_matrix_2.index):
+        raise Exception(f"Double-check that the states are being computed correctly in the code.")
+    states = [state_1 + state_2 for state_1 in rate_matrix_1.index for state_2 in rate_matrix_2.index]
+    write_rate_matrix(res, states, os.path.join(output_rate_matrix_dir, "result.txt"))
+
+
 def evaluate_single_site_model_on_held_out_msas(
     msa_dir: str,
     families: List[str],
@@ -2705,7 +2722,7 @@ def fig_pfam15k():
         )
         print(f"ll for {rate_matrix_name} = {ll}")
 
-    ##### Now estimate and evaluate the coevolution model #####
+    # Run the single-site cherry method *ONLY ON CONTACTING SITES*
     contact_map_dir_train = compute_contact_maps(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
         families=families_train,
@@ -2714,6 +2731,52 @@ def fig_pfam15k():
     )["output_contact_map_dir"]
 
     mdnc = minimum_distance_for_nontrivial_contact
+    cherry_contact_path = cherry_estimator(
+        msa_dir=msa_dir_train,
+        families=families_train,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=num_rate_categories,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_iterations=1,
+        num_processes=num_processes,
+        quantization_grid_center=0.03,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=64,
+        learning_rate=1e-1,
+        num_epochs=2000,
+        do_adam=True,
+        use_cpp_counting_implementation=use_cpp_implementation,
+        num_processes_optimization=2,
+        optimizer_return_best_iter=use_Q_best,
+        use_only_contacting_sites_in_optimizer=True,
+        contact_map_dir=contact_map_dir_train,
+        minimum_distance_for_nontrivial_contact=mdnc,
+    )["learned_rate_matrix_path"]
+    cherry_contact = read_rate_matrix(
+        cherry_contact_path
+    ).to_numpy()
+    print("Cherry contact topleft 3x3 corner:")
+    print(cherry_contact[:3, :3])
+
+    cherry_contact_squared_path = os.path.join(
+        chain_product_cached(
+            rate_matrix_1_path=cherry_contact_path,
+            rate_matrix_2_path=cherry_contact_path,
+        )["output_rate_matrix_dir"],
+        "result.txt"
+    )
+
+    # cherry_squared_path = os.path.join(
+    #     chain_product_cached(
+    #         rate_matrix_1_path=cherry_path,
+    #         rate_matrix_2_path=cherry_path,
+    #     )["output_rate_matrix_dir"],
+    #     "result.txt"
+    # )
+
+    ##### Now estimate and evaluate the coevolution model #####
     cherry_2_path = cherry_estimator_coevolution(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
@@ -2738,21 +2801,21 @@ def fig_pfam15k():
         use_maximal_matching=use_maximal_matching,
     )["learned_rate_matrix_path"]
 
-    cherry_2_normalized_to_rate_of_2_x_cherry__path = os.path.join(
-        normalize_rate_matrix(
-            rate_matrix_path=cherry_2_path,
-            new_rate=2.0 * compute_mutation_rate(read_rate_matrix(cherry_path).to_numpy())
-        )["output_rate_matrix_dir"],
-        "result.txt",
-    )
+    # cherry_2_normalized_to_rate_of_2_x_cherry__path = os.path.join(
+    #     normalize_rate_matrix(
+    #         rate_matrix_path=cherry_2_path,
+    #         new_rate=2.0 * compute_mutation_rate(read_rate_matrix(cherry_path).to_numpy())
+    #     )["output_rate_matrix_dir"],
+    #     "result.txt",
+    # )
 
-    cherry_2_normalized_to_rate_2__path = os.path.join(
-        normalize_rate_matrix(
-            rate_matrix_path=cherry_2_path,
-            new_rate=2.0
-        )["output_rate_matrix_dir"],
-        "result.txt",
-    )
+    # cherry_2_normalized_to_rate_2__path = os.path.join(
+    #     normalize_rate_matrix(
+    #         rate_matrix_path=cherry_2_path,
+    #         new_rate=2.0
+    #     )["output_rate_matrix_dir"],
+    #     "result.txt",
+    # )
 
     contact_map_dir_test = compute_contact_maps(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
@@ -2768,9 +2831,11 @@ def fig_pfam15k():
     )["o_contact_map_dir"]
 
     for rate_matrix_2_name, rate_matrix_2_path in [
+        # ("Cherry squared", cherry_squared_path),  # DEBUG: Should give same result as single-site Cherry
+        ("Cherry contact squared", cherry_contact_squared_path),  # Fair baseline to compare coevolution likelihood against.
         ("Cherry2", cherry_2_path),
-        ("Cherry2 normalized to rate of 2 x Cherry", cherry_2_normalized_to_rate_of_2_x_cherry__path),
-        ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),
+        # ("Cherry2 normalized to rate of 2 x Cherry", cherry_2_normalized_to_rate_of_2_x_cherry__path),  # Pointless: Cherry2 is the right thing to do
+        # ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),  # Pointless: Cherry2 is the right thing to do
     ]:
         print(f"***** Evaluating: {rate_matrix_2_name} ({num_rate_categories} rate categories) *****")
         ll = evaluate_pair_site_model_on_held_out_msas(
