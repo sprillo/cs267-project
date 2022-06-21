@@ -12,8 +12,11 @@ Prerequisites:
 The caching directories which contain all subsequent data are _cache_benchmarking
 and _cache_lg_paper. You can similarly use a symbolic link to point to these.
 """
+import logging
+import multiprocessing
 import os
 from functools import partial
+import sys
 import tempfile
 from typing import Dict, List, Optional
 
@@ -21,8 +24,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import tqdm
 from src.markov_chain import compute_stationary_distribution, matrix_exponential, normalized, compute_mutation_rate, chain_product
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates
+from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates, read_sites_subset, write_sites_subset, read_contact_map
 from src.estimation import quantized_transitions_mle
 from matplotlib.colors import LogNorm
 from src.estimation import jtt_ipw
@@ -59,7 +63,23 @@ from src.markov_chain import (
     normalized,
 )
 from src.phylogeny_estimation import gt_tree_estimator
+from src.utils import get_process_args
 import src.utils as utils
+
+
+def _init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
+
 
 PFAM_15K_MSA_DIR = "input_data/a3m"
 PFAM_15K_PDB_DIR = "input_data/pdb"
@@ -2642,6 +2662,87 @@ def evaluate_pair_site_model_on_held_out_msas(
     return np.sum(lls)
 
 
+def _map_func_compute_contacting_sites(args: List) -> None:
+    contact_map_dir = args[0]
+    minimum_distance_for_nontrivial_contact = args[1]
+    families = args[2]
+    output_sites_subset_dir = args[3]
+
+    for family in families:
+        contact_map_path = os.path.join(contact_map_dir, family + ".txt")
+        contact_map = read_contact_map(contact_map_path)
+
+        contacting_pairs = list(zip(*np.where(contact_map == 1)))
+        contacting_pairs = [
+            (i, j)
+            for (i, j) in contacting_pairs
+            if abs(i - j) >= minimum_distance_for_nontrivial_contact and i < j
+        ]
+        contacting_sites = sorted(list(set(sum(contacting_pairs, ()))))
+        # This exception below is not needed because downstream code (counting transitions)
+        # has no issue with this border case.
+        # if len(contacting_sites) == 0:
+        #     raise Exception(
+        #         f"Family {family} has no nontrivial contacting sites. "
+        #         "This would lead to an empty subset."
+        #     )
+
+        write_sites_subset(
+            contacting_sites,
+            os.path.join(output_sites_subset_dir, family + ".txt")
+        )
+
+        caching.secure_parallel_output(output_sites_subset_dir, family)
+
+
+@caching.cached_parallel_computation(
+    exclude_args=["num_processes"],
+    parallel_arg="families",
+    output_dirs=["output_sites_subset_dir"],
+)
+def _compute_contacting_sites(
+    contact_map_dir: str,
+    minimum_distance_for_nontrivial_contact: int,
+    families: List[str],
+    num_processes: int = 1,
+    output_sites_subset_dir: Optional[str] = None,
+):
+    logger = logging.getLogger(__name__)
+    logger.info(
+        f"Subsetting sites to contacting sites on {len(families)} families "
+        f"using {num_processes} processes. "
+        f"output_sites_subset_dir: {output_sites_subset_dir}"
+    )
+
+    map_args = [
+        [
+            contact_map_dir,
+            minimum_distance_for_nontrivial_contact,
+            get_process_args(process_rank, num_processes, families),
+            output_sites_subset_dir,
+        ]
+        for process_rank in range(num_processes)
+    ]
+
+    if num_processes > 1:
+        with multiprocessing.Pool(num_processes) as pool:
+            list(
+                tqdm.tqdm(
+                    pool.imap(_map_func_compute_contacting_sites, map_args),
+                    total=len(map_args),
+                )
+            )
+    else:
+        list(
+            tqdm.tqdm(
+                map(_map_func_compute_contacting_sites, map_args),
+                total=len(map_args),
+            )
+        )
+
+    logger.info("Computing contacting sites done!")
+
+
 def fig_pfam15k(
     num_rate_categories: int = 4,  # To be fair with LG, since LG was trained with 4 rate categories
 ):
@@ -2745,7 +2846,7 @@ def fig_pfam15k(
 
     log_likelihoods = []  # type: List[Tuple[str, float]]
     single_site_rate_matrices = [
-        # ("EQU", get_equ_path()),
+        ("EQU", get_equ_path()),
         ("JTT", get_jtt_path()),
         ("WAG", get_wag_path()),
         ("LG", get_lg_path()),
@@ -2776,6 +2877,13 @@ def fig_pfam15k(
     )["output_contact_map_dir"]
 
     mdnc = minimum_distance_for_nontrivial_contact
+    contacting_sites_dir = _compute_contacting_sites(
+        contact_map_dir=contact_map_dir_train,
+        minimum_distance_for_nontrivial_contact=mdnc,
+        families=families_train,
+        num_processes=num_processes,
+    )["output_sites_subset_dir"]
+
     cherry_contact_path = cherry_estimator(
         msa_dir=msa_dir_train,
         families=families_train,
@@ -2795,9 +2903,7 @@ def fig_pfam15k(
         use_cpp_counting_implementation=use_cpp_implementation,
         num_processes_optimization=2,
         optimizer_return_best_iter=use_best_iterate,
-        use_only_contacting_sites_in_optimizer=True,
-        contact_map_dir=contact_map_dir_train,
-        minimum_distance_for_nontrivial_contact=mdnc,
+        sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
     cherry_contact = read_rate_matrix(
         cherry_contact_path

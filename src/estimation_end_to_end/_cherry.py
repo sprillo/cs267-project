@@ -9,7 +9,7 @@ import tqdm
 
 from src.counting import count_co_transitions, count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates, read_contact_map
+from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates, read_contact_map, read_sites_subset, write_sites_subset
 from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids, get_process_args
 from src.markov_chain import get_equ_path, get_equ_x_equ_path
@@ -32,42 +32,33 @@ def _init_logger():
 _init_logger()
 
 
-def _map_func_subset_sites_to_contacting_sites(args: List) -> None:
-    msa_dir = args[0]
-    site_rates_dir = args[1]
-    contact_map_dir = args[2]
-    minimum_distance_for_nontrivial_contact = args[3]
-    families = args[4]
-    output_msa_dir = args[5]
-    output_site_rates_dir = args[6]
+def _map_func_subset_data_to_sites_subset(args: List) -> None:
+    sites_subset_dir = args[0]
+    msa_dir = args[1]
+    site_rates_dir = args[2]
+    families = args[3]
+    output_msa_dir = args[4]
+    output_site_rates_dir = args[5]
 
     for family in families:
+        sites_subset_path = os.path.join(sites_subset_dir, family + ".txt")
+        sites_subset = read_sites_subset(sites_subset_path)
+        # This exception below is not needed because downstream code (counting transitions)
+        # has no issue with this border case.
+        # if len(sites_subset) == 0:
+        #     raise Exception(
+        #         f"Family {family} has no nontrivial contacting sites. "
+        #         "This would lead to an empty MSA."
+        #     )
+
         input_msa_path = os.path.join(msa_dir, family + ".txt")
         msa = read_msa(input_msa_path)
 
         input_site_rates_path = os.path.join(site_rates_dir, family + ".txt")
         site_rates = read_site_rates(input_site_rates_path)
 
-        contact_map_path = os.path.join(contact_map_dir, family + ".txt")
-        contact_map = read_contact_map(contact_map_path)
-
-        contacting_pairs = list(zip(*np.where(contact_map == 1)))
-        contacting_pairs = [
-            (i, j)
-            for (i, j) in contacting_pairs
-            if abs(i - j) >= minimum_distance_for_nontrivial_contact and i < j
-        ]
-        contacting_sites = sorted(list(set(sum(contacting_pairs, ()))))
-        # This exception below is not needed because downstream code (counting transitions)
-        # has no issue with this border case.
-        # if len(contacting_sites) == 0:
-        #     raise Exception(
-        #         f"Family {family} has no nontrivial contacting sites. "
-        #         "This would lead to an empty MSA."
-        #     )
-
         new_msa = {
-            sequence_name: ''.join([sequence[site] for site in contacting_sites])
+            sequence_name: ''.join([sequence[site] for site in sites_subset])
             for (sequence_name, sequence) in msa.items()
         }
         write_msa(
@@ -75,7 +66,7 @@ def _map_func_subset_sites_to_contacting_sites(args: List) -> None:
             os.path.join(output_msa_dir, family + ".txt")
         )
 
-        new_site_rates = [site_rates[site] for site in contacting_sites]
+        new_site_rates = [site_rates[site] for site in sites_subset]
         write_site_rates(
             new_site_rates,
             os.path.join(output_site_rates_dir, family + ".txt")
@@ -90,11 +81,10 @@ def _map_func_subset_sites_to_contacting_sites(args: List) -> None:
     parallel_arg="families",
     output_dirs=["output_msa_dir", "output_site_rates_dir"],
 )
-def _subset_sites_to_contacting_sites(
+def _subset_data_to_sites_subset(
+    sites_subset_dir: str,
     msa_dir: str,
     site_rates_dir: str,
-    contact_map_dir: str,
-    minimum_distance_for_nontrivial_contact: int,
     families: List[str],
     num_processes: int = 1,
     output_msa_dir: Optional[str] = None,
@@ -102,17 +92,16 @@ def _subset_sites_to_contacting_sites(
 ):
     logger = logging.getLogger(__name__)
     logger.info(
-        f"Subsetting sites to contacting sites on {len(families)} families "
+        f"Subsetting data to sites subset on {len(families)} families "
         f"using {num_processes} processes. output_msa_dir: {output_msa_dir} ; "
         f"output_site_rates_dir: {output_site_rates_dir}"
     )
 
     map_args = [
         [
+            sites_subset_dir,
             msa_dir,
             site_rates_dir,
-            contact_map_dir,
-            minimum_distance_for_nontrivial_contact,
             get_process_args(process_rank, num_processes, families),
             output_msa_dir,
             output_site_rates_dir,
@@ -124,19 +113,19 @@ def _subset_sites_to_contacting_sites(
         with multiprocessing.Pool(num_processes) as pool:
             list(
                 tqdm.tqdm(
-                    pool.imap(_map_func_subset_sites_to_contacting_sites, map_args),
+                    pool.imap(_map_func_subset_data_to_sites_subset, map_args),
                     total=len(map_args),
                 )
             )
     else:
         list(
             tqdm.tqdm(
-                map(_map_func_subset_sites_to_contacting_sites, map_args),
+                map(_map_func_subset_data_to_sites_subset, map_args),
                 total=len(map_args),
             )
         )
 
-    logger.info("Subsetting sites to contacting sites done!")
+    logger.info("Subsetting data to sites subset done!")
 
 
 def cherry_estimator(
@@ -162,15 +151,17 @@ def cherry_estimator(
     num_processes_optimization: Optional[int] = 2,
     optimizer_initialization: str = "jtt-ipw",
     optimizer_return_best_iter: bool = True,
-    use_only_contacting_sites_in_optimizer: bool = False,  # For a very particular experiment.
-    contact_map_dir: Optional[str] = None,  # For a very particular experiment.
-    minimum_distance_for_nontrivial_contact: Optional[int] = None,  # For a very particular experiment.
+    sites_subset_dir: Optional[str] = None,
 ) -> Dict:
     """
     Cherry estimator.
 
     Returns a dictionary with the directories to the intermediate outputs. In
-    particular, the learned rate matrix is indexed by "learned_rate_matrix_path"
+    particular, the learned rate matrix is indexed by "learned_rate_matrix_path".
+
+    One can train a model on only a subset of the sites by specifying sites_subset_dir.
+    This is a file containing the indices of the sites used for training. Note that
+    ALL the sites will the used when fitting the trees.
     """
     if num_processes_tree_estimation is None:
         num_processes_tree_estimation = num_processes
@@ -179,10 +170,10 @@ def cherry_estimator(
     if num_processes_optimization is None:
         num_processes_optimization = num_processes
 
-    if use_only_contacting_sites_in_optimizer and num_iterations > 1:
+    if sites_subset_dir is not None and num_iterations > 1:
         raise Exception(
             "You are doing more than 1 iteration while learning a model only"
-            "from contacting sites. This is most certainly a usage error."
+            "on a subset of sites. This is most certainly a usage error."
         )
 
     res = {}
@@ -208,14 +199,11 @@ def cherry_estimator(
             f"tree_estimator_output_dirs_{iteration}"
         ] = tree_estimator_output_dirs
 
-        if use_only_contacting_sites_in_optimizer:
-            assert(contact_map_dir is not None)
-            assert(minimum_distance_for_nontrivial_contact is not None)
-            res_dict = _subset_sites_to_contacting_sites(
+        if sites_subset_dir is not None:
+            res_dict = _subset_data_to_sites_subset(
+                sites_subset_dir=sites_subset_dir,
                 msa_dir=msa_dir,
                 site_rates_dir=tree_estimator_output_dirs["output_site_rates_dir"],
-                contact_map_dir=contact_map_dir,
-                minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
                 families=families,
                 num_processes=num_processes_counting,
             )
