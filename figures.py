@@ -2753,7 +2753,7 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_name, rate_matrix_path in single_site_rate_matrices:
-        print(f"***** Evaluating: {rate_matrix_name} ({num_rate_categories} rate categories) *****")
+        print(f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) *****")
         ll = evaluate_single_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             families=families_test,
@@ -2884,7 +2884,7 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_2_name, rate_matrix_2_path in pair_site_rate_matrices:
-        print(f"***** Evaluating: {rate_matrix_2_name} ({num_rate_categories} rate categories) *****")
+        print(f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) *****")
         if num_rate_categories > 1:
             print("***** TODO: It is unclear to me whether the evaluation makes sense when num_rate_categories > 1, because of unidentifiability between site rates and branch lengths, and the fact that we are using branch lengths as the time unit for the coevolution models. In other words, we might be unfair with the coevolution model *****")
         ll = evaluate_pair_site_model_on_held_out_msas(
