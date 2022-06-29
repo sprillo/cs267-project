@@ -435,6 +435,7 @@ def _map_func(args: Dict):
         )
         ll_path = os.path.join(output_likelihood_dir, family + ".txt")
         write_log_likelihood((ll, lls), ll_path)
+        caching.secure_parallel_output(output_likelihood_dir, family)
 
     profiling_str = f"Total time: {time.time() - st}\n"
     output_profiling_path = os.path.join(
