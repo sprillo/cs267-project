@@ -166,7 +166,7 @@ def count_co_transitions(
     edge_or_cherry: str,
     minimum_distance_for_nontrivial_contact: int,
     output_count_matrices_dir: Optional[str] = None,
-    num_processes: Optional[int] = 1,
+    num_processes: int = 1,
     use_cpp_implementation: bool = True,
     cpp_command_line_prefix: str = "",
     cpp_command_line_suffix: str = "",

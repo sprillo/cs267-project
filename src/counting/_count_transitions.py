@@ -141,7 +141,7 @@ def count_transitions(
     quantization_points: List[Union[str, float]],
     edge_or_cherry: bool,
     output_count_matrices_dir: Optional[str] = None,
-    num_processes: Optional[int] = 1,
+    num_processes: int = 1,
     use_cpp_implementation: bool = True,
     cpp_command_line_prefix: str = "",
     cpp_command_line_suffix: str = "",

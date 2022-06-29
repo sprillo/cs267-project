@@ -134,7 +134,7 @@ def cherry_estimator(
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
     num_iterations: int,
-    num_processes: Optional[int] = 2,
+    num_processes: int = 2,
     quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 64,
