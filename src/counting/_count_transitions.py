@@ -235,7 +235,9 @@ def count_transitions(
 
             # Remove auxiliary files
             for pid in range(num_processes):
-                result_pid_path = os.path.join(output_count_matrices_dir, f"result_{pid}.txt")
+                result_pid_path = os.path.join(
+                    output_count_matrices_dir, f"result_{pid}.txt"
+                )
                 if os.path.exists(result_pid_path):
                     os.remove(result_pid_path)
 

@@ -5,13 +5,13 @@ from typing import List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 import torch
 from torch.utils.data import TensorDataset
 
+from src.io import write_rate_matrix
+
 from .rate import RateMatrix
 from .trainer import train_quantization
-from src.io import write_rate_matrix
 
 
 def solve_stationery_dist(rate_matrix):
@@ -152,9 +152,7 @@ class RateMatrixLearner:
         Q_dict = self.Q_dict
         for key, value in Q_dict.items():
             write_rate_matrix(
-                value,
-                states,
-                os.path.join(output_dir, key + ".txt")
+                value, states, os.path.join(output_dir, key + ".txt")
             )
 
         self.df_res.to_csv(os.path.join(output_dir, "df_res.txt"))

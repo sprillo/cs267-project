@@ -9,31 +9,25 @@ Prerequisites:
 - input_data/pdb should point to the trRosetta structures (e.g. via a symbolic
     link)
 
-The caching directories which contain all subsequent data are _cache_benchmarking
-and _cache_lg_paper. You can similarly use a symbolic link to point to these.
+The caching directories which contain all subsequent data are
+_cache_benchmarking and _cache_lg_paper. You can similarly use a symbolic link
+to point to these.
 """
 import logging
 import multiprocessing
 import os
-from functools import partial
 import sys
-import tempfile
-from typing import Dict, List, Optional
+from functools import partial
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import tqdm
-from src.markov_chain import compute_stationary_distribution, matrix_exponential, normalized, compute_mutation_rate, chain_product
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates, read_sites_subset, write_sites_subset, read_contact_map
-from src.estimation import quantized_transitions_mle
 from matplotlib.colors import LogNorm
-from src.estimation import jtt_ipw
-from src.phylogeny_estimation import fast_tree
-from src.types import PhylogenyEstimatorType
-from src.evaluation import compute_log_likelihoods, create_maximal_matching_contact_map
 
+import src.utils as utils
 from src import caching, cherry_estimator, cherry_estimator_coevolution
 from src.benchmarking.pfam_15k import (
     compute_contact_maps,
@@ -43,28 +37,40 @@ from src.benchmarking.pfam_15k import (
     simulate_ground_truth_data_single_site,
     subsample_pfam_15k_msas,
 )
+from src.estimation import quantized_transitions_mle
 from src.evaluation import (
-    l_infty_norm,
-    mean_relative_error,
-    mre,
+    compute_log_likelihoods,
+    create_maximal_matching_contact_map,
     plot_rate_matrix_predictions,
     relative_errors,
-    rmse,
 )
-from src.io import read_count_matrices, read_mask_matrix, read_rate_matrix
+from src.io import (
+    read_contact_map,
+    read_count_matrices,
+    read_log_likelihood,
+    read_mask_matrix,
+    read_rate_matrix,
+    write_count_matrices,
+    write_probability_distribution,
+    write_rate_matrix,
+    write_sites_subset,
+)
 from src.markov_chain import (
+    chain_product,
+    compute_stationary_distribution,
     get_aa_coevolution_mask_path,
     get_equ_path,
     get_equ_x_equ_path,
     get_jtt_path,
-    get_wag_path,
     get_lg_path,
     get_lg_x_lg_path,
+    get_wag_path,
+    matrix_exponential,
     normalized,
 )
-from src.phylogeny_estimation import gt_tree_estimator
+from src.phylogeny_estimation import fast_tree, gt_tree_estimator
+from src.types import PhylogenyEstimatorType
 from src.utils import get_process_args
-import src.utils as utils
 
 
 def _init_logger():
@@ -128,7 +134,7 @@ def add_annotations_to_violinplot(
     plt.tight_layout()
 
 
-##### Draft figures (still need work) #####
+# Draft figures (still need work) #
 
 # def fig_pair_site_number_of_families():
 #     output_image_dir = "images/fig_pair_site_number_of_families"
@@ -212,7 +218,7 @@ def add_annotations_to_violinplot(
 #             families_test = families_all[-num_families_test:]
 #         print(f"len(families_all) = {len(families_all)}")
 #         if num_families_train + num_families_test > len(families_all):
-#             raise Exception(f"Training and testing set would overlap!")
+#             raise Exception("Training and testing set would overlap!")
 #         assert len(set(families_train + families_test)) == len(
 #             families_train
 #         ) + len(families_test)
@@ -434,23 +440,16 @@ def fig_single_site_learning_rate_robustness():
         os.makedirs(output_image_dir)
 
     num_processes = 1
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
-    # for num_families_train in [1024, 2048, 512, 256, 128, 4096, 8192, 15051, 64, 32, 16, 8, 4, 2, 1]:
-    # for num_families_train in [1024, 2048, 512, 256, 128, 4096, 8192, 64, 32, 16, 8, 4, 2, 1]:
-    # for num_families_train in [1024, 2048, 4096, 8192, 15051]:
     for num_families_train in [15051]:
         msg = f"***** num_families_train = {num_families_train} *****"
         print(len(msg) * "*")
         print(msg)
         print(len(msg) * "*")
         num_families_test = 0
-        
+
         min_num_sites = 190
         max_num_sites = 230
         min_num_sequences = num_sequences
@@ -461,39 +460,36 @@ def fig_single_site_learning_rate_robustness():
         quantization_grid_step = 1.1
         quantization_grid_num_steps = 50
         random_seed = 0
-        learning_rate = None
+        learning_rate = None  # noqa
         num_epochs = 10000
         do_adam = True
-        use_cpp_implementation = (
-            True
-        )
+        use_cpp_implementation = True
 
         caching.set_cache_dir("_cache_benchmarking")
         caching.set_hash_len(64)
 
         learning_rates = [
-        #     # 1e-6,
-        #     # 3e-6,
-        #     # 1e-5,
-        #     # 3e-5,
-        #     1e-4,
-        #     3e-4,
-        #     1e-3,
-        #     3e-3,
-        #     1e-2,
+            #     # 1e-6,
+            #     # 3e-6,
+            #     # 1e-5,
+            #     # 3e-5,
+            #     1e-4,
+            #     3e-4,
+            #     1e-3,
+            #     3e-3,
+            #     1e-2,
             3e-2,
             1e-1,
             3e-1,
-        #     1e-0,
-        #     # 3e-0,
-        #     # 1e1,
-        #     # 3e1,
-        #     # 1e2,
-        #     # 3e2,
-        #     # 1e3,
-        #     # 3e3,
+            #     1e-0,
+            #     # 3e-0,
+            #     # 1e1,
+            #     # 3e1,
+            #     # 1e2,
+            #     # 3e2,
+            #     # 1e3,
+            #     # 3e3,
         ]
-        ys_mre = []
         yss_relative_errors = []
         Qs = []
         for i, lr in enumerate(learning_rates):
@@ -504,9 +500,15 @@ def fig_single_site_learning_rate_robustness():
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                min_num_sites=min_num_sites if num_families_train <= rule_cutoff else 0,
-                max_num_sites=max_num_sites if num_families_train <= rule_cutoff else 1000000,
-                min_num_sequences=min_num_sequences if num_families_train <= rule_cutoff else 0,
+                min_num_sites=min_num_sites
+                if num_families_train <= rule_cutoff
+                else 0,
+                max_num_sites=max_num_sites
+                if num_families_train <= rule_cutoff
+                else 1000000,
+                min_num_sequences=min_num_sequences
+                if num_families_train <= rule_cutoff
+                else 0,
                 max_num_sequences=max_num_sequences,
             )
             families_train = families_all[:num_families_train]
@@ -516,7 +518,7 @@ def fig_single_site_learning_rate_robustness():
                 families_test = families_all[-num_families_test:]
             print(f"len(families_all) = {len(families_all)}")
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
@@ -568,14 +570,17 @@ def fig_single_site_learning_rate_robustness():
                     cherry_estimator_res["tree_estimator_output_dirs_0"],
                 )
 
-                count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
+                count_matrices_dir = cherry_estimator_res[
+                    "count_matrices_dir_0"
+                ]
                 print(f"count_matrices_dir_{i} = {count_matrices_dir}")
 
                 count_matrices = read_count_matrices(
                     os.path.join(count_matrices_dir, "result.txt")
                 )
                 quantization_points = [
-                    float(x) for x in cherry_estimator_res["quantization_points"]
+                    float(x)
+                    for x in cherry_estimator_res["quantization_points"]
                 ]
                 plt.title("Number of transitions per time bucket")
                 plt.bar(
@@ -586,7 +591,11 @@ def fig_single_site_learning_rate_robustness():
                 plt.ylabel("Number of Transitions")
                 ticks = [0.0006, 0.006, 0.06, 0.6, 6.0]
                 plt.xticks(np.log(ticks), ticks)
-                plt.savefig(f"{output_image_dir}/count_matrices_{i}_{num_families_train}", dpi=300)
+                plt.savefig(
+                    f"{output_image_dir}/count_matrices_{i}_"
+                    f"{num_families_train}",
+                    dpi=300,
+                )
                 plt.close()
 
                 learned_rate_matrix_path = cherry_estimator_res[
@@ -600,9 +609,11 @@ def fig_single_site_learning_rate_robustness():
 
                 lg = read_rate_matrix(get_lg_path()).to_numpy()
 
-                yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
+                yss_relative_errors.append(
+                    relative_errors(lg, learned_rate_matrix)
+                )
 
-            except:
+            except Exception:
                 pass
 
         for i in range(len(learning_rates)):
@@ -611,13 +622,16 @@ def fig_single_site_learning_rate_robustness():
                     read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
                 )
                 plt.title(
-                    f"True vs predicted rate matrix entries\nlearning rate = %f"
+                    "True vs predicted rate matrix entries\nlearning rate = %f"
                     % lr
                 )
                 plt.tight_layout()
-                plt.savefig(f"{output_image_dir}/log_log_plot_{i}_{num_families_train}", dpi=300)
+                plt.savefig(
+                    f"{output_image_dir}/log_log_plot_{i}_{num_families_train}",
+                    dpi=300,
+                )
                 plt.close()
-            except:
+            except Exception:
                 pass
 
         try:
@@ -649,9 +663,11 @@ def fig_single_site_learning_rate_robustness():
                 yss_relative_errors,
                 title="Distribution of relative error as learning rate varies",
             )
-            plt.savefig(f"{output_image_dir}/violin_plot_{num_families_train}", dpi=300)
+            plt.savefig(
+                f"{output_image_dir}/violin_plot_{num_families_train}", dpi=300
+            )
             plt.close()
-        except:
+        except Exception:
             pass
 
 
@@ -661,9 +677,9 @@ def debug_pytorch_optimizer():
 
     No caching used here since I am debugging.
     """
-    from src.markov_chain import matrix_exponential
-    from src.io import write_count_matrices
     from src.estimation import quantized_transitions_mle
+    from src.io import write_count_matrices
+    from src.markov_chain import matrix_exponential
 
     # Hyperparameters of the test
     samples_per_row = 100000000
@@ -692,14 +708,16 @@ def debug_pytorch_optimizer():
     count_matrices = [
         [
             q,
-            sample_repetitions * pd.DataFrame(
+            sample_repetitions
+            * pd.DataFrame(
                 (
-                    samples_per_row * matrix_exponential(
+                    samples_per_row
+                    * matrix_exponential(
                         exponents=np.array([q]),
                         Q=Q_numpy,
                         fact=None,
                         reversible=False,
-                        device='cpu',
+                        device="cpu",
                     ).reshape([Q_numpy.shape[0], Q_numpy.shape[1]])
                 ).astype(int),
                 columns=Q_df.columns,
@@ -768,12 +786,13 @@ def create_synthetic_count_matrices(
             q,
             pd.DataFrame(
                 (
-                    samples_per_row * matrix_exponential(
+                    samples_per_row
+                    * matrix_exponential(
                         exponents=np.array([q]),
                         Q=Q_numpy,
                         fact=None,
                         reversible=False,
-                        device='cpu',
+                        device="cpu",
                     ).reshape([Q_numpy.shape[0], Q_numpy.shape[1]])
                 ).astype(int),
                 columns=Q_df.columns,
@@ -786,7 +805,9 @@ def create_synthetic_count_matrices(
         count_matrices, os.path.join(output_count_matrices_dir, "result.txt")
     )
 
-##### Single site experiments #####
+
+# Single site experiments #
+
 
 def fig_convergence_on_infinite_data_single_site(
     use_best_iterate: bool = True,
@@ -842,17 +863,26 @@ def fig_convergence_on_infinite_data_single_site(
 
     # Create synthetic training data (in the form of count matrices)
     output_count_matrices_dir = create_synthetic_count_matrices(
-        quantization_points=[0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+        quantization_points=[
+            0.00001,
+            0.0001,
+            0.001,
+            0.01,
+            0.1,
+            1.0,
+            10.0,
+            100.0,
+        ],
         samples_per_row=100000000,
         rate_matrix_path=rate_matrix_path,
     )["output_count_matrices_dir"]
     count_matrices_path = os.path.join(output_count_matrices_dir, "result.txt")
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for learning_rate in learning_rate_grid:
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for num_epochs in num_epochs_grid:
             initialization_path = get_equ_path()
             # Run the Adam optimizer.
@@ -875,21 +905,35 @@ def fig_convergence_on_infinite_data_single_site(
             ).to_numpy()
 
             res = relative_errors(Q_numpy, learned_rate_matrix)
-            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            result_tuples.append(
+                (
+                    learning_rate,
+                    num_epochs,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "learning_rate",
+            "num_epochs",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=num_epochs_grid,
@@ -908,7 +952,11 @@ def fig_convergence_on_infinite_data_single_site(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -965,29 +1013,23 @@ def fig_convergence_on_large_data_single_site(
     Q_numpy = read_rate_matrix(get_lg_path()).to_numpy()
 
     num_processes = 2
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for learning_rate in learning_rate_grid:
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for num_epochs in num_epochs_grid:
             num_families_train = 15051
             num_families_test = 0
-            
+
             quantization_grid_center = 0.03
             quantization_grid_step = 1.1
             quantization_grid_num_steps = 64
             random_seed = 0
-            use_cpp_implementation = (
-                True
-            )
+            use_cpp_implementation = True
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
@@ -1002,7 +1044,7 @@ def fig_convergence_on_large_data_single_site(
             else:
                 families_test = families_all[-num_families_test:]
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
@@ -1048,27 +1090,40 @@ def fig_convergence_on_large_data_single_site(
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"],
-                rate_matrix_filename
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
             res = relative_errors(Q_numpy, learned_rate_matrix)
-            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            result_tuples.append(
+                (
+                    learning_rate,
+                    num_epochs,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "learning_rate",
+            "num_epochs",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=num_epochs_grid,
@@ -1087,7 +1142,11 @@ def fig_convergence_on_large_data_single_site(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -1104,7 +1163,9 @@ def fig_convergence_on_large_data_single_site__variance(
 
     rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
 
-    output_image_dir = "images/fig_convergence_on_large_data_single_site__variance"
+    output_image_dir = (
+        "images/fig_convergence_on_large_data_single_site__variance"
+    )
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
@@ -1123,28 +1184,22 @@ def fig_convergence_on_large_data_single_site__variance(
     Q_numpy = read_rate_matrix(get_lg_path()).to_numpy()
 
     num_processes = 2
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for learning_rate in learning_rate_grid:
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for random_seed in random_seed_grid:
             num_families_train = 15051
             num_families_test = 0
-            
+
             quantization_grid_center = 0.03
             quantization_grid_step = 1.1
             quantization_grid_num_steps = 64
-            use_cpp_implementation = (
-                True
-            )
+            use_cpp_implementation = True
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
@@ -1159,7 +1214,7 @@ def fig_convergence_on_large_data_single_site__variance(
             else:
                 families_test = families_all[-num_families_test:]
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
@@ -1205,27 +1260,40 @@ def fig_convergence_on_large_data_single_site__variance(
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"],
-                rate_matrix_filename
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
             res = relative_errors(Q_numpy, learned_rate_matrix)
-            result_tuples.append((learning_rate, random_seed, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            result_tuples.append(
+                (
+                    learning_rate,
+                    random_seed,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["learning_rate", "random_seed", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "learning_rate",
+            "random_seed",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=random_seed_grid,
@@ -1244,7 +1312,11 @@ def fig_convergence_on_large_data_single_site__variance(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -1265,12 +1337,8 @@ def fig_single_site_quantization_error(
         os.makedirs(output_image_dir)
 
     num_processes = 32
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     num_families_train = 15051
     num_families_test = 0
@@ -1281,9 +1349,7 @@ def fig_single_site_quantization_error(
     random_seed = 0
     learning_rate = 1e-1
     num_epochs = 2000
-    use_cpp_implementation = (
-        True
-    )
+    use_cpp_implementation = True
 
     qs = [
         (0.03, 445.79, 1),
@@ -1298,7 +1364,6 @@ def fig_single_site_quantization_error(
     ]
     q_errors = [(np.sqrt(q[1]) - 1) * 100 for q in qs]
     q_points = [2 * q[2] + 1 for q in qs]
-    ys_mre = []
     yss_relative_errors = []
     Qs = []
     for (
@@ -1309,7 +1374,7 @@ def fig_single_site_quantization_error(
             quantization_grid_num_steps,
         ),
     ) in enumerate(qs):
-        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"
+        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"  # noqa
         print("*" * len(msg))
         print(msg)
         print("*" * len(msg))
@@ -1328,7 +1393,7 @@ def fig_single_site_quantization_error(
             families_test = families_all[-num_families_test:]
         print(f"len(families_all) = {len(families_all)}")
         if num_families_train + num_families_test > len(families_all):
-            raise Exception(f"Training and testing set would overlap!")
+            raise Exception("Training and testing set would overlap!")
         assert len(set(families_train + families_test)) == len(
             families_train
         ) + len(families_test)
@@ -1396,12 +1461,15 @@ def fig_single_site_quantization_error(
         plt.ylabel("Number of Transitions")
         ticks = [0.0003, 0.003, 0.03, 0.3, 3.0]
         plt.xticks(np.log(ticks), ticks)
-        plt.savefig(f"{output_image_dir}/count_matrices_{i}_{rate_matrix_filename.split('.')[0]}", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/count_matrices_{i}_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
         plt.close()
 
         learned_rate_matrix_path = os.path.join(
-            cherry_estimator_res["rate_matrix_dir_0"],
-            rate_matrix_filename
+            cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
         )
 
         learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
@@ -1418,11 +1486,15 @@ def fig_single_site_quantization_error(
             read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
         )
         plt.title(
-            f"True vs predicted rate matrix entries\nmax quantization error = %.1f%% (%i quantization points)"
-            % (q_errors[i], q_points[i])
+            "True vs predicted rate matrix entries\nmax quantization error = "
+            "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
         )
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/log_log_plot_{i}_{rate_matrix_filename.split('.')[0]}", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/log_log_plot_{i}_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
         plt.close()
 
     df = pd.DataFrame(
@@ -1453,7 +1525,10 @@ def fig_single_site_quantization_error(
         yss_relative_errors,
         title="Distribution of relative error as quantization improves",
     )
-    plt.savefig(f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}", dpi=300)
+    plt.savefig(
+        f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}",
+        dpi=300,
+    )
     plt.close()
 
 
@@ -1479,9 +1554,7 @@ def fig_single_site_cherry_vs_edge(
 
         num_processes = 32
         num_sequences = 1024
-        num_rate_categories = (
-            20
-        )
+        num_rate_categories = 20
 
         num_families_train = None
         num_families_test = 0
@@ -1496,12 +1569,26 @@ def fig_single_site_cherry_vs_edge(
         random_seed = 0
         learning_rate = 1e-1
         num_epochs = 2000
-        use_cpp_implementation = (
-            True
-        )
+        use_cpp_implementation = True
 
         # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-        num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 15051]
+        num_families_train_list = [
+            1,
+            2,
+            4,
+            8,
+            16,
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024,
+            2048,
+            4096,
+            8192,
+            15051,
+        ]
 
         yss_relative_errors = []
         Qs = []
@@ -1513,9 +1600,15 @@ def fig_single_site_cherry_vs_edge(
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                min_num_sites=min_num_sites if num_families_train <= 1024 else 0,
-                max_num_sites=max_num_sites if num_families_train <= 1024 else 1000000,
-                min_num_sequences=min_num_sequences if num_families_train <= 1024 else 0,
+                min_num_sites=min_num_sites
+                if num_families_train <= 1024
+                else 0,
+                max_num_sites=max_num_sites
+                if num_families_train <= 1024
+                else 1000000,
+                min_num_sequences=min_num_sequences
+                if num_families_train <= 1024
+                else 0,
                 max_num_sequences=max_num_sequences,
             )
             families_train = families_all[:num_families_train]
@@ -1525,7 +1618,7 @@ def fig_single_site_cherry_vs_edge(
                 families_test = families_all[-num_families_test:]
             print(f"len(families_all) = {len(families_all)}")
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
@@ -1550,9 +1643,7 @@ def fig_single_site_cherry_vs_edge(
             # Now run the cherry and oracle edge methods.
             print(f"**** edge_or_cherry = {edge_or_cherry} *****")
             cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir
-                if edge_or_cherry == "cherry"
-                else gt_msa_dir,
+                msa_dir=msa_dir if edge_or_cherry == "cherry" else gt_msa_dir,
                 families=families_train,
                 tree_estimator=partial(
                     gt_tree_estimator,
@@ -1576,8 +1667,7 @@ def fig_single_site_cherry_vs_edge(
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"],
-                rate_matrix_filename
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1606,11 +1696,15 @@ def fig_single_site_cherry_vs_edge(
                 read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
             )
             plt.title(
-                f"True vs predicted rate matrix entries\nnumber of families = %i"
+                "True vs predicted rate matrix entries\nnumber of families = %i"
                 % num_families_train_list[i]
             )
             plt.tight_layout()
-            plt.savefig(f"{output_image_dir}/log_log_plot_{i}_{rate_matrix_filename.split('.')[0]}", dpi=300)
+            plt.savefig(
+                f"{output_image_dir}/log_log_plot_{i}_"
+                f"{rate_matrix_filename.split('.')[0]}",
+                dpi=300,
+            )
             plt.close()
 
         df = pd.DataFrame(
@@ -1642,7 +1736,11 @@ def fig_single_site_cherry_vs_edge(
             yss_relative_errors,
             title="Distribution of relative error as sample size increases",
         )
-        plt.savefig(f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/violin_plot_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -1745,29 +1843,23 @@ def fig_jtt_ipw_single_site(
     Q_numpy = read_rate_matrix(get_lg_path()).to_numpy()
 
     num_processes = 2
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for initialization in initialization_grid:
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for num_epochs in num_epochs_grid:
             num_families_train = 15051
             num_families_test = 0
-            
+
             quantization_grid_center = 0.03
             quantization_grid_step = 1.1
             quantization_grid_num_steps = 64
             random_seed = 0
-            use_cpp_implementation = (
-                True
-            )
+            use_cpp_implementation = True
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
@@ -1782,7 +1874,7 @@ def fig_jtt_ipw_single_site(
             else:
                 families_test = families_all[-num_families_test:]
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
@@ -1829,27 +1921,40 @@ def fig_jtt_ipw_single_site(
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"],
-                rate_matrix_filename
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
             res = relative_errors(Q_numpy, learned_rate_matrix)
-            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            result_tuples.append(
+                (
+                    learning_rate,
+                    num_epochs,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["initialization", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "initialization",
+            "num_epochs",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=num_epochs_grid,
@@ -1868,11 +1973,16 @@ def fig_jtt_ipw_single_site(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
-##### Pair of site experiments #####
+# Pair of site experiments #
+
 
 def fig_convergence_on_infinite_data_pair_site(
     use_best_iterate: bool = True,
@@ -1928,17 +2038,26 @@ def fig_convergence_on_infinite_data_pair_site(
 
     # Create synthetic training data (in the form of count matrices)
     output_count_matrices_dir = create_synthetic_count_matrices(
-        quantization_points=[0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+        quantization_points=[
+            0.00001,
+            0.0001,
+            0.001,
+            0.01,
+            0.1,
+            1.0,
+            10.0,
+            100.0,
+        ],
         samples_per_row=100000000,
         rate_matrix_path=rate_matrix_path,
     )["output_count_matrices_dir"]
     count_matrices_path = os.path.join(output_count_matrices_dir, "result.txt")
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for learning_rate in learning_rate_grid:
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for num_epochs in num_epochs_grid:
             initialization_path = get_equ_x_equ_path()
             # Run the Adam optimizer.
@@ -1961,21 +2080,35 @@ def fig_convergence_on_infinite_data_pair_site(
             ).to_numpy()
 
             res = relative_errors(Q_numpy, learned_rate_matrix, mask_matrix)
-            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            result_tuples.append(
+                (
+                    learning_rate,
+                    num_epochs,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "learning_rate",
+            "num_epochs",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=num_epochs_grid,
@@ -1994,7 +2127,11 @@ def fig_convergence_on_infinite_data_pair_site(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -2046,42 +2183,34 @@ def fig_convergence_on_large_data_pair_site(
         8192,
     ]
 
-    minimum_distance_for_nontrivial_contact = (
-        7
-    )
+    minimum_distance_for_nontrivial_contact = 7
     angstrom_cutoff = 8.0
 
     Q_numpy = read_rate_matrix(get_lg_x_lg_path()).to_numpy()
     mask_matrix = read_rate_matrix(get_aa_coevolution_mask_path()).to_numpy()
 
     num_processes = 8
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     result_tuples = []
-    res_2d = {'mean': [], 'median': [], 'max': []}
+    res_2d = {"mean": [], "median": [], "max": []}
 
     for learning_rate in learning_rate_grid:
         msg = f"***** learning_rate = {learning_rate} *****"
         print("*" * len(msg))
         print(msg)
         print("*" * len(msg))
-        res_2d_row = {'mean': [], 'median': [], 'max': []}
+        res_2d_row = {"mean": [], "median": [], "max": []}
         for num_epochs in num_epochs_grid:
             num_families_train = 15051
             num_families_test = 0
-            
+
             quantization_grid_center = 0.03
             quantization_grid_step = 1.1
             quantization_grid_num_steps = 64
             random_seed = 0
-            use_cpp_implementation = (
-                True
-            )
+            use_cpp_implementation = True
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
@@ -2096,11 +2225,12 @@ def fig_convergence_on_large_data_pair_site(
             else:
                 families_test = families_all[-num_families_test:]
             if num_families_train + num_families_test > len(families_all):
-                raise Exception(f"Training and testing set would overlap!")
+                raise Exception("Training and testing set would overlap!")
             assert len(set(families_train + families_test)) == len(
                 families_train
             ) + len(families_test)
 
+            mdnc = minimum_distance_for_nontrivial_contact
             (
                 msa_dir,
                 contact_map_dir,
@@ -2111,7 +2241,7 @@ def fig_convergence_on_large_data_pair_site(
             ) = simulate_ground_truth_data_coevolution(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
                 pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
-                minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+                minimum_distance_for_nontrivial_contact=mdnc,
                 angstrom_cutoff=angstrom_cutoff,
                 num_sequences=num_sequences,
                 families=families_all,
@@ -2124,7 +2254,7 @@ def fig_convergence_on_large_data_pair_site(
             cherry_estimator_res = cherry_estimator_coevolution(
                 msa_dir=msa_dir,
                 contact_map_dir=contact_map_dir,
-                minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+                minimum_distance_for_nontrivial_contact=mdnc,
                 coevolution_mask_path=get_aa_coevolution_mask_path(),
                 families=families_train,
                 tree_estimator=partial(
@@ -2147,29 +2277,44 @@ def fig_convergence_on_large_data_pair_site(
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"],
-                rate_matrix_filename
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
             )
             if num_epochs == 8192:
                 print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
-            res = relative_errors(Q_numpy, learned_rate_matrix, mask_matrix=mask_matrix)
-            result_tuples.append((learning_rate, num_epochs, np.mean(res), np.median(res), np.max(res)))
-            res_2d_row['mean'].append(np.mean(res))
-            res_2d_row['median'].append(np.median(res))
-            res_2d_row['max'].append(np.max(res))
-        res_2d['mean'].append(res_2d_row['mean'])
-        res_2d['median'].append(res_2d_row['median'])
-        res_2d['max'].append(res_2d_row['max'])
+            res = relative_errors(
+                Q_numpy, learned_rate_matrix, mask_matrix=mask_matrix
+            )
+            result_tuples.append(
+                (
+                    learning_rate,
+                    num_epochs,
+                    np.mean(res),
+                    np.median(res),
+                    np.max(res),
+                )
+            )
+            res_2d_row["mean"].append(np.mean(res))
+            res_2d_row["median"].append(np.median(res))
+            res_2d_row["max"].append(np.max(res))
+        res_2d["mean"].append(res_2d_row["mean"])
+        res_2d["median"].append(res_2d_row["median"])
+        res_2d["max"].append(res_2d_row["max"])
 
     res = pd.DataFrame(
         result_tuples,
-        columns=["learning_rate", "num_epochs", "mean_relative_error", "median_relative_error", "max_relative_error"]
+        columns=[
+            "learning_rate",
+            "num_epochs",
+            "mean_relative_error",
+            "median_relative_error",
+            "max_relative_error",
+        ],
     )
     # print(res)
 
-    for metric_name in ['max', 'median']:
+    for metric_name in ["max", "median"]:
         sns.heatmap(
             np.array(res_2d[metric_name]).T,
             yticklabels=num_epochs_grid,
@@ -2188,7 +2333,11 @@ def fig_convergence_on_large_data_pair_site(
         plt.title(f"{metric_name} relative error")
         # plt.gcf().set_size_inches(16, 16)
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/heatmap_{metric_name}_{rate_matrix_filename.split('.')[0]}.png", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/heatmap_{metric_name}_"
+            f"{rate_matrix_filename.split('.')[0]}.png",
+            dpi=300,
+        )
         plt.close()
 
 
@@ -2202,16 +2351,12 @@ def fig_pair_site_quantization_error(
     output_image_dir = "images/fig_pair_site_quantization_error"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
-    
+
     rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
 
     num_processes = 8
-    num_sequences = (
-        1024
-    )
-    num_rate_categories = (
-        20
-    )
+    num_sequences = 1024
+    num_rate_categories = 20
 
     num_families_train = 15051
     num_families_test = 0
@@ -2222,12 +2367,8 @@ def fig_pair_site_quantization_error(
     random_seed = 0
     learning_rate = 1e-1
     do_adam = True
-    use_cpp_implementation = (
-        True
-    )
-    minimum_distance_for_nontrivial_contact = (
-        7
-    )
+    use_cpp_implementation = True
+    minimum_distance_for_nontrivial_contact = 7
     num_epochs = 500
     angstrom_cutoff = 8.0
 
@@ -2257,7 +2398,7 @@ def fig_pair_site_quantization_error(
             quantization_grid_num_steps,
         ),
     ) in enumerate(qs):
-        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"
+        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"  # noqa
         print("*" * len(msg))
         print(msg)
         print("*" * len(msg))
@@ -2276,11 +2417,12 @@ def fig_pair_site_quantization_error(
             families_test = families_all[-num_families_test:]
         print(f"len(families_all) = {len(families_all)}")
         if num_families_train + num_families_test > len(families_all):
-            raise Exception(f"Training and testing set would overlap!")
+            raise Exception("Training and testing set would overlap!")
         assert len(set(families_train + families_test)) == len(
             families_train
         ) + len(families_test)
 
+        mdnc = minimum_distance_for_nontrivial_contact
         (
             msa_dir,
             contact_map_dir,
@@ -2291,7 +2433,7 @@ def fig_pair_site_quantization_error(
         ) = simulate_ground_truth_data_coevolution(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
             pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
-            minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+            minimum_distance_for_nontrivial_contact=mdnc,
             angstrom_cutoff=angstrom_cutoff,
             num_sequences=num_sequences,
             families=families_all,
@@ -2304,7 +2446,7 @@ def fig_pair_site_quantization_error(
         cherry_estimator_res = cherry_estimator_coevolution(
             msa_dir=msa_dir,
             contact_map_dir=contact_map_dir,
-            minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+            minimum_distance_for_nontrivial_contact=mdnc,
             coevolution_mask_path="data/mask_matrices/aa_coevolution_mask.txt",
             families=families_train,
             tree_estimator=partial(
@@ -2349,12 +2491,15 @@ def fig_pair_site_quantization_error(
         plt.ylabel("Number of Transitions")
         ticks = [0.0003, 0.003, 0.03, 0.3, 3.0]
         plt.xticks(np.log(ticks), ticks)
-        plt.savefig(f"{output_image_dir}/count_matrices_{i}_{rate_matrix_filename.split('.')[0]}", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/count_matrices_{i}_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
         plt.close()
 
         learned_rate_matrix_path = os.path.join(
-            cherry_estimator_res["rate_matrix_dir_0"],
-            rate_matrix_filename
+            cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
         )
         print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
 
@@ -2363,9 +2508,7 @@ def fig_pair_site_quantization_error(
         learned_rate_matrix = learned_rate_matrix.to_numpy()
         Qs.append(learned_rate_matrix)
 
-        lg_x_lg = read_rate_matrix(
-            get_lg_x_lg_path()
-        ).to_numpy()
+        lg_x_lg = read_rate_matrix(get_lg_x_lg_path()).to_numpy()
         mask_matrix = read_mask_matrix(
             "data/mask_matrices/aa_coevolution_mask.txt"
         ).to_numpy()
@@ -2381,11 +2524,15 @@ def fig_pair_site_quantization_error(
     for i in range(len(q_points)):
         plot_rate_matrix_predictions(lg_x_lg, Qs[i], mask_matrix)
         plt.title(
-            f"True vs predicted rate matrix entries\nmax quantization error = %.1f%% (%i quantization points)"
-            % (q_errors[i], q_points[i])
+            "True vs predicted rate matrix entries\nmax quantization error = "
+            "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
         )
         plt.tight_layout()
-        plt.savefig(f"{output_image_dir}/log_log_plot_{i}_{rate_matrix_filename.split('.')[0]}", dpi=300)
+        plt.savefig(
+            f"{output_image_dir}/log_log_plot_{i}_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
         plt.close()
 
     df = pd.DataFrame(
@@ -2417,30 +2564,40 @@ def fig_pair_site_quantization_error(
         title="Distribution of relative error as quantization improves",
     )
 
-    plt.savefig(f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}", dpi=300)
+    plt.savefig(
+        f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}",
+        dpi=300,
+    )
     plt.close()
 
 
-##### Real-data experiments #####
+# Real-data experiments #
+
 
 def fig_lg_paper():
     """
     LG paper figure 4.
     """
-    from src.benchmarking.lg_paper import reproduce_lg_paper_fig_4
-    from src.phylogeny_estimation import phyml, fast_tree
-    from typing import List
-    from src.benchmarking.lg_paper import get_lg_PfamTrainingAlignments_data, get_lg_PfamTestingAlignments_data
-    from src import caching
-    from functools import partial
     import os
+    from functools import partial
+    from typing import List
+
+    from src import caching
+    from src.benchmarking.lg_paper import (
+        get_lg_PfamTestingAlignments_data,
+        get_lg_PfamTrainingAlignments_data,
+        reproduce_lg_paper_fig_4,
+    )
+    from src.phylogeny_estimation import fast_tree, phyml
 
     num_processes = 4
 
     caching.set_cache_dir("_cache_lg_paper")
     caching.set_hash_len(64)
 
-    LG_PFAM_TRAINING_ALIGNMENTS_DIR = "./lg_paper_data/lg_PfamTrainingAlignments"
+    LG_PFAM_TRAINING_ALIGNMENTS_DIR = (
+        "./lg_paper_data/lg_PfamTrainingAlignments"
+    )
     LG_PFAM_TESTING_ALIGNMENTS_DIR = "./lg_paper_data/lg_PfamTestingAlignments"
 
     get_lg_PfamTrainingAlignments_data(LG_PFAM_TRAINING_ALIGNMENTS_DIR)
@@ -2474,6 +2631,7 @@ def fig_lg_paper():
         num_processes=num_processes,
         extra_command_line_args="-gamma",
     )
+    del fast_tree_partial  # Not used right now, but can be used below in the call to reproduce_lg_paper_fig_4  # noqa
 
     phyml_partial = partial(
         phyml,
@@ -2505,7 +2663,7 @@ def fig_lg_paper():
         evaluation_phylogeny_estimator=phyml_partial,
         # evaluation_phylogeny_estimator=fast_tree_partial,
         num_processes=num_processes,
-        pfam_or_treebase='pfam',
+        pfam_or_treebase="pfam",
         family_name_len=7,
         figsize=(14.4, 4.8),
         num_bootstraps=100,
@@ -2522,7 +2680,11 @@ def get_stationary_distribution(
 ):
     rate_matrix = read_rate_matrix(rate_matrix_path)
     pi = compute_stationary_distribution(rate_matrix.to_numpy())
-    write_probability_distribution(pi, rate_matrix.index, os.path.join(output_probability_distribution_dir, "result.txt"))
+    write_probability_distribution(
+        pi,
+        rate_matrix.index,
+        os.path.join(output_probability_distribution_dir, "result.txt"),
+    )
 
 
 @caching.cached_computation(
@@ -2535,7 +2697,11 @@ def normalize_rate_matrix(
 ):
     rate_matrix = read_rate_matrix(rate_matrix_path)
     normalized_rate_matrix = new_rate * normalized(rate_matrix.to_numpy())
-    write_rate_matrix(normalized_rate_matrix, rate_matrix.index, os.path.join(output_rate_matrix_dir, "result.txt"))
+    write_rate_matrix(
+        normalized_rate_matrix,
+        rate_matrix.index,
+        os.path.join(output_rate_matrix_dir, "result.txt"),
+    )
 
 
 @caching.cached_computation(
@@ -2550,9 +2716,18 @@ def chain_product_cached(
     rate_matrix_2 = read_rate_matrix(rate_matrix_2_path)
     res = chain_product(rate_matrix_1.to_numpy(), rate_matrix_2.to_numpy())
     if list(rate_matrix_1.index) != list(rate_matrix_2.index):
-        raise Exception(f"Double-check that the states are being computed correctly in the code.")
-    states = [state_1 + state_2 for state_1 in rate_matrix_1.index for state_2 in rate_matrix_2.index]
-    write_rate_matrix(res, states, os.path.join(output_rate_matrix_dir, "result.txt"))
+        raise Exception(
+            "Double-check that the states are being computed correctly in the "
+            "code."
+        )
+    states = [
+        state_1 + state_2
+        for state_1 in rate_matrix_1.index
+        for state_2 in rate_matrix_2.index
+    ]
+    write_rate_matrix(
+        res, states, os.path.join(output_rate_matrix_dir, "result.txt")
+    )
 
 
 def evaluate_single_site_model_on_held_out_msas(
@@ -2600,7 +2775,9 @@ def evaluate_single_site_model_on_held_out_msas(
     )["output_likelihood_dir"]
     lls = []
     for family in families:
-        ll = read_log_likelihood(os.path.join(output_likelihood_dir, f"{family}.txt"))
+        ll = read_log_likelihood(
+            os.path.join(output_likelihood_dir, f"{family}.txt")
+        )
         lls.append(ll[0])
     return np.sum(lls)
 
@@ -2630,11 +2807,15 @@ def evaluate_pair_site_model_on_held_out_msas(
     output_probability_distribution_1_dir = get_stationary_distribution(
         rate_matrix_path=rate_matrix_1_path,
     )["output_probability_distribution_dir"]
-    pi_1_path = os.path.join(output_probability_distribution_1_dir, "result.txt")
+    pi_1_path = os.path.join(
+        output_probability_distribution_1_dir, "result.txt"
+    )
     output_probability_distribution_2_dir = get_stationary_distribution(
         rate_matrix_path=rate_matrix_2_path,
     )["output_probability_distribution_dir"]
-    pi_2_path = os.path.join(output_probability_distribution_2_dir, "result.txt")
+    pi_2_path = os.path.join(
+        output_probability_distribution_2_dir, "result.txt"
+    )
     output_likelihood_dir = compute_log_likelihoods(
         tree_dir=tree_dir,
         msa_dir=msa_dir,
@@ -2657,7 +2838,9 @@ def evaluate_pair_site_model_on_held_out_msas(
     )["output_likelihood_dir"]
     lls = []
     for family in families:
-        ll = read_log_likelihood(os.path.join(output_likelihood_dir, f"{family}.txt"))
+        ll = read_log_likelihood(
+            os.path.join(output_likelihood_dir, f"{family}.txt")
+        )
         lls.append(ll[0])
     return np.sum(lls)
 
@@ -2679,8 +2862,8 @@ def _map_func_compute_contacting_sites(args: List) -> None:
             if abs(i - j) >= minimum_distance_for_nontrivial_contact and i < j
         ]
         contacting_sites = sorted(list(set(sum(contacting_pairs, ()))))
-        # This exception below is not needed because downstream code (counting transitions)
-        # has no issue with this border case.
+        # This exception below is not needed because downstream code (counting
+        # transitions) has no issue with this border case.
         # if len(contacting_sites) == 0:
         #     raise Exception(
         #         f"Family {family} has no nontrivial contacting sites. "
@@ -2689,7 +2872,7 @@ def _map_func_compute_contacting_sites(args: List) -> None:
 
         write_sites_subset(
             contacting_sites,
-            os.path.join(output_sites_subset_dir, family + ".txt")
+            os.path.join(output_sites_subset_dir, family + ".txt"),
         )
 
         caching.secure_parallel_output(output_sites_subset_dir, family)
@@ -2744,7 +2927,7 @@ def _compute_contacting_sites(
 
 
 def fig_pfam15k(
-    num_rate_categories: int = 4,  # To be fair with LG, since LG was trained with 4 rate categories
+    num_rate_categories: int = 4,  # To be fair with LG, since LG was trained with 4 rate categories  # noqa
 ):
     """
     We use 12K families for training and 3K for testing.
@@ -2792,8 +2975,10 @@ def fig_pfam15k(
     else:
         families_test = sorted(families_all[-num_families_test:])
     if num_families_train + num_families_test > len(families_all):
-        raise Exception(f"Training and testing set would overlap!")
-    assert(len(set(families_train + families_test)) == len(families_train) + len(families_test))
+        raise Exception("Training and testing set would overlap!")
+    assert len(set(families_train + families_test)) == len(
+        families_train
+    ) + len(families_test)
 
     # Subsample the MSAs
     msa_dir_train = subsample_pfam_15k_msas(
@@ -2824,9 +3009,7 @@ def fig_pfam15k(
         num_processes_optimization=2,
         optimizer_return_best_iter=use_best_iterate,
     )["learned_rate_matrix_path"]
-    cherry = read_rate_matrix(
-        cherry_path
-    ).to_numpy()
+    cherry = read_rate_matrix(cherry_path).to_numpy()
 
     lg = read_rate_matrix(get_lg_path()).to_numpy()
 
@@ -2854,7 +3037,9 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_name, rate_matrix_path in single_site_rate_matrices:
-        print(f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) *****")
+        print(
+            f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) *****"  # noqa
+        )
         ll = evaluate_single_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             families=families_test,
@@ -2905,9 +3090,7 @@ def fig_pfam15k(
         optimizer_return_best_iter=use_best_iterate,
         sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
-    cherry_contact = read_rate_matrix(
-        cherry_contact_path
-    ).to_numpy()
+    cherry_contact = read_rate_matrix(cherry_contact_path).to_numpy()
     print("Cherry contact topleft 3x3 corner:")
     print(cherry_contact[:3, :3])
 
@@ -2916,7 +3099,7 @@ def fig_pfam15k(
             rate_matrix_1_path=cherry_contact_path,
             rate_matrix_2_path=cherry_contact_path,
         )["output_rate_matrix_dir"],
-        "result.txt"
+        "result.txt",
     )
 
     # cherry_squared_path = os.path.join(
@@ -2927,7 +3110,7 @@ def fig_pfam15k(
     #     "result.txt"
     # )
 
-    ##### Now estimate and evaluate the coevolution model #####
+    # Now estimate and evaluate the coevolution model #
     cherry_2_path = cherry_estimator_coevolution(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
@@ -2952,7 +3135,7 @@ def fig_pfam15k(
         use_maximal_matching=use_maximal_matching,
     )["learned_rate_matrix_path"]
 
-    ##### Coevolution model without masking #####
+    # Coevolution model without masking #
     cherry_2_no_mask_path = cherry_estimator_coevolution(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
@@ -2977,22 +3160,6 @@ def fig_pfam15k(
         use_maximal_matching=use_maximal_matching,
     )["learned_rate_matrix_path"]
 
-    # cherry_2_normalized_to_rate_of_2_x_cherry__path = os.path.join(
-    #     normalize_rate_matrix(
-    #         rate_matrix_path=cherry_2_path,
-    #         new_rate=2.0 * compute_mutation_rate(read_rate_matrix(cherry_path).to_numpy())
-    #     )["output_rate_matrix_dir"],
-    #     "result.txt",
-    # )
-
-    # cherry_2_normalized_to_rate_2__path = os.path.join(
-    #     normalize_rate_matrix(
-    #         rate_matrix_path=cherry_2_path,
-    #         new_rate=2.0
-    #     )["output_rate_matrix_dir"],
-    #     "result.txt",
-    # )
-
     contact_map_dir_test = compute_contact_maps(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
         families=families_test,
@@ -3007,18 +3174,28 @@ def fig_pfam15k(
     )["o_contact_map_dir"]
 
     pair_site_rate_matrices = [
-        # ("Cherry squared", cherry_squared_path),  # DEBUG: Should give same result as single-site Cherry
-        ("Cherry contact squared", cherry_contact_squared_path),  # Fair baseline to compare coevolution likelihood against.
+        # ("Cherry squared", cherry_squared_path),  # DEBUG: Should give same result as single-site Cherry  # noqa
+        (
+            "Cherry contact squared",
+            cherry_contact_squared_path,
+        ),  # Fair baseline to compare coevolution likelihood against.
         ("Cherry2", cherry_2_path),
         ("Cherry2; no mask", cherry_2_no_mask_path),
-        # ("Cherry2 normalized to rate of 2 x Cherry", cherry_2_normalized_to_rate_of_2_x_cherry__path),  # Pointless: Cherry2 is the right thing to do
-        # ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),  # Pointless: Cherry2 is the right thing to do
     ]
 
     for rate_matrix_2_name, rate_matrix_2_path in pair_site_rate_matrices:
-        print(f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) *****")
+        print(
+            f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) *****"  # noqa
+        )
         if num_rate_categories > 1:
-            print("***** TODO: It is unclear to me whether the evaluation makes sense when num_rate_categories > 1, because of unidentifiability between site rates and branch lengths, and the fact that we are using branch lengths as the time unit for the coevolution models. In other words, we might be unfair with the coevolution model *****")
+            print(
+                "***** TODO: It is unclear to me whether the evaluation makes "
+                "sense when num_rate_categories > 1, because of "
+                "unidentifiability between site rates and branch lengths, and "
+                "the fact that we are using branch lengths as the time unit "
+                "for the coevolution models. In other words, we might be "
+                "unfair with the coevolution model *****"
+            )
         ll = evaluate_pair_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             contact_map_dir=contact_map_dir_test,
@@ -3034,10 +3211,7 @@ def fig_pfam15k(
         print(f"ll for {rate_matrix_2_name} = {ll}")
         log_likelihoods.append((rate_matrix_2_name, ll))
 
-    log_likelihoods = pd.DataFrame(
-        log_likelihoods,
-        columns=["model", "LL"]
-    )
+    log_likelihoods = pd.DataFrame(log_likelihoods, columns=["model", "LL"])
     log_likelihoods.set_index(["model"], inplace=True)
 
     for baseline in [True, False]:
@@ -3058,9 +3232,20 @@ def fig_pfam15k(
         ax.yaxis.grid()
         plt.xticks(rotation=90)
         if baseline:
-            plt.title("Results on Pfam 15K data\n(held-out log-Likelihood improvement over JTT)")
+            plt.title(
+                "Results on Pfam 15K data\n(held-out log-Likelihood "
+                "improvement over JTT)"
+            )
         else:
-            plt.title("Results on Pfam 15K data\n(held-out negative log-Likelihood)")
+            plt.title(
+                "Results on Pfam 15K data\n(held-out negative log-Likelihood)"
+            )
         plt.tight_layout()
-        plt.savefig(os.path.join(output_image_dir, f"log_likelihoods_{num_rate_categories}_{baseline}"), dpi=300)
+        plt.savefig(
+            os.path.join(
+                output_image_dir,
+                f"log_likelihoods_{num_rate_categories}_{baseline}",
+            ),
+            dpi=300,
+        )
         plt.close()

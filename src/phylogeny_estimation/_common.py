@@ -1,6 +1,7 @@
 from typing import Optional
 
 from ete3 import Tree as TreeETE
+
 from src.io import Tree
 
 
@@ -41,9 +42,7 @@ def translate_tree(tree_ete: TreeETE) -> Tree:
             try:
                 tree.add_edge(p.name, v.name, v.dist)
             except Exception:
-                raise Exception(
-                    f"Could not translate tree from command:\n{command}"
-                )
+                raise Exception("Could not translate tree")
         for u in v.get_children():
             dfs_translate_tree(v, u)
 

@@ -3,9 +3,9 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+import torch
 
 import src.utils
-import torch
 
 
 def compute_stationary_distribution(rate_matrix: np.array) -> np.array:

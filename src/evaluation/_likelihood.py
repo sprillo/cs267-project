@@ -7,7 +7,10 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import tqdm
+from threadpoolctl import threadpool_limits
+from torch import multiprocessing
 
+from src import caching
 from src.io import (
     Tree,
     read_contact_map,
@@ -20,9 +23,6 @@ from src.io import (
 )
 from src.markov_chain import FactorizedReversibleModel, matrix_exponential
 from src.utils import get_process_args
-from threadpoolctl import threadpool_limits
-from torch import multiprocessing
-from src import caching
 
 try:
     multiprocessing.set_start_method("spawn")
@@ -352,15 +352,27 @@ def _map_func(args: Dict):
         tree_path = os.path.join(tree_dir, family + ".txt")
         msa_path = os.path.join(msa_dir, family + ".txt")
         site_rates_path = os.path.join(site_rates_dir, family + ".txt")
-        contact_map_path = os.path.join(contact_map_dir, family + ".txt") if contact_map_dir is not None else None
+        contact_map_path = (
+            os.path.join(contact_map_dir, family + ".txt")
+            if contact_map_dir is not None
+            else None
+        )
 
         tree = read_tree(tree_path)
         msa = read_msa(msa_path)
         site_rates = read_site_rates(site_rates_path)
-        contact_map = read_contact_map(contact_map_path) if contact_map_path is not None else None
+        contact_map = (
+            read_contact_map(contact_map_path)
+            if contact_map_path is not None
+            else None
+        )
         pi_1_df = read_probability_distribution(pi_1_path)
         Q_1_df = read_rate_matrix(Q_1_path)
-        pi_2_df = read_probability_distribution(pi_2_path) if pi_2_path is not None else None
+        pi_2_df = (
+            read_probability_distribution(pi_2_path)
+            if pi_2_path is not None
+            else None
+        )
         Q_2_df = read_rate_matrix(Q_2_path) if Q_2_path is not None else None
 
         pairs_of_amino_acids = [

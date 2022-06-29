@@ -6,8 +6,8 @@ from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import pytest
-
 from parameterized import parameterized
+
 from src.counting import count_co_transitions, count_transitions
 from src.io import read_count_matrices
 from src.utils import amino_acids
@@ -74,13 +74,7 @@ def check_count_matrices_are_equal(
                 f"Count matrix indices differ:\nExpected:\n"
                 f"{count_matrix_1.index}\nvs\nObtained:\n{count_matrix_2.index}"
             )
-        # for i in range(count_matrix_1.shape[0]):
-        #     for j in range(count_matrix_1.shape[1]):
-        #         if abs(count_matrix_1.iloc[i, j] - count_matrix_2.iloc[i, j]) > 0.1:
-        #             raise Exception(
-        #                 f"Count matrix contents differ:\nExpected:\n{count_matrix_1.iloc[i, j]}\n"
-        #                 f"vs\nObtained:\n{count_matrix_2.iloc[i, j]}"
-        #             )
+
         if (
             not (np.abs(count_matrix_1.to_numpy() - count_matrix_2.to_numpy()))
             .sum()

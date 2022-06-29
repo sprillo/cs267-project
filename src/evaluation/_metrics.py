@@ -146,7 +146,7 @@ def plot_rate_matrix_predictions(
     plt.scatter(ys_true, ys_pred, alpha=0.3)
     plt.title("True vs predicted rate matrix entries")
     plt.xlabel("True entry $Q[i, j]$", fontsize=18)
-    plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)
+    plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)  # noqa
 
     ticks = [np.log(10**i) / np.log(10) for i in range(-5, 1)]
     tickslabels = [f"$10^{{{i}}}$" for i in range(-5, 1)]

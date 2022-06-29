@@ -1,9 +1,9 @@
 import os
 
 import numpy as np
+from biotite.structure.io.pdb import PDBFile
 from scipy.spatial.distance import pdist, squareform
 
-from biotite.structure.io.pdb import PDBFile
 from src.io import write_contact_map
 
 
@@ -29,7 +29,8 @@ class ContactMatrix:
 
     Reads the PDB file at f'{pdb_dir}/{protein_family_name}.pdb' and
     computes the binary contact matrix based on the provided angstrom_cutoff.
-    The contact matrix can be written out to a file with the write_to_file method.
+    The contact matrix can be written out to a file with the write_to_file
+    method.
 
     Args:
         pdb_dir: Directory where the pdb structure files (.pdb) are found.

@@ -6,10 +6,10 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytest
-
-import src
 import torch
 from parameterized import parameterized
+
+import src
 from src.evaluation import compute_log_likelihoods
 from src.io import (
     Tree,
@@ -192,17 +192,27 @@ def likelihood_computation_wrapper(
                                                 tree_dir=tree_dir,
                                                 msa_dir=msa_dir,
                                                 site_rates_dir=site_rates_dir,
-                                                contact_map_dir=contact_map_dir if need_coevolution else None,
+                                                contact_map_dir=contact_map_dir
+                                                if need_coevolution
+                                                else None,
                                                 families=families,
                                                 amino_acids=amino_acids,
                                                 pi_1_path=pi_1_path,
                                                 Q_1_path=Q_1_path,
                                                 reversible_1=reversible_1,
                                                 device_1=device_1,
-                                                pi_2_path=pi_2_path if need_coevolution else None,
-                                                Q_2_path=Q_2_path if need_coevolution else None,
-                                                reversible_2=reversible_2 if need_coevolution else None,
-                                                device_2=device_2 if need_coevolution else None,
+                                                pi_2_path=pi_2_path
+                                                if need_coevolution
+                                                else None,
+                                                Q_2_path=Q_2_path
+                                                if need_coevolution
+                                                else None,
+                                                reversible_2=reversible_2
+                                                if need_coevolution
+                                                else None,
+                                                device_2=device_2
+                                                if need_coevolution
+                                                else None,
                                                 output_likelihood_dir=d,
                                                 num_processes=num_processes,
                                                 use_cpp_implementation=cpp,

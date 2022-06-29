@@ -2,20 +2,24 @@ import logging
 import multiprocessing
 import os
 import sys
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
-import numpy as np
 import tqdm
 
+from src import caching
 from src.counting import count_co_transitions, count_transitions
 from src.estimation import jtt_ipw, quantized_transitions_mle
-from src.io import write_count_matrices, read_log_likelihood, write_probability_distribution, read_probability_distribution, write_rate_matrix, read_msa, write_msa, read_site_rates, write_site_rates, read_contact_map, read_sites_subset, write_sites_subset
+from src.evaluation import create_maximal_matching_contact_map
+from src.io import (
+    read_msa,
+    read_site_rates,
+    read_sites_subset,
+    write_msa,
+    write_site_rates,
+)
+from src.markov_chain import get_equ_path, get_equ_x_equ_path
 from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids, get_process_args
-from src.markov_chain import get_equ_path, get_equ_x_equ_path
-from src.evaluation import create_maximal_matching_contact_map
-from src.benchmarking.pfam_15k import compute_contact_maps
-from src import caching
 
 
 def _init_logger():
@@ -43,8 +47,8 @@ def _map_func_subset_data_to_sites_subset(args: List) -> None:
     for family in families:
         sites_subset_path = os.path.join(sites_subset_dir, family + ".txt")
         sites_subset = read_sites_subset(sites_subset_path)
-        # This exception below is not needed because downstream code (counting transitions)
-        # has no issue with this border case.
+        # This exception below is not needed because downstream code (counting
+        # transitions) has no issue with this border case.
         # if len(sites_subset) == 0:
         #     raise Exception(
         #         f"Family {family} has no nontrivial contacting sites. "
@@ -58,18 +62,14 @@ def _map_func_subset_data_to_sites_subset(args: List) -> None:
         site_rates = read_site_rates(input_site_rates_path)
 
         new_msa = {
-            sequence_name: ''.join([sequence[site] for site in sites_subset])
+            sequence_name: "".join([sequence[site] for site in sites_subset])
             for (sequence_name, sequence) in msa.items()
         }
-        write_msa(
-            new_msa,
-            os.path.join(output_msa_dir, family + ".txt")
-        )
+        write_msa(new_msa, os.path.join(output_msa_dir, family + ".txt"))
 
         new_site_rates = [site_rates[site] for site in sites_subset]
         write_site_rates(
-            new_site_rates,
-            os.path.join(output_site_rates_dir, family + ".txt")
+            new_site_rates, os.path.join(output_site_rates_dir, family + ".txt")
         )
 
         caching.secure_parallel_output(output_msa_dir, family)
@@ -157,11 +157,12 @@ def cherry_estimator(
     Cherry estimator.
 
     Returns a dictionary with the directories to the intermediate outputs. In
-    particular, the learned rate matrix is indexed by "learned_rate_matrix_path".
+    particular, the learned rate matrix is indexed by
+    "learned_rate_matrix_path".
 
-    One can train a model on only a subset of the sites by specifying sites_subset_dir.
-    This is a file containing the indices of the sites used for training. Note that
-    ALL the sites will the used when fitting the trees.
+    One can train a model on only a subset of the sites by specifying
+    sites_subset_dir. This is a file containing the indices of the sites used
+    for training. Note that ALL the sites will the used when fitting the trees.
     """
     if num_processes_tree_estimation is None:
         num_processes_tree_estimation = num_processes
@@ -203,12 +204,16 @@ def cherry_estimator(
             res_dict = _subset_data_to_sites_subset(
                 sites_subset_dir=sites_subset_dir,
                 msa_dir=msa_dir,
-                site_rates_dir=tree_estimator_output_dirs["output_site_rates_dir"],
+                site_rates_dir=tree_estimator_output_dirs[
+                    "output_site_rates_dir"
+                ],
                 families=families,
                 num_processes=num_processes_counting,
             )
             msa_dir = res_dict["output_msa_dir"]
-            tree_estimator_output_dirs["output_site_rates_dir"] = res_dict["output_site_rates_dir"]
+            tree_estimator_output_dirs["output_site_rates_dir"] = res_dict[
+                "output_site_rates_dir"
+            ]
             del res_dict
 
         count_matrices_dir = count_transitions(
@@ -244,7 +249,9 @@ def cherry_estimator(
         elif optimizer_initialization == "random":
             initialization_path = None
         else:
-            raise ValueError(f"Uknown optimizer_initialization = {optimizer_initialization}")
+            raise ValueError(
+                f"Uknown optimizer_initialization = {optimizer_initialization}"
+            )
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),
@@ -384,7 +391,9 @@ def cherry_estimator_coevolution(
         elif optimizer_initialization == "random":
             initialization_path = None
         else:
-            raise ValueError(f"Uknown optimizer_initialization = {optimizer_initialization}")
+            raise ValueError(
+                f"Uknown optimizer_initialization = {optimizer_initialization}"
+            )
 
         rate_matrix_dir = quantized_transitions_mle(
             count_matrices_path=os.path.join(count_matrices_dir, "result.txt"),

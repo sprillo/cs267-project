@@ -61,7 +61,9 @@ def jtt_ipw(
     qtimes = list(qtimes)
     cmats = list(cmats)
     if max_time is not None:
-        valid_time_indices = [i for i in range(len(qtimes)) if qtimes[i] <= max_time]
+        valid_time_indices = [
+            i for i in range(len(qtimes)) if qtimes[i] <= max_time
+        ]
         qtimes = [qtimes[i] for i in valid_time_indices]
         cmats = [cmats[i] for i in valid_time_indices]
     cmats = [cmat.to_numpy() for cmat in cmats]

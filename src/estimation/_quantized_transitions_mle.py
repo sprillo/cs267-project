@@ -1,10 +1,9 @@
 import logging
-import os
 import sys
 import tempfile
 from typing import Optional
 
-import numpy as np
+from threadpoolctl import threadpool_limits
 
 from src import caching
 from src.io import (
@@ -12,9 +11,7 @@ from src.io import (
     read_mask_matrix,
     read_probability_distribution,
     read_rate_matrix,
-    write_rate_matrix,
 )
-from threadpoolctl import threadpool_limits
 
 from ._ratelearn import RateMatrixLearner
 
@@ -35,7 +32,7 @@ _init_logger()
 
 @caching.cached_computation(
     output_dirs=["output_rate_matrix_dir"],
-    exclude_args=["device", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS"]
+    exclude_args=["device", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS"],
 )
 def quantized_transitions_mle(
     count_matrices_path: str,
@@ -84,9 +81,7 @@ def quantized_transitions_mle(
         else:
             stationnary_distribution = None
         if initialization_path is not None:
-            initialization = read_rate_matrix(
-                initialization_path
-            ).to_numpy()
+            initialization = read_rate_matrix(initialization_path).to_numpy()
         else:
             initialization = None
 

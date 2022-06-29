@@ -4,6 +4,7 @@ import unittest
 
 from ete3 import Tree as TreeETE
 from parameterized import parameterized
+
 from src.phylogeny_estimation import fast_tree
 
 

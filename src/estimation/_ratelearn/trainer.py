@@ -1,13 +1,12 @@
 import logging
 import sys
 import time
+from typing import Dict, Tuple
 
 import pandas as pd
-from tqdm.auto import tqdm
-
 import torch
 from torch.utils.data import DataLoader
-from typing import Dict, Tuple
+from tqdm.auto import tqdm
 
 
 def init_logger():
