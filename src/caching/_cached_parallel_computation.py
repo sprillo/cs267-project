@@ -255,6 +255,12 @@ def cached_parallel_computation(
     cached parallel functions. The return value is, more precisely, a dictionary
     mapping each element of `output_dirs` to its path.
 
+    The parallel_arg list can contain repeated values. In this case, the
+    duplicated values (beyond the first) will be ignored. This is convenient
+    when e.g. boostrapping, which involves sampling with replacement; we don't
+    want to run into race conditions because of the parallel_arg containing
+    repeated values!
+
     Args:
         exclude_args: Arguments which should be excluded when computing the
             cache key. For example, the number of processors to use.
@@ -296,6 +302,9 @@ def cached_parallel_computation(
                     f"Please call {func.__name__} with keyword arguments only. "
                     f"Positional arguments are not allowed for caching reasons."
                 )
+
+            # Remove duplicated values of the parallel arg
+            kwargs[parallel_arg] = sorted(list(set(kwargs[parallel_arg])))
 
             # Get caching hyperparameters
             cache_dir = get_cache_dir()
