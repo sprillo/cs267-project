@@ -276,7 +276,7 @@ def cherry_estimator_coevolution(
     msa_dir: str,
     contact_map_dir: str,
     minimum_distance_for_nontrivial_contact: int,
-    coevolution_mask_path: str,
+    coevolution_mask_path: Optional[str],
     families: List[str],
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,

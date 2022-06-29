@@ -2952,6 +2952,31 @@ def fig_pfam15k(
         use_maximal_matching=use_maximal_matching,
     )["learned_rate_matrix_path"]
 
+    ##### Coevolution model without masking #####
+    cherry_2_no_mask_path = cherry_estimator_coevolution(
+        msa_dir=msa_dir_train,
+        contact_map_dir=contact_map_dir_train,
+        minimum_distance_for_nontrivial_contact=mdnc,
+        coevolution_mask_path=None,
+        families=families_train,
+        tree_estimator=partial(
+            fast_tree,
+            num_rate_categories=num_rate_categories,
+        ),
+        initial_tree_estimator_rate_matrix_path=get_lg_path(),
+        num_processes=num_processes,
+        quantization_grid_center=0.03,
+        quantization_grid_step=1.1,
+        quantization_grid_num_steps=64,
+        learning_rate=1e-1,
+        num_epochs=500,
+        do_adam=True,
+        use_cpp_counting_implementation=use_cpp_implementation,
+        num_processes_optimization=8,
+        optimizer_return_best_iter=use_best_iterate,
+        use_maximal_matching=use_maximal_matching,
+    )["learned_rate_matrix_path"]
+
     # cherry_2_normalized_to_rate_of_2_x_cherry__path = os.path.join(
     #     normalize_rate_matrix(
     #         rate_matrix_path=cherry_2_path,
@@ -2985,6 +3010,7 @@ def fig_pfam15k(
         # ("Cherry squared", cherry_squared_path),  # DEBUG: Should give same result as single-site Cherry
         ("Cherry contact squared", cherry_contact_squared_path),  # Fair baseline to compare coevolution likelihood against.
         ("Cherry2", cherry_2_path),
+        ("Cherry2; no mask", cherry_2_no_mask_path),
         # ("Cherry2 normalized to rate of 2 x Cherry", cherry_2_normalized_to_rate_of_2_x_cherry__path),  # Pointless: Cherry2 is the right thing to do
         # ("Cherry2 normalized to rate of 2.0", cherry_2_normalized_to_rate_2__path),  # Pointless: Cherry2 is the right thing to do
     ]
