@@ -59,6 +59,19 @@ def cached(
                             "Fix the arguments in `exclude_if_default`."
                         )
 
+            # None of the exclude_if_default args can be a prefix of another one
+            # (otherwise adversarial hash collisions can be easily crafted due
+            # to how args are concatenated and hashed)
+            for arg1 in exclude_if_default:
+                for arg2 in exclude_if_default:
+                    if arg1 != arg2 and arg2.startswith(arg1):
+                        raise CacheUsageError(
+                            f"None of the exclude_if_default arguments can be a"
+                            f" prefix of another exclude_if_default argument."
+                            f" This ensures that it is not possible to craft"
+                            f" adversarial hash collisions."
+                        )
+
             def excluded(arg, val) -> bool:
                 if exclude is not None and arg in exclude:
                     return True
