@@ -4,6 +4,7 @@ import unittest
 import filecmp
 
 from ete3 import Tree as TreeETE
+import json
 from parameterized import parameterized
 
 from src.phylogeny_estimation import fast_tree
@@ -11,6 +12,7 @@ from src.phylogeny_estimation import fast_tree
 from src.estimation import em_lg
 from src.estimation._em_lg import _install_historian, _translate_tree_and_msa_to_stock_format, _translate_rate_matrix_to_historian_format, _translate_rate_matrix_from_historian_format
 from src.markov_chain import get_lg_path
+from src.utils import get_amino_acids
 
 DATA_DIR = "./tests/estimation_tests/test_input_data"
 
@@ -32,6 +34,7 @@ class TestFastTree(unittest.TestCase):
                 f"{DATA_DIR}/tree_dir",
                 f"{DATA_DIR}/msa_dir",
                 f"{DATA_DIR}/site_rates_dir",
+                get_amino_acids(),
                 stock_dir,
             )
             self.assertEqual(
@@ -56,6 +59,25 @@ class TestFastTree(unittest.TestCase):
             filepath_1 = f"{DATA_DIR}/historian_init.json"
             filepath_2 = historian_init_path
             assert(filecmp.cmp(filepath_1, filepath_2))
+
+    def test_run_historian_from_CLI(self):
+        """
+        Run Historian from CLI
+        """
+        with tempfile.NamedTemporaryFile("w") as historian_learned_rate_matrix_file:
+            historian_learned_rate_matrix_path = historian_learned_rate_matrix_file.name
+            command = (
+                "src/estimation/historian/bin/historian fit"
+                + ''.join([f" {DATA_DIR}/stock_dir/fam1_{i}.txt" for i in range(3)])
+                + f" -model {DATA_DIR}/historian_init_small.json"
+                + " -band 0"
+                + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
+            )
+            print(f"Going to run: {command}")
+            os.system(command)
+            with open(historian_learned_rate_matrix_path) as json_file:
+                learned_rate_matrix_json = json.load(json_file)
+                assert("subrate" in learned_rate_matrix_json.keys())
 
     # def test_translate_rate_matrix_from_historian_format(self):
     #     raise NotImplementedError

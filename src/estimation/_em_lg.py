@@ -14,6 +14,9 @@ from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix
 from src.markov_chain import compute_stationary_distribution
 
 
+MISSING_DATA_CHARACTER = '_'
+
+
 def _init_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -56,6 +59,7 @@ def _translate_tree_and_msa_to_stock_format(
     input_tree_dir: str,
     input_msa_dir: str,
     input_site_rates_dir: str,
+    alphabet: List[str],
     output_stock_dir: str,
 ) -> List[str]:
     """
@@ -70,7 +74,23 @@ def _translate_tree_and_msa_to_stock_format(
     input_tree_path = os.path.join(input_tree_dir, family + ".txt")
     input_msa_path = os.path.join(input_msa_dir, family + ".txt")
     input_site_rates_path = os.path.join(input_site_rates_dir, family + ".txt")
-    msa = read_msa(input_msa_path)
+    msa_orig = read_msa(input_msa_path)
+    # Replace characters out of alphabet with missing data character
+
+    def apply_missing_data_character(seq: str):
+        new_seq = []
+        alphabet_set = set(alphabet)
+        for state in seq:
+            if state in alphabet_set:
+                new_seq.append(state)
+            else:
+                new_seq.append(MISSING_DATA_CHARACTER)
+        return new_seq
+    msa = {
+        seq_name: apply_missing_data_character(seq)
+        for (seq_name, seq) in msa_orig.items()
+    }
+
     site_rates = read_site_rates(input_site_rates_path)
     rate_categories = sorted(list(set(site_rates)))
     res = []
@@ -101,6 +121,7 @@ def _translate_trees_and_msas_to_stock_format(
     msa_dir: str,
     site_rates_dir: str,
     output_stock_dir: str,
+    alphabet: List[str],
     families: List[str],
 ) -> List[str]:
     """
@@ -117,6 +138,7 @@ def _translate_trees_and_msas_to_stock_format(
             tree_dir,
             msa_dir,
             site_rates_dir,
+            alphabet,
             output_stock_dir,
         )
     return res
@@ -142,7 +164,7 @@ def _translate_rate_matrix_to_historian_format(
         "insextprob": 0.0,
         "delextprob": 0.0,
         "alphabet": ''.join(alphabet),
-        "wildcard": "",
+        "wildcard": MISSING_DATA_CHARACTER,
     }
     res["rootprob"] = {
         state: pi[i]
@@ -184,6 +206,7 @@ def em_lg(
         os.makedirs(output_rate_matrix_dir)
 
     _install_historian()
+    alphabet = list(read_rate_matrix(initialization_rate_matrix_path).index)
 
     with tempfile.TemporaryDirectory() as stock_dir:
         with tempfile.NamedTemporaryFile("w") as historian_init_file:
@@ -197,6 +220,7 @@ def em_lg(
                     msa_dir,
                     site_rates_dir,
                     stock_dir,
+                    alphabet,
                     families,
                 )
                 _translate_rate_matrix_to_historian_format(
@@ -211,6 +235,7 @@ def em_lg(
                     + " fit " + " ".join([family + ".txt" for family in new_families])
                     + f" -model {historian_init_path} "
                     + " -tree " + " ".join([family + ".txt" for family in new_families])
+                    + " -band 0"
                     + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
                 )
                 logger.debug("Going to run command: {historian_command}")
