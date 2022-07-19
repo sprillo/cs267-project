@@ -1,4 +1,8 @@
+import ete3
+
 from typing import List, Tuple
+
+import tempfile
 
 
 class Tree:
@@ -100,7 +104,7 @@ class Tree:
         dfs(self.root())
         return res
 
-    def parent(self, u: str) -> Tuple[str, int]:
+    def parent(self, u: str) -> Tuple[str, float]:
         return self._parent[u]
 
     def leaves(self) -> List[str]:
@@ -109,18 +113,57 @@ class Tree:
     def internal_nodes(self) -> List[str]:
         return [u for u in self.nodes() if not self.is_leaf(u)]
 
+    def scaled(self, scaling_factor: float, node_name_prefix: str = ""):
+        """
+        Tree scaled by the given scaling_factor.
+
+        Node names are additionally prefixed with node_name_prefix.
+        """
+        with tempfile.NamedTemporaryFile("w") as scaled_tree_file:
+            scaled_tree_path = scaled_tree_file.name
+            write_tree(
+                tree=self,
+                tree_path=scaled_tree_path,
+                scaling_factor=scaling_factor,
+                node_name_prefix=node_name_prefix,
+            )
+            return read_tree(scaled_tree_path)
+
+    def to_ete3(self) -> ete3.Tree:
+        """
+        Return the ete3 version of this tree
+        """
+        tree_ete = ete3.Tree(name=self.root())
+        ete3_node_dict = {}
+        ete3_node_dict[self.root()] = tree_ete
+        for node in self.preorder_traversal():
+            for (child, dist) in self.children(node):
+                ete3_node_dict[child] = ete3_node_dict[node].add_child(
+                    name=child, dist=dist
+                )
+        return tree_ete
+
+    def to_newick(self, format: str) -> str:
+        """
+        Return the newick representation of this tree.
+        """
+        tree_ete = self.to_ete3()
+        return tree_ete.write(format=format)
+
 
 def write_tree(
     tree: Tree,
     tree_path: str,
+    scaling_factor: float = 1.0,
+    node_name_prefix: str = "",
 ) -> None:
     res = ""
     res += f"{tree.num_nodes()} nodes\n"
     for node in tree.nodes():
-        res += f"{node}\n"
+        res += f"{node_name_prefix + node}\n"
     res += f"{tree.num_edges()} edges\n"
     for (u, v, d) in tree.edges():
-        res += f"{u} {v} {d}\n"
+        res += f"{node_name_prefix + u} {node_name_prefix + v} {d * scaling_factor}\n"
     open(tree_path, "w").write(res)
 
 

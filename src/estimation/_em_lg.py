@@ -1,0 +1,215 @@
+"""
+Classical EM for the LG model.
+"""
+import logging
+import os
+import sys
+import tempfile
+import time
+from typing import List, Optional
+
+from src.utils import pushd
+from src.io import read_msa, read_tree, read_site_rates
+
+
+def _init_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    fmt_str = "[%(asctime)s] - %(name)s - %(levelname)s - %(message)s"
+    formatter = logging.Formatter(fmt_str)
+
+    consoleHandler = logging.StreamHandler(sys.stdout)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+
+_init_logger()
+
+
+def _install_historian():
+    logger = logging.getLogger(__name__)
+    dir_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "historian"
+    )
+    bin_path = os.path.join(dir_path, "bin/historian")
+    if not os.path.exists(dir_path):
+        git_clone_command = f"git clone https://github.com/evoldoers/historian {dir_path}"
+        logger.info(f"Going to run: {git_clone_command}")
+        os.system(git_clone_command)
+    if not os.path.exists(bin_path):
+        with pushd(dir_path):
+            compile_command = (
+                "make"
+            )
+            logger.info(f"Building Historian with:\n{compile_command}")
+            # See https://github.com/evoldoers/historian
+            os.system(compile_command)
+            if not os.path.exists(bin_path):
+                raise Exception("Was not able to build Historian")
+
+
+def _translate_tree_and_msa_to_stock_format(
+    family: str,
+    input_tree_dir: str,
+    input_msa_dir: str,
+    input_site_rates_dir: str,
+    output_stock_dir: str,
+) -> List[str]:
+    """
+    Translate tree and MSA to the Stockholm format.
+
+    One Stockholm file is created for each site rate category.
+
+    Returns the new fake protein families.
+    """
+    if not os.path.exists(output_stock_dir):
+        os.makedirs(output_stock_dir)
+    input_tree_path = os.path.join(input_tree_dir, family + ".txt")
+    input_msa_path = os.path.join(input_msa_dir, family + ".txt")
+    input_site_rates_path = os.path.join(input_site_rates_dir, family + ".txt")
+    msa = read_msa(input_msa_path)
+    site_rates = read_site_rates(input_site_rates_path)
+    rate_categories = sorted(list(set(site_rates)))
+    res = []
+    for i, rate_category in enumerate(rate_categories):
+        # Write out tree scaled by this rate category, and sites in the MSA
+        fake_family = family + "_" + str(i)
+        res.append(fake_family)
+
+        stock_str = "# STOCKHOLM 1.0\n"
+
+        tree = read_tree(input_tree_path)
+        tree = tree.scaled(rate_category, node_name_prefix=fake_family + "-")
+        stock_str += "#=GF NH " + tree.to_newick(format=3) + "\n"
+
+        sites_with_this_rate_category = [i for i in range(len(site_rates)) if site_rates[i] == rate_category]
+        msa_str = ""
+        for seq_name, seq in msa.items():
+            msa_str += fake_family + "-" + seq_name + " " + ''.join([seq[i] for i in sites_with_this_rate_category]) + "\n"
+        stock_str += msa_str
+
+        with open(os.path.join(output_stock_dir, fake_family + ".txt"), "w") as output_stock_file:
+            output_stock_file.write(stock_str)
+    return res
+
+
+def _translate_trees_and_msas_to_stock_format(
+    tree_dir: str,
+    msa_dir: str,
+    site_rates_dir: str,
+    output_stock_dir: str,
+    families: List[str],
+) -> List[str]:
+    """
+    Translate trees and MSAs to the Stockholm format.
+
+    One Stockholm file is created for each site rate category.
+
+    Returns the new fake protein families.
+    """
+    res = []
+    for family in families:
+        res += _translate_tree_and_msa_to_stock_format(
+            family,
+            tree_dir,
+            msa_dir,
+            site_rates_dir,
+            output_stock_dir,
+        )
+    return res
+
+
+def _translate_rate_matrix_from_historian_format(
+    historian_learned_rate_matrix_path: str,
+    learned_rate_matrix_path: str,
+) -> None:
+    raise NotImplementedError
+
+
+def _translate_rate_matrix_to_historian_format(
+    initialization_rate_matrix_path: str,
+    initialization_root_distribution_path: str,
+    historian_init_path: str,
+):
+    raise NotImplementedError
+
+
+def em_lg(
+    tree_dir: str,
+    msa_dir: str,
+    site_rates_dir: str,
+    families: List[str],
+    initialization_rate_matrix_path: str,
+    initialization_root_distribution_path: str,
+    output_rate_matrix_dir: Optional[str] = None,
+):
+    """
+    Args:
+        tree_dir: Directory to the trees stored in friendly format.
+        msa_dir: Directory to the multiple sequence alignments in FASTA format.
+        site_rates_dir: Directory to the files containing the rates at which
+            each site evolves.
+        families: The protein families for which to perform the computation.
+        initialization_rate_matrix_path: Rate matrix used to initialize EM optimizer.
+        initialization_root_distribution_path: Root probability distribution to initialize EM optimizer.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Going to run on {len(families)} families")
+
+    if not os.path.exists(output_rate_matrix_dir):
+        os.makedirs(output_rate_matrix_dir)
+
+    _install_historian()
+
+    with tempfile.TemporaryDirectory() as stock_dir:
+        with tempfile.NamedTemporaryFile("w") as historian_init_file:
+            with tempfile.NamedTemporaryFile("w") as historian_learned_rate_matrix_file:
+                historian_init_path = historian_init_file.name
+                historian_learned_rate_matrix_path = historian_learned_rate_matrix_file.name
+
+                # Translate data from friendly format to historian format.
+                new_families = _translate_trees_and_msas_to_stock_format(
+                    tree_dir,
+                    msa_dir,
+                    site_rates_dir,
+                    stock_dir,
+                    families,
+                )
+                _translate_rate_matrix_to_historian_format(
+                    initialization_rate_matrix_path,
+                    initialization_root_distribution_path,
+                    historian_init_path,
+                )
+
+                # Run Historian
+                dir_path = os.path.dirname(os.path.realpath(__file__))
+                historian_command = (
+                    f"{dir_path}/historian/bin/historian"
+                    + " fit " + " ".join([family + ".txt" for family in new_families])
+                    + f" -model {historian_init_path} "
+                    + " -tree " + " ".join([family + ".txt" for family in new_families])
+                    + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
+                )
+                logger.debug("Going to run command: {historian_command}")
+                st = time.time()
+                os.system(historian_command)
+                et = time.time()
+
+                # Translate results back
+                learned_rate_matrix_path = os.path.join(
+                    output_rate_matrix_dir,
+                    "result.txt",
+                )
+                _translate_rate_matrix_from_historian_format(
+                    historian_learned_rate_matrix_path,
+                    learned_rate_matrix_path,
+                )
+
+                # Write profiling information
+                profiling_path = os.path.join(
+                    output_rate_matrix_dir,
+                    "profiling.txt",
+                )
+                with open(profiling_path, "w") as profiling_file:
+                    profiling_file.write(f"Total time: {et - st} s")

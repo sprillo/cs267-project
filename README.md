@@ -1,5 +1,23 @@
 # CS267 Project: Scalable Estimation and Evaluation of Models of Amino-Acid Co-Evolution
 
+## Historian
+
+For us to be able to use historian for you, you must have these installed:
+
+On a Mac:
+```
+brew install boost gsl pkg-config zlib
+```
+
+On Linux:
+```
+sudo yum -y install boost-devel gsl-devel zlib
+```
+
+Generally, the requirements specified in https://github.com/evoldoers/historian .
+
+## Old stuff
+
 This repo contains starter code for our CS267 class project. The starter code consists of parallel Python implementations and automated correctness tests.
 
 ## Getting set up
