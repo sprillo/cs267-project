@@ -48,8 +48,7 @@ class TestFastTree(unittest.TestCase):
         Expected output is at ./test_input_data/historian_init.json
         """
         with tempfile.NamedTemporaryFile("w") as historian_init_file:
-            # historian_init_path = historian_init_file.name
-            historian_init_path = "historian_init_path.txt"
+            historian_init_path = historian_init_file.name
             _translate_rate_matrix_to_historian_format(
                 initialization_rate_matrix_path=get_lg_path(),
                 historian_init_path=historian_init_path,
