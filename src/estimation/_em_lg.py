@@ -7,9 +7,11 @@ import sys
 import tempfile
 import time
 from typing import List, Optional
+import json
 
 from src.utils import pushd
-from src.io import read_msa, read_tree, read_site_rates
+from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix
+from src.markov_chain import compute_stationary_distribution
 
 
 def _init_logger():
@@ -129,10 +131,33 @@ def _translate_rate_matrix_from_historian_format(
 
 def _translate_rate_matrix_to_historian_format(
     initialization_rate_matrix_path: str,
-    initialization_root_distribution_path: str,
     historian_init_path: str,
 ):
-    raise NotImplementedError
+    rate_matrix = read_rate_matrix(initialization_rate_matrix_path)
+    alphabet = list(rate_matrix.columns)
+    pi = compute_stationary_distribution(rate_matrix.to_numpy())
+    res = {
+        "insrate": 0.0,
+        "delrate": 0.0,
+        "insextprob": 0.0,
+        "delextprob": 0.0,
+        "alphabet": ''.join(alphabet),
+        "wildcard": "",
+    }
+    res["rootprob"] = {
+        state: pi[i]
+        for (i, state) in enumerate(alphabet)
+    }
+    res["subrate"] = {}
+    for state_1 in alphabet:
+        res["subrate"][state_1] = {
+            state_2: rate_matrix.loc[state_1, state_2]
+            for state_2 in alphabet
+            if state_2 != state_1
+        }
+    json_str = json.dumps(res, indent=4)
+    with open(historian_init_path, "w") as historian_init_file:
+        historian_init_file.write(json_str)
 
 
 def em_lg(
@@ -141,7 +166,6 @@ def em_lg(
     site_rates_dir: str,
     families: List[str],
     initialization_rate_matrix_path: str,
-    initialization_root_distribution_path: str,
     output_rate_matrix_dir: Optional[str] = None,
 ):
     """
@@ -152,7 +176,6 @@ def em_lg(
             each site evolves.
         families: The protein families for which to perform the computation.
         initialization_rate_matrix_path: Rate matrix used to initialize EM optimizer.
-        initialization_root_distribution_path: Root probability distribution to initialize EM optimizer.
     """
     logger = logging.getLogger(__name__)
     logger.info(f"Going to run on {len(families)} families")
@@ -178,7 +201,6 @@ def em_lg(
                 )
                 _translate_rate_matrix_to_historian_format(
                     initialization_rate_matrix_path,
-                    initialization_root_distribution_path,
                     historian_init_path,
                 )
 
