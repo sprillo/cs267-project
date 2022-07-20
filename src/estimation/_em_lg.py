@@ -235,8 +235,8 @@ def em_lg(
 
     with tempfile.TemporaryDirectory() as stock_dir:
         with tempfile.NamedTemporaryFile("w") as historian_init_file:
+            historian_init_path = historian_init_file.name
             with tempfile.NamedTemporaryFile("w") as historian_learned_rate_matrix_file:
-                historian_init_path = historian_init_file.name
                 historian_learned_rate_matrix_path = historian_learned_rate_matrix_file.name
 
                 # Translate data from friendly format to historian format.
@@ -257,13 +257,12 @@ def em_lg(
                 dir_path = os.path.dirname(os.path.realpath(__file__))
                 historian_command = (
                     f"{dir_path}/historian/bin/historian"
-                    + " fit " + " ".join([family + ".txt" for family in new_families])
+                    + " fit " + " ".join([os.path.join(stock_dir, family + ".txt") for family in new_families])
                     + f" -model {historian_init_path} "
-                    + " -tree " + " ".join([family + ".txt" for family in new_families])
                     + " -band 0"
                     + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
                 )
-                logger.debug("Going to run command: {historian_command}")
+                logger.info(f"Going to run command: {historian_command}")
                 st = time.time()
                 os.system(historian_command)
                 et = time.time()

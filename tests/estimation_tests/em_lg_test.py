@@ -3,6 +3,7 @@ import tempfile
 import unittest
 import filecmp
 
+import numpy as np
 from ete3 import Tree as TreeETE
 import json
 from parameterized import parameterized
@@ -13,6 +14,7 @@ from src.estimation import em_lg
 from src.estimation._em_lg import _install_historian, _translate_tree_and_msa_to_stock_format, _translate_rate_matrix_to_historian_format, _translate_rate_matrix_from_historian_format, _translate_rate_matrix_from_historian_format
 from src.markov_chain import get_lg_path
 from src.utils import get_amino_acids
+from src.io import read_rate_matrix
 
 DATA_DIR = "./tests/estimation_tests/test_input_data"
 
@@ -90,3 +92,24 @@ class TestFastTree(unittest.TestCase):
             filepath_1 = f"{DATA_DIR}/learned_rate_matrix.txt"
             filepath_2 = learned_rate_matrix_path
             assert(filecmp.cmp(filepath_1, filepath_2))
+
+    def test_run_historian_from_python_api(self):
+        """
+        Run Historian from our CLI
+        """
+        with tempfile.TemporaryDirectory() as learned_rate_matrix_dir:
+            em_lg(
+                tree_dir=f"{DATA_DIR}/tree_dir",
+                msa_dir=f"{DATA_DIR}/msa_dir",
+                site_rates_dir=f"{DATA_DIR}/site_rates_dir",
+                families=["fam1"],
+                initialization_rate_matrix_path=f"{DATA_DIR}/historian_init_small.txt",
+                output_rate_matrix_dir=learned_rate_matrix_dir,
+            )
+            learned_rate_matrix = read_rate_matrix(
+                os.path.join(learned_rate_matrix_dir, "result.txt")
+            )
+            np.testing.assert_almost_equal(
+                learned_rate_matrix.to_numpy(),
+                read_rate_matrix(f"{DATA_DIR}/learned_rate_matrix.txt").to_numpy(),
+            )
