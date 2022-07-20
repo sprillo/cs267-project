@@ -54,13 +54,22 @@ class TestFastTree(unittest.TestCase):
         """
         with tempfile.NamedTemporaryFile("w") as historian_init_file:
             historian_init_path = historian_init_file.name
+            historian_init_path = "historian_init_path"
             _translate_rate_matrix_to_historian_format(
                 initialization_rate_matrix_path=get_lg_path(),
                 historian_init_path=historian_init_path,
             )
             filepath_1 = f"{DATA_DIR}/historian_init.json"
             filepath_2 = historian_init_path
-            assert(filecmp.cmp(filepath_1, filepath_2))
+            file_1_lines = open(filepath_1).read().split('\n')
+            file_2_lines = open(filepath_2).read().split('\n')
+            for line_1, line_2 in zip(file_1_lines, file_2_lines):
+                tokens_1, tokens_2 = line_1.split(), line_2.split()
+                for token_1, token_2 in zip(tokens_1, tokens_2):
+                    try:
+                        np.testing.assert_almost_equal(float(token_1.strip(',')), float(token_2.strip(',')))
+                    except Exception:
+                        self.assertEqual(token_1, token_2)
 
     def test_run_historian_from_CLI(self):
         """
