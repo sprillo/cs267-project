@@ -11,12 +11,14 @@ import json
 
 import numpy as np
 import pandas as pd
+
+from src import caching
 from src.utils import pushd
 from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix, write_rate_matrix
 from src.markov_chain import compute_stationary_distribution
 
 
-MISSING_DATA_CHARACTER = '_'
+MISSING_DATA_CHARACTER = 'x'
 
 
 def _init_logger():
@@ -207,6 +209,10 @@ def _translate_rate_matrix_to_historian_format(
         historian_init_file.write(json_str)
 
 
+@caching.cached_computation(
+    output_dirs=["output_rate_matrix_dir"],
+    exclude_args=[],
+)
 def em_lg(
     tree_dir: str,
     msa_dir: str,
@@ -214,6 +220,7 @@ def em_lg(
     families: List[str],
     initialization_rate_matrix_path: str,
     output_rate_matrix_dir: Optional[str] = None,
+    extra_command_line_args: str = "-band 0 -fixgaprates",
 ):
     """
     Args:
@@ -259,8 +266,8 @@ def em_lg(
                     f"{dir_path}/historian/bin/historian"
                     + " fit " + " ".join([os.path.join(stock_dir, family + ".txt") for family in new_families])
                     + f" -model {historian_init_path} "
-                    + " -band 0"
-                    + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
+                    + " " + extra_command_line_args
+                    + f" > {historian_learned_rate_matrix_path} -v2"
                 )
                 logger.info(f"Going to run command: {historian_command}")
                 st = time.time()

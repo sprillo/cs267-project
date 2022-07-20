@@ -4,7 +4,7 @@
     "insextprob": 0.0,
     "delextprob": 0.0,
     "alphabet": "ARNQ",
-    "wildcard": "_",
+    "wildcard": "x",
     "rootprob": {
         "A": 0.07906592093407892,
         "R": 0.055940944059055996,

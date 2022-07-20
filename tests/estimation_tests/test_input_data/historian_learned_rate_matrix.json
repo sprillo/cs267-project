@@ -1,6 +1,6 @@
 {
  "alphabet": "ARNQ",
- "wildcard": "_",
+ "wildcard": "x",
  "insrate": 0,
  "insextprob": 0,
  "delrate": 0,

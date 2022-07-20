@@ -28,7 +28,7 @@ import tqdm
 from matplotlib.colors import LogNorm
 
 import src.utils as utils
-from src import caching, cherry_estimator, cherry_estimator_coevolution
+from src import caching, cherry_estimator, cherry_estimator_coevolution, em_estimator
 from src.benchmarking.pfam_15k import (
     compute_contact_maps,
     get_families,
@@ -3249,3 +3249,205 @@ def fig_pfam15k(
             dpi=300,
         )
         plt.close()
+
+
+# EM #
+
+
+def fig_single_site_em():
+    """
+    We show that on single-site data simulated on top of real trees, the EM
+    optimizer converges to the solution.
+    """
+    caching.set_cache_dir("_cache_benchmarking_em")
+    caching.set_hash_len(64)
+
+    rate_matrix_filename = "result.txt"
+
+    output_image_dir = (
+        f"images/fig_single_site_em"
+    )
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    num_processes = 32
+    num_sequences = 16  # TODO: 1024
+    num_rate_categories = 20
+
+    num_families_train = None
+    num_families_test = 0
+    min_num_sites = 190
+    max_num_sites = 230
+    min_num_sequences = num_sequences
+    max_num_sequences = 1000000
+
+    quantization_grid_center = 0.03
+    quantization_grid_step = 1.1
+    quantization_grid_num_steps = 64
+    random_seed = 0
+    use_cpp_implementation = True
+
+    num_families_train_list = [
+        1,
+        2,
+        4,
+        8,
+        # 16,
+        # 32,
+        # 64,
+        # 128,
+        # 256,
+        # 512,
+        # 1024,
+        # 2048,
+        # 4096,
+        # 8192,
+        # 15051,
+    ]
+
+    yss_relative_errors = []
+    Qs = []
+    for (i, num_families_train) in enumerate(num_families_train_list):
+        msg = f"***** num_families_train = {num_families_train} *****"
+        print("*" * len(msg))
+        print(msg)
+        print("*" * len(msg))
+
+        families_all = get_families_within_cutoff(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+            min_num_sites=min_num_sites
+            if num_families_train <= 1024
+            else 0,
+            max_num_sites=max_num_sites
+            if num_families_train <= 1024
+            else 1000000,
+            min_num_sequences=min_num_sequences
+            if num_families_train <= 1024
+            else 0,
+            max_num_sequences=max_num_sequences,
+        )
+        families_train = families_all[:num_families_train]
+        if num_families_test == 0:
+            families_test = []
+        else:
+            families_test = families_all[-num_families_test:]
+        print(f"len(families_all) = {len(families_all)}")
+        if num_families_train + num_families_test > len(families_all):
+            raise Exception("Training and testing set would overlap!")
+        assert len(set(families_train + families_test)) == len(
+            families_train
+        ) + len(families_test)
+
+        (
+            msa_dir,
+            contact_map_dir,
+            gt_msa_dir,
+            gt_tree_dir,
+            gt_site_rates_dir,
+            gt_likelihood_dir,
+        ) = simulate_ground_truth_data_single_site(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+            num_sequences=num_sequences,
+            families=families_all,
+            num_rate_categories=num_rate_categories,
+            num_processes=num_processes,
+            random_seed=random_seed,
+            use_cpp_simulation_implementation=use_cpp_implementation,
+        )
+
+        # Now run the EM methods.
+        em_estimator_res = em_estimator(
+            msa_dir=msa_dir,
+            families=families_train,
+            tree_estimator=partial(
+                gt_tree_estimator,
+                gt_tree_dir=gt_tree_dir,
+                gt_site_rates_dir=gt_site_rates_dir,
+                gt_likelihood_dir=gt_likelihood_dir,
+                num_rate_categories=num_rate_categories,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
+            num_iterations=1,
+            num_processes=2,
+            quantization_grid_center=quantization_grid_center,
+            quantization_grid_step=quantization_grid_step,
+            quantization_grid_num_steps=quantization_grid_num_steps,
+            use_cpp_counting_implementation=use_cpp_implementation,
+        )
+
+        learned_rate_matrix_path = os.path.join(
+            em_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+        )
+        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+        learned_rate_matrix = learned_rate_matrix.to_numpy()
+
+        lg = read_rate_matrix(get_lg_path()).to_numpy()
+        print(
+            f"tree_estimator_output_dirs_{i} = ",
+            em_estimator_res["tree_estimator_output_dirs_0"],
+        )
+
+        learned_rate_matrix_path = em_estimator_res[
+            "learned_rate_matrix_path"
+        ]
+        print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
+        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+
+        learned_rate_matrix = learned_rate_matrix.to_numpy()
+        Qs.append(learned_rate_matrix)
+
+        lg = read_rate_matrix(get_lg_path()).to_numpy()
+
+        yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
+
+    for i in range(len(num_families_train_list)):
+        plot_rate_matrix_predictions(
+            read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
+        )
+        plt.title(
+            "True vs predicted rate matrix entries\nnumber of families = %i"
+            % num_families_train_list[i]
+        )
+        plt.tight_layout()
+        plt.savefig(
+            f"{output_image_dir}/log_log_plot_{i}_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
+        plt.close()
+
+    df = pd.DataFrame(
+        {
+            "number of families": sum(
+                [
+                    [num_families_train_list[i]]
+                    * len(yss_relative_errors[i])
+                    for i in range(len(yss_relative_errors))
+                ],
+                [],
+            ),
+            "relative error": sum(yss_relative_errors, []),
+        }
+    )
+    df["log relative error"] = np.log(df["relative error"])
+
+    sns.violinplot(
+        x="number of families",
+        y="log relative error",
+        #     hue=None,
+        data=df,
+        #     palette="muted",
+        inner=None,
+        #     cut=0,
+        #     bw=0.25
+    )
+    add_annotations_to_violinplot(
+        yss_relative_errors,
+        title="Distribution of relative error as sample size increases",
+    )
+    plt.savefig(
+        f"{output_image_dir}/violin_plot_"
+        f"{rate_matrix_filename.split('.')[0]}",
+        dpi=300,
+    )
+    plt.close()
