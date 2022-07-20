@@ -3271,7 +3271,7 @@ def fig_single_site_em():
         os.makedirs(output_image_dir)
 
     num_processes = 32
-    num_sequences = 16  # TODO: 1024
+    num_sequences = 32  # TODO: 1024
     num_rate_categories = 20
 
     num_families_train = None

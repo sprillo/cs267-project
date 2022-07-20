@@ -57,7 +57,7 @@ def em_estimator(
     optimizer_initialization: str = "jtt-ipw",
     optimizer_return_best_iter: bool = True,
     sites_subset_dir: Optional[str] = None,
-    extra_em_command_line_args: str = "-band 0 -fixgaprates",
+    extra_em_command_line_args: str = "-band 0 -fixgaprates -nolaplace",
 ) -> Dict:
     """
     Cherry estimator.
@@ -130,7 +130,7 @@ def em_estimator(
             families=families,
             amino_acids=get_amino_acids(),
             quantization_points=quantization_points,
-            edge_or_cherry=edge_or_cherry,
+            edge_or_cherry="cherry",
             num_processes=num_processes_counting,
             use_cpp_implementation=use_cpp_counting_implementation,
             cpp_command_line_prefix=cpp_counting_command_line_prefix,
@@ -166,7 +166,7 @@ def em_estimator(
             site_rates_dir=tree_estimator_output_dirs["output_site_rates_dir"],
             families=families,
             initialization_rate_matrix_path=initialization_path,
-            extra_em_command_line_args=extra_em_command_line_args,
+            extra_command_line_args=extra_em_command_line_args,
         )["output_rate_matrix_dir"]
 
         res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
