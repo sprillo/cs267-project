@@ -40,7 +40,7 @@ def write_rate_matrix(
     rate_matrix_path: str,
 ) -> None:
     rate_matrix_dir = os.path.dirname(rate_matrix_path)
-    if not os.path.exists(rate_matrix_dir):
+    if rate_matrix_dir != "" and not os.path.exists(rate_matrix_dir):
         os.makedirs(rate_matrix_dir)
     rate_matrix_df = pd.DataFrame(
         rate_matrix,

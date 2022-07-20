@@ -10,7 +10,7 @@ from parameterized import parameterized
 from src.phylogeny_estimation import fast_tree
 
 from src.estimation import em_lg
-from src.estimation._em_lg import _install_historian, _translate_tree_and_msa_to_stock_format, _translate_rate_matrix_to_historian_format, _translate_rate_matrix_from_historian_format
+from src.estimation._em_lg import _install_historian, _translate_tree_and_msa_to_stock_format, _translate_rate_matrix_to_historian_format, _translate_rate_matrix_from_historian_format, _translate_rate_matrix_from_historian_format
 from src.markov_chain import get_lg_path
 from src.utils import get_amino_acids
 
@@ -79,5 +79,14 @@ class TestFastTree(unittest.TestCase):
                 learned_rate_matrix_json = json.load(json_file)
                 assert("subrate" in learned_rate_matrix_json.keys())
 
-    # def test_translate_rate_matrix_from_historian_format(self):
-    #     raise NotImplementedError
+    def test_translate_rate_matrix_from_historian_format(self):
+        with tempfile.NamedTemporaryFile("w") as learned_rate_matrix_file:
+            learned_rate_matrix_path = learned_rate_matrix_file.name
+            _translate_rate_matrix_from_historian_format(
+                f"{DATA_DIR}/historian_learned_rate_matrix.json",
+                alphabet=["A", "R", "N", "Q"],
+                learned_rate_matrix_path=learned_rate_matrix_path,
+            )
+            filepath_1 = f"{DATA_DIR}/learned_rate_matrix.txt"
+            filepath_2 = learned_rate_matrix_path
+            assert(filecmp.cmp(filepath_1, filepath_2))

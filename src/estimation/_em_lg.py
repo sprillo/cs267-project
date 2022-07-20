@@ -9,8 +9,10 @@ import time
 from typing import List, Optional
 import json
 
+import numpy as np
+import pandas as pd
 from src.utils import pushd
-from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix
+from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix, write_rate_matrix
 from src.markov_chain import compute_stationary_distribution
 
 
@@ -146,9 +148,32 @@ def _translate_trees_and_msas_to_stock_format(
 
 def _translate_rate_matrix_from_historian_format(
     historian_learned_rate_matrix_path: str,
+    alphabet: List[str],
     learned_rate_matrix_path: str,
 ) -> None:
-    raise NotImplementedError
+    with open(historian_learned_rate_matrix_path) as json_file:
+        learned_rate_matrix_json = json.load(json_file)
+    res = pd.DataFrame(
+        np.zeros(
+            shape=(
+                len(alphabet),
+                len(alphabet)
+            )
+        ),
+        index=alphabet,
+        columns=alphabet,
+    )
+    for state_1 in alphabet:
+        for state_2 in alphabet:
+            if state_1 != state_2:
+                res.loc[state_1, state_2] = learned_rate_matrix_json["subrate"][state_1][state_2]
+    for state_1 in alphabet:
+        res.loc[state_1, state_1] = -res.loc[state_1, :].sum()
+    write_rate_matrix(
+        res,
+        alphabet,
+        learned_rate_matrix_path
+    )
 
 
 def _translate_rate_matrix_to_historian_format(
@@ -250,6 +275,7 @@ def em_lg(
                 )
                 _translate_rate_matrix_from_historian_format(
                     historian_learned_rate_matrix_path,
+                    alphabet,
                     learned_rate_matrix_path,
                 )
 
