@@ -143,11 +143,51 @@ class Tree:
                 )
         return tree_ete
 
+    def to_ete3_resolve_root_trifurcation(self) -> ete3.Tree:
+        """
+        Return the ete3 version of this tree, resolving the
+        trifurcation at the root if it exists
+        """
+        if len(self.children(self.root())) == 2:
+            # No trifurcation
+            return self.to_ete3()
+        assert(len(self.children(self.root())) == 3)
+
+        tree_ete = ete3.Tree(name=self.root() + "_fakeroot")
+        ete3_node_dict = {}
+        ete3_node_dict[self.root() + "_fakeroot"] = tree_ete
+
+        # Create binary root manually
+        first_root_child, dist = self.children(self.root())[0]
+        ete3_node_dict[first_root_child] = ete3_node_dict[self.root() + "_fakeroot"].add_child(
+            name=first_root_child, dist=dist / 2
+        )
+        ete3_node_dict[self.root()] = ete3_node_dict[self.root() + "_fakeroot"].add_child(
+            name=self.root(), dist=dist / 2
+        )
+
+        for node in self.preorder_traversal():
+            for (i, (child, dist)) in enumerate(self.children(node)):
+                if i == 0 and self.is_root(node):
+                    # This edge was split into two manually above
+                    continue
+                ete3_node_dict[child] = ete3_node_dict[node].add_child(
+                    name=child, dist=dist
+                )
+        return tree_ete
+
     def to_newick(self, format: str) -> str:
         """
         Return the newick representation of this tree.
         """
         tree_ete = self.to_ete3()
+        return tree_ete.write(format=format)
+
+    def to_newick_resolve_root_trifurcation(self, format: str) -> str:
+        """
+        Return the newick representation of this tree.
+        """
+        tree_ete = self.to_ete3_resolve_root_trifurcation()
         return tree_ete.write(format=format)
 
 

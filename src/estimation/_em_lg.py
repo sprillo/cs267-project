@@ -107,7 +107,7 @@ def _translate_tree_and_msa_to_stock_format(
 
         tree = read_tree(input_tree_path)
         tree = tree.scaled(rate_category, node_name_prefix=fake_family + "-")
-        stock_str += "#=GF NH " + tree.to_newick(format=3) + "\n"
+        stock_str += "#=GF NH " + tree.to_newick_resolve_root_trifurcation(format=3) + "\n"
 
         sites_with_this_rate_category = [i for i in range(len(site_rates)) if site_rates[i] == rate_category]
         msa_str = ""
