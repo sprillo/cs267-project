@@ -8,7 +8,6 @@ from ete3 import Tree as TreeETE
 import json
 from parameterized import parameterized
 
-from src.phylogeny_estimation import fast_tree
 from collections import defaultdict
 
 from src.estimation import em_lg
@@ -23,7 +22,7 @@ from tests.simulation_tests.simulation_test import check_empirical_counts
 DATA_DIR = "./tests/estimation_tests/test_input_data"
 
 
-class TestFastTree(unittest.TestCase):
+class TestEMLG(unittest.TestCase):
     def test_installation(self):
         """
         Test that Historian is installed
@@ -141,6 +140,7 @@ class TestFastTree(unittest.TestCase):
                 families=["fam1"],
                 initialization_rate_matrix_path=f"{DATA_DIR}/historian_init_small.txt",
                 output_rate_matrix_dir=learned_rate_matrix_dir,
+                extra_command_line_args="-band 0 -fixgaprates",
             )
             learned_rate_matrix = read_rate_matrix(
                 os.path.join(learned_rate_matrix_dir, "result.txt")
