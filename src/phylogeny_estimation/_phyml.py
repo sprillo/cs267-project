@@ -303,7 +303,7 @@ def phyml(
         for process_rank in range(num_processes)
     ]
 
-    logger.info(f"Going to run on {len(families)} families")
+    logger.info(f"Going to run on {len(families)} families using {num_processes} processes")
 
     if num_processes > 1:
         with multiprocessing.Pool(num_processes) as pool:

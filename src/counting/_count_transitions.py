@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import sys
 import tempfile
+import time
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -186,6 +187,8 @@ def count_transitions(
         cpp_command_line_prefix: E.g. to run the C++ binary on slurm.
         cpp_command_line_suffix: For extra C++ args related to performance.
     """
+    start_time = time.time()
+
     logger = logging.getLogger(__name__)
     logger.info(f"Starting on {len(families)} families")
 
@@ -229,7 +232,7 @@ def count_transitions(
             command += f" {output_count_matrices_dir}"
             command += f" {cpp_command_line_suffix}"
             logger.info(
-                f"Going to run C++ implementation on {len(families)} families"
+                f"Going to run C++ implementation on {len(families)} families using {num_processes} processes"
             )
             os.system(command)
 
@@ -242,6 +245,8 @@ def count_transitions(
                     os.remove(result_pid_path)
 
             logger.info("Done!")
+            with open(os.path.join(output_count_matrices_dir, "profiling.txt"), "w") as profiling_file:
+                profiling_file.write(f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n")
             return
 
     map_args = [
@@ -281,3 +286,5 @@ def count_transitions(
     )
 
     logger.info("Done!")
+    with open(os.path.join(output_count_matrices_dir, "profiling.txt"), "w") as profiling_file:
+        profiling_file.write(f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n")

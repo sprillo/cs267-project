@@ -1,6 +1,8 @@
 import logging
+import os
 import sys
 import tempfile
+import time
 from typing import Optional
 
 from threadpoolctl import threadpool_limits
@@ -50,6 +52,8 @@ def quantized_transitions_mle(
     OPENBLAS_NUM_THREADS: Optional[int] = 1,
     return_best_iter: bool = True,
 ):
+    start_time = time.time()
+
     logger = logging.getLogger(__name__)
     logger.info("Starting")
 
@@ -107,3 +111,5 @@ def quantized_transitions_mle(
                 )
 
     logger.info("Done!")
+    with open(os.path.join(output_rate_matrix_dir, "profiling.txt"), "w") as profiling_file:
+        profiling_file.write(f"Total time: {time.time() - start_time} seconds with {OPENBLAS_NUM_THREADS} OPENBLAS_NUM_THREADS and {OMP_NUM_THREADS} OMP_NUM_THREADS\n")
