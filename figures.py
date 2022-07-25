@@ -94,6 +94,7 @@ PFAM_15K_PDB_DIR = "input_data/pdb"
 def add_annotations_to_violinplot(
     yss_relative_errors: List[float],
     title: str,
+    runtimes: Optional[List[float]] = None,
 ):
     yticks = [np.log(10**i) for i in range(-5, 2)]
     ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
@@ -107,7 +108,7 @@ def add_annotations_to_violinplot(
             label,  # this is the text
             (
                 i + 0.05,
-                np.log(np.max(ys)) - 1.5,
+                np.log(np.max(ys)) - 3.0,
             ),  # these are the coordinates to position the label
             textcoords="offset points",  # how to position the text
             xytext=(0, 10),  # distance from text to points (x,y)
@@ -121,7 +122,7 @@ def add_annotations_to_violinplot(
             label,  # this is the text
             (
                 i + 0.05,
-                np.log(np.max(ys)),
+                np.log(np.max(ys)) - 1.5,
             ),  # these are the coordinates to position the label
             textcoords="offset points",  # how to position the text
             xytext=(0, 10),  # distance from text to points (x,y)
@@ -130,7 +131,25 @@ def add_annotations_to_violinplot(
             color="red",
             fontsize=12,
         )  # horizontal alignment can be left, right or center
-    plt.title(title + "\n(max and median error also reported)")
+        if runtimes is not None:
+            label = "{:.0f}s".format(runtimes[i])
+            plt.annotate(
+                label,  # this is the text
+                (
+                    i + 0.05,
+                    np.log(np.max(ys)),
+                ),  # these are the coordinates to position the label
+                textcoords="offset points",  # how to position the text
+                xytext=(0, 10),  # distance from text to points (x,y)
+                ha="left",
+                va="top",
+                color="blue",
+                fontsize=12,
+            )  # horizontal alignment can be left, right or center
+    if runtimes is None:
+        plt.title(title + "\n(median and max error also reported)")
+    else:
+        plt.title(title + "\n(median error, max error and runtime also reported)")
     plt.tight_layout()
 
 
@@ -1540,7 +1559,7 @@ def fig_single_site_cherry_vs_edge(
     the oracle method ("edge"), and show that it is off by 4-8x, as suggested
     by the back-of-envelope estimate.
     """
-    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_cache_dir("_cache_benchmarking_em")
     caching.set_hash_len(64)
 
     rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
@@ -1553,8 +1572,8 @@ def fig_single_site_cherry_vs_edge(
             os.makedirs(output_image_dir)
 
         num_processes = 32
-        num_sequences = 1024
-        num_rate_categories = 20
+        num_sequences = 128  # TODO: 1024
+        num_rate_categories = 1  # TODO: 20
 
         num_families_train = None
         num_families_test = 0
@@ -1573,8 +1592,8 @@ def fig_single_site_cherry_vs_edge(
 
         # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
         num_families_train_list = [
-            1,
-            2,
+            # 1,
+            # 2,
             4,
             8,
             16,
@@ -1590,6 +1609,7 @@ def fig_single_site_cherry_vs_edge(
             15051,
         ]
 
+        runtimes = []
         yss_relative_errors = []
         Qs = []
         for (i, num_families_train) in enumerate(num_families_train_list):
@@ -1654,7 +1674,9 @@ def fig_single_site_cherry_vs_edge(
                 ),
                 initial_tree_estimator_rate_matrix_path=get_equ_path(),
                 num_iterations=1,
-                num_processes=2,
+                num_processes_tree_estimation=num_processes,
+                num_processes_optimization=1,
+                num_processes_counting=1,
                 quantization_grid_center=quantization_grid_center,
                 quantization_grid_step=quantization_grid_step,
                 quantization_grid_num_steps=quantization_grid_num_steps,
@@ -1663,8 +1685,17 @@ def fig_single_site_cherry_vs_edge(
                 do_adam=True,
                 edge_or_cherry=edge_or_cherry,
                 use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
             )
+            def get_runtime(cherry_estimator_res: str):
+                res = 0
+                for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
+                    with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
+                        profiling_file_contents = profiling_file.read()    
+                        print(f"profiling_file_contents = {profiling_file_contents}")
+                        res += float(profiling_file_contents.split()[2])
+                return res
+            runtime = get_runtime(cherry_estimator_res)
+            runtimes.append(runtime)
 
             learned_rate_matrix_path = os.path.join(
                 cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
@@ -1735,6 +1766,7 @@ def fig_single_site_cherry_vs_edge(
         add_annotations_to_violinplot(
             yss_relative_errors,
             title="Distribution of relative error as sample size increases",
+            runtimes=runtimes,
         )
         plt.savefig(
             f"{output_image_dir}/violin_plot_"
@@ -3254,7 +3286,9 @@ def fig_pfam15k(
 # EM #
 
 
-def fig_single_site_em():
+def fig_single_site_em(
+    extra_em_command_line_args: str,
+):
     """
     We show that on single-site data simulated on top of real trees, the EM
     optimizer converges to the solution.
@@ -3265,14 +3299,15 @@ def fig_single_site_em():
     rate_matrix_filename = "result.txt"
 
     output_image_dir = (
-        f"images/fig_single_site_em"
+        f"images/fig_single_site_em__" + 
+        extra_em_command_line_args.replace(' ', '_')
     )
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
     num_processes = 32
-    num_sequences = 32  # TODO: 1024
-    num_rate_categories = 20
+    num_sequences = 128  # TODO: 1024
+    num_rate_categories = 1  # TODO: 20
 
     num_families_train = None
     num_families_test = 0
@@ -3288,16 +3323,16 @@ def fig_single_site_em():
     use_cpp_implementation = True
 
     num_families_train_list = [
-        1,
-        2,
+        # 1,
+        # 2,
         4,
         8,
-        # 16,
-        # 32,
-        # 64,
-        # 128,
-        # 256,
-        # 512,
+        16,
+        32,
+        64,
+        128,
+        256,
+        512,
         # 1024,
         # 2048,
         # 4096,
@@ -3306,6 +3341,7 @@ def fig_single_site_em():
     ]
 
     yss_relative_errors = []
+    runtimes = []
     Qs = []
     for (i, num_families_train) in enumerate(num_families_train_list):
         msg = f"***** num_families_train = {num_families_train} *****"
@@ -3373,7 +3409,16 @@ def fig_single_site_em():
             quantization_grid_step=quantization_grid_step,
             quantization_grid_num_steps=quantization_grid_num_steps,
             use_cpp_counting_implementation=use_cpp_implementation,
+            extra_em_command_line_args=extra_em_command_line_args,
         )
+
+        def get_runtime(profiling_file_path: str):
+            with open(profiling_file_path, "r") as profiling_file:
+                profiling_file_contents = profiling_file.read()
+                print(f"profiling_file_contents = {profiling_file_contents}")
+                return float(profiling_file_contents.split()[2])
+        runtime = get_runtime(os.path.join(em_estimator_res["rate_matrix_dir_0"], "profiling.txt"))
+        runtimes.append(runtime)
 
         learned_rate_matrix_path = os.path.join(
             em_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
@@ -3444,6 +3489,7 @@ def fig_single_site_em():
     add_annotations_to_violinplot(
         yss_relative_errors,
         title="Distribution of relative error as sample size increases",
+        runtimes=runtimes,
     )
     plt.savefig(
         f"{output_image_dir}/violin_plot_"
