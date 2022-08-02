@@ -57,6 +57,7 @@ from src.io import (
 )
 from src.markov_chain import (
     chain_product,
+    compute_mutation_rate,
     compute_stationary_distribution,
     get_aa_coevolution_mask_path,
     get_equ_path,
@@ -1572,7 +1573,7 @@ def fig_single_site_cherry_vs_edge(
             os.makedirs(output_image_dir)
 
         num_processes = 32
-        num_sequences = 128  # TODO: 1024
+        num_sequences = 1024  # TODO: 128
         num_rate_categories = 1  # TODO: 20
 
         num_families_train = None
@@ -1602,11 +1603,11 @@ def fig_single_site_cherry_vs_edge(
             128,
             256,
             512,
-            1024,
-            2048,
-            4096,
-            8192,
-            15051,
+            # 1024,
+            # 2048,
+            # 4096,
+            # 8192,
+            # 15051,
         ]
 
         runtimes = []
@@ -1755,6 +1756,232 @@ def fig_single_site_cherry_vs_edge(
 
         sns.violinplot(
             x="number of families",
+            y="log relative error",
+            #     hue=None,
+            data=df,
+            #     palette="muted",
+            inner=None,
+            #     cut=0,
+            #     bw=0.25
+        )
+        add_annotations_to_violinplot(
+            yss_relative_errors,
+            title="Distribution of relative error as sample size increases",
+            runtimes=runtimes,
+        )
+        plt.savefig(
+            f"{output_image_dir}/violin_plot_"
+            f"{rate_matrix_filename.split('.')[0]}",
+            dpi=300,
+        )
+        plt.close()
+
+
+def fig_single_site_cherry_vs_edge_num_sequences(
+    use_best_iterate: bool = True,
+):
+    """
+    We compare the efficiency of our Cherry method ("cherry") against that of
+    the oracle method ("edge"), when increasing the number of sequences per family.
+    """
+    caching.set_cache_dir("_cache_benchmarking_num_sequences")
+    caching.set_hash_len(64)
+
+    logger = logging.getLogger(__name__)
+
+    rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
+
+    for edge_or_cherry in ["edge", "cherry"]:
+        output_image_dir = (
+            f"images/fig_single_site_cherry_vs_edge_num_sequences/{edge_or_cherry}"
+        )
+        if not os.path.exists(output_image_dir):
+            os.makedirs(output_image_dir)
+
+        num_processes = 32
+        num_sequences = None  # We iterate over this
+        num_rate_categories = 1  # TODO: 20
+
+        num_families_train = 1024
+        num_families_test = 0
+        min_num_sites = 190
+        max_num_sites = 230
+        min_num_sequences = 1024  # We only consider families with >= 1024 sequences since we progressively up-sample them.
+        max_num_sequences = 1000000
+
+        quantization_grid_center = 0.03
+        quantization_grid_step = 1.1
+        quantization_grid_num_steps = 64
+        random_seed = 0
+        learning_rate = 1e-1
+        num_epochs = 2000
+        use_cpp_implementation = True
+
+        num_sequences_list = [
+            # 1,
+            # 2,
+            4,
+            8,
+            16,
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024,
+            # 2048,
+            # 4096,
+            # 8192,
+            # 15051,
+        ]
+
+        runtimes = []
+        yss_relative_errors = []
+        Qs = []
+        for (i, num_sequences) in enumerate(num_sequences_list):
+            logger.info(f"Running on num_sequences = {num_sequences}")
+            msg = f"***** num_sequences = {num_sequences} *****"
+            print("*" * len(msg))
+            print(msg)
+            print("*" * len(msg))
+
+            families_all = get_families_within_cutoff(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                min_num_sites=min_num_sites
+                if num_families_train <= 1024
+                else 0,
+                max_num_sites=max_num_sites
+                if num_families_train <= 1024
+                else 1000000,
+                min_num_sequences=min_num_sequences
+                if num_families_train <= 1024
+                else 0,
+                max_num_sequences=max_num_sequences,
+            )
+            families_train = families_all[:num_families_train]
+            if num_families_test == 0:
+                families_test = []
+            else:
+                families_test = families_all[-num_families_test:]
+            print(f"len(families_all) = {len(families_all)}")
+            if num_families_train + num_families_test > len(families_all):
+                raise Exception("Training and testing set would overlap!")
+            assert len(set(families_train + families_test)) == len(
+                families_train
+            ) + len(families_test)
+
+            (
+                msa_dir,
+                contact_map_dir,
+                gt_msa_dir,
+                gt_tree_dir,
+                gt_site_rates_dir,
+                gt_likelihood_dir,
+            ) = simulate_ground_truth_data_single_site(
+                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+                num_sequences=num_sequences,
+                families=families_all,
+                num_rate_categories=num_rate_categories,
+                num_processes=num_processes,
+                random_seed=random_seed,
+                use_cpp_simulation_implementation=use_cpp_implementation,
+            )
+
+            # Now run the cherry and oracle edge methods.
+            print(f"**** edge_or_cherry = {edge_or_cherry} *****")
+            cherry_estimator_res = cherry_estimator(
+                msa_dir=msa_dir if edge_or_cherry == "cherry" else gt_msa_dir,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                num_iterations=1,
+                num_processes_tree_estimation=num_processes,
+                num_processes_optimization=1,
+                num_processes_counting=1,
+                quantization_grid_center=quantization_grid_center,
+                quantization_grid_step=quantization_grid_step,
+                quantization_grid_num_steps=quantization_grid_num_steps,
+                learning_rate=learning_rate,
+                num_epochs=num_epochs,
+                do_adam=True,
+                edge_or_cherry=edge_or_cherry,
+                use_cpp_counting_implementation=use_cpp_implementation,
+            )
+            def get_runtime(cherry_estimator_res: str):
+                res = 0
+                for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
+                    with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
+                        profiling_file_contents = profiling_file.read()    
+                        print(f"profiling_file_contents = {profiling_file_contents}")
+                        res += float(profiling_file_contents.split()[2])
+                return res
+            runtime = get_runtime(cherry_estimator_res)
+            runtimes.append(runtime)
+
+            learned_rate_matrix_path = os.path.join(
+                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+            )
+            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+            learned_rate_matrix = learned_rate_matrix.to_numpy()
+
+            lg = read_rate_matrix(get_lg_path()).to_numpy()
+            print(
+                f"tree_estimator_output_dirs_{i} = ",
+                cherry_estimator_res["tree_estimator_output_dirs_0"],
+            )
+
+            learned_rate_matrix_path = cherry_estimator_res[
+                "learned_rate_matrix_path"
+            ]
+            print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
+            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+
+            learned_rate_matrix = learned_rate_matrix.to_numpy()
+            Qs.append(learned_rate_matrix)
+
+            lg = read_rate_matrix(get_lg_path()).to_numpy()
+
+            yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
+
+        for i in range(len(num_sequences_list)):
+            plot_rate_matrix_predictions(
+                read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
+            )
+            plt.title(
+                "True vs predicted rate matrix entries\nnumber of sequences = %i"
+                % num_sequences_list[i]
+            )
+            plt.tight_layout()
+            plt.savefig(
+                f"{output_image_dir}/log_log_plot_{i}_"
+                f"{rate_matrix_filename.split('.')[0]}",
+                dpi=300,
+            )
+            plt.close()
+
+        df = pd.DataFrame(
+            {
+                "number of sequences": sum(
+                    [
+                        [num_sequences_list[i]]
+                        * len(yss_relative_errors[i])
+                        for i in range(len(yss_relative_errors))
+                    ],
+                    [],
+                ),
+                "relative error": sum(yss_relative_errors, []),
+            }
+        )
+        df["log relative error"] = np.log(df["relative error"])
+
+        sns.violinplot(
+            x="number of sequences",
             y="log relative error",
             #     hue=None,
             data=df,
@@ -2682,8 +2909,11 @@ def fig_lg_paper():
             ("reproduced JTT", "JTT\n(reproduced)"),
             ("reported WAG", "WAG\n(reported)"),
             ("reproduced WAG", "WAG\n(reproduced)"),
+            # ("reported WAG', "WAG'\n(reported)"),
+            # ("Historian__1__1__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "WAG'\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
             ("reported LG", "LG\n(reported)"),
             ("reproduced LG", "LG\n(reproduced)"),
+            # ("Historian__1__4__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "LG\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
             ("Cherry__1__1e-1__2000", "Cherry\n1st iteration"),
             ("Cherry__2__1e-1__2000", "Cherry\n2nd iteration"),
             ("Cherry__3__1e-1__2000", "Cherry\n3rd iteration"),
@@ -3069,8 +3299,9 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_name, rate_matrix_path in single_site_rate_matrices:
+        mutation_rate = compute_mutation_rate(read_rate_matrix(rate_matrix_path))
         print(
-            f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) *****"  # noqa
+            f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"  # noqa
         )
         ll = evaluate_single_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
@@ -3168,7 +3399,7 @@ def fig_pfam15k(
     )["learned_rate_matrix_path"]
 
     # Coevolution model without masking #
-    cherry_2_no_mask_path = cherry_estimator_coevolution(
+    cherry_2_no_mask_dir = cherry_estimator_coevolution(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
         minimum_distance_for_nontrivial_contact=mdnc,
@@ -3190,7 +3421,18 @@ def fig_pfam15k(
         num_processes_optimization=8,
         optimizer_return_best_iter=use_best_iterate,
         use_maximal_matching=use_maximal_matching,
-    )["learned_rate_matrix_path"]
+    )
+    cherry_2_no_mask_path = cherry_2_no_mask_dir["learned_rate_matrix_path"]
+    def get_runtime(cherry_estimator_res: str):
+        res = 0
+        for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
+            with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
+                profiling_file_contents = profiling_file.read()    
+                print(f"profiling_file_contents = {profiling_file_contents}")
+                res += float(profiling_file_contents.split()[2])
+        return res
+    runtime_coevolution = get_runtime(cherry_2_no_mask_dir)
+    print(f"Runtime for coevolution: {runtime_coevolution}")
 
     contact_map_dir_test = compute_contact_maps(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
@@ -3216,8 +3458,9 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_2_name, rate_matrix_2_path in pair_site_rate_matrices:
+        mutation_rate = compute_mutation_rate(read_rate_matrix(rate_matrix_2_path))
         print(
-            f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) *****"  # noqa
+            f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"  # noqa
         )
         if num_rate_categories > 1:
             print(
@@ -3288,6 +3531,7 @@ def fig_pfam15k(
 
 def fig_single_site_em(
     extra_em_command_line_args: str,
+    num_processes: int = 32,
 ):
     """
     We show that on single-site data simulated on top of real trees, the EM
@@ -3305,8 +3549,7 @@ def fig_single_site_em(
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-    num_processes = 32
-    num_sequences = 128  # TODO: 1024
+    num_sequences = 1024  # TODO: 128
     num_rate_categories = 1  # TODO: 20
 
     num_families_train = None
@@ -3333,7 +3576,7 @@ def fig_single_site_em(
         128,
         256,
         512,
-        # 1024,
+        1024,
         # 2048,
         # 4096,
         # 8192,

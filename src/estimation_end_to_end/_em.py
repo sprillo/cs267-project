@@ -55,7 +55,7 @@ def em_estimator(
     num_processes_counting: Optional[int] = None,
     num_processes_optimization: Optional[int] = 2,
     optimizer_initialization: str = "jtt-ipw",
-    optimizer_return_best_iter: bool = True,
+    optimizer_return_best_iter: bool = True,  # TODO: Unused, remove.
     sites_subset_dir: Optional[str] = None,
     extra_em_command_line_args: str = "-band 0 -fixgaprates -nolaplace",
 ) -> Dict:
