@@ -1573,8 +1573,8 @@ def fig_single_site_cherry_vs_edge(
             os.makedirs(output_image_dir)
 
         num_processes = 32
-        num_sequences = 1024  # TODO: 128
-        num_rate_categories = 1  # TODO: 20
+        num_sequences = 128
+        num_rate_categories = 1
 
         num_families_train = None
         num_families_test = 0
@@ -1603,7 +1603,7 @@ def fig_single_site_cherry_vs_edge(
             128,
             256,
             512,
-            # 1024,
+            1024,
             # 2048,
             # 4096,
             # 8192,
@@ -1800,7 +1800,7 @@ def fig_single_site_cherry_vs_edge_num_sequences(
 
         num_processes = 32
         num_sequences = None  # We iterate over this
-        num_rate_categories = 1  # TODO: 20
+        num_rate_categories = 1  # TODO: 20?
 
         num_families_train = 1024
         num_families_test = 0
@@ -3291,7 +3291,7 @@ def fig_pfam15k(
 
     log_likelihoods = []  # type: List[Tuple[str, float]]
     single_site_rate_matrices = [
-        ("EQU", get_equ_path()),
+        # ("EQU", get_equ_path()),  # Screws up the plots because its so bad.
         ("JTT", get_jtt_path()),
         ("WAG", get_wag_path()),
         ("LG", get_lg_path()),
@@ -3354,6 +3354,8 @@ def fig_pfam15k(
         sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
     cherry_contact = read_rate_matrix(cherry_contact_path).to_numpy()
+    mutation_rate = compute_mutation_rate(read_rate_matrix(cherry_contact_path))
+    print(f"***** cherry_contact_path = {cherry_contact_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****")
     print("Cherry contact topleft 3x3 corner:")
     print(cherry_contact[:3, :3])
 
@@ -3536,6 +3538,10 @@ def fig_single_site_em(
     """
     We show that on single-site data simulated on top of real trees, the EM
     optimizer converges to the solution.
+
+    NOTE: Historian blows up on 1024 sequences per family, due to an eigenvalue
+    convergence issue. Because of this, I am only using 128 sequences per
+    family for this relative efficiency experiment.
     """
     caching.set_cache_dir("_cache_benchmarking_em")
     caching.set_hash_len(64)
@@ -3549,8 +3555,8 @@ def fig_single_site_em(
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-    num_sequences = 1024  # TODO: 128
-    num_rate_categories = 1  # TODO: 20
+    num_sequences = 128
+    num_rate_categories = 1
 
     num_families_train = None
     num_families_test = 0

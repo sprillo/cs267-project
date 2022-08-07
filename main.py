@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # fig_pfam15k(num_rate_categories=1)
     # fig_pfam15k(num_rate_categories=2)
     # fig_pfam15k(num_rate_categories=4)
-    fig_pfam15k(num_rate_categories=20)
+    # fig_pfam15k(num_rate_categories=20)
 
     # fig_qmaker()
     # from src.phylogeny_estimation._iq_tree import _install_iq_tree
@@ -44,18 +44,22 @@ if __name__ == "__main__":
     # fig_single_site_em(
     #     "-band 0 -fixgaprates -mininc 0.001 -maxiter 10000 -nolaplace",
     #     num_processes=4,
-    # )  # TODO: Check results! (128 AND 1024 sequences per family)
+    # )
     # fig_single_site_em(
     #     "-band 0 -fixgaprates -mininc 0.0001 -maxiter 10000 -nolaplace",
     #     num_processes=4,
-    # )  # TODO: Check results! (128 AND 1024 sequences per family)
+    # )
     # fig_single_site_em(
     #     "-band 0 -fixgaprates -mininc 0.00001 -maxiter 10000 -nolaplace",
     #     num_processes=4,
-    # )  # TODO: Check results! (128 AND 1024 sequences per family)
+    # ) # Worse than 0.000001
+    fig_single_site_em(
+        "-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace",
+        num_processes=4,
+    ) # Optimal
     # fig_single_site_em(
-    #     "-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace",
+    #     "-band 0 -fixgaprates -mininc 0.0000001 -maxiter 10000 -nolaplace",
     #     num_processes=4,
-    # )  # TODO: Check results! (128 AND 1024 sequences per family)
+    # )  # Not much better than 0.000001, and takes twice as long
 
     print("Main done!")
