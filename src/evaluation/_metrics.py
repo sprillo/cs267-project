@@ -1,4 +1,5 @@
 from typing import Optional
+import seaborn as sns
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -125,6 +126,7 @@ def plot_rate_matrix_predictions(
     y_true: RateMatrixType,
     y_pred: RateMatrixType,
     mask_matrix: Optional[MaskMatrixType] = None,
+    density_plot: bool = False
 ) -> None:
     num_states = y_true.shape[0]
     if mask_matrix is None:
@@ -143,7 +145,11 @@ def plot_rate_matrix_predictions(
         if i != j
     ]
 
-    plt.scatter(ys_true, ys_pred, alpha=0.3)
+    if density_plot:
+        sns.jointplot(x=ys_true, y=ys_pred, kind="hex", color="#4CB391")
+    else:
+        plt.scatter(ys_true, ys_pred, alpha=0.3)
+
     plt.title("True vs predicted rate matrix entries")
     plt.xlabel("True entry $Q[i, j]$", fontsize=18)
     plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)  # noqa
