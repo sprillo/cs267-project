@@ -474,7 +474,12 @@ def simulate_ground_truth_data_single_site(
     )
 
 
-@caching.cached()
+@caching.cached(
+    exclude_if_default=[
+        "pi_2_path",
+        "Q_2_path",
+    ],
+)
 def simulate_ground_truth_data_coevolution(
     pfam_15k_msa_dir: str,
     pfam_15k_pdb_dir: str,
@@ -486,6 +491,8 @@ def simulate_ground_truth_data_coevolution(
     num_processes: int,
     random_seed: int,
     use_cpp_simulation_implementation: bool,
+    pi_2_path: str = get_lg_x_lg_stationary_path(),
+    Q_2_path: str = get_lg_x_lg_path(),
 ):
     """
     Simulate ground truth MSAs with LG x LG.
@@ -535,8 +542,8 @@ def simulate_ground_truth_data_coevolution(
         amino_acids=get_amino_acids(),
         pi_1_path=get_lg_stationary_path(),
         Q_1_path=get_lg_path(),
-        pi_2_path=get_lg_x_lg_stationary_path(),
-        Q_2_path=get_lg_x_lg_path(),
+        pi_2_path=pi_2_path,
+        Q_2_path=Q_2_path,
         strategy="all_transitions",
         random_seed=random_seed,
         num_processes=num_processes,

@@ -49,6 +49,7 @@ from src.io import (
     read_count_matrices,
     read_log_likelihood,
     read_mask_matrix,
+    read_msa,
     read_rate_matrix,
     write_count_matrices,
     write_probability_distribution,
@@ -65,6 +66,7 @@ from src.markov_chain import (
     get_jtt_path,
     get_lg_path,
     get_lg_x_lg_path,
+    get_lg_x_lg_stationary_path,
     get_wag_path,
     matrix_exponential,
     normalized,
@@ -2602,12 +2604,13 @@ def fig_convergence_on_large_data_pair_site(
 
 def fig_pair_site_quantization_error(
     use_best_iterate: bool = True,
+    Q_2_name = "masked",
 ):
     """
     We show that ~100 quantization points (geometric increments of 10%) is
-    enough.
+    enough on Q estimated on REAL data (fig_pfam15k with 1 rate category)
     """
-    output_image_dir = "images/fig_pair_site_quantization_error"
+    output_image_dir = f"images/fig_pair_site_quantization_error__Q_2_name__{Q_2_name}"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
@@ -2635,15 +2638,15 @@ def fig_pair_site_quantization_error(
     caching.set_hash_len(64)
 
     qs = [
-        (0.03, 445.79, 1),
-        (0.03, 21.11, 2),
-        (0.03, 4.59, 4),
-        (0.03, 2.14, 8),
-        (0.03, 1.46, 16),
-        (0.03, 1.21, 32),
+        # (0.03, 445.79, 1),
+        # (0.03, 21.11, 2),
+        # (0.03, 4.59, 4),
+        # (0.03, 2.14, 8),
+        # (0.03, 1.46, 16),
+        # (0.03, 1.21, 32),
         (0.03, 1.1, 64),
-        (0.03, 1.048, 128),
-        (0.03, 1.024, 256),
+        # (0.03, 1.048, 128),
+        # (0.03, 1.024, 256),
     ]
     q_errors = [(np.sqrt(q[1]) - 1) * 100 for q in qs]
     q_points = [2 * q[2] + 1 for q in qs]
@@ -2682,6 +2685,63 @@ def fig_pair_site_quantization_error(
         ) + len(families_test)
 
         mdnc = minimum_distance_for_nontrivial_contact
+
+        def get_nonzeros_nondiag_mask_matrix(Q):
+            Q = Q.to_numpy()
+            res = np.ones(shape=Q.shape, dtype=int)
+            for i in range(res.shape[0]):
+                res[i, i] = 0
+            for i in range(res.shape[0]):
+                for j in range(res.shape[1]):
+                    if Q[i, j] == 0:
+                        res[i, j] = 0
+            return res
+        
+        def get_nonzeros_cotransitions_mask_matrix(Q):
+            res = np.zeros(shape=Q.shape, dtype=int)
+            for i, ab in enumerate(Q.index):
+                for j, cd in enumerate(Q.index):
+                    if len(set(ab) - set(cd)) == len(set(ab)) and len(set(cd) - set(ab)) == len(set(cd)):
+                        if Q.loc[ab, cd] > 0:
+                            res[i, j] = 1
+            write_rate_matrix(res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt")
+            return res
+        
+        def get_nonzeros_single_transitions_mask_matrix(Q):
+            nonzeros_nondiag_mask_matrix = get_nonzeros_nondiag_mask_matrix(Q)
+            nonzeros_cotransitions_mask_matrix = get_nonzeros_cotransitions_mask_matrix(Q)
+            for i in range(Q.shape[0]):
+                for j in range(Q.shape[1]):
+                    if nonzeros_cotransitions_mask_matrix[i, j] == 1:
+                        nonzeros_nondiag_mask_matrix[i, j] = 0
+            write_rate_matrix(nonzeros_nondiag_mask_matrix, Q.index, "get_nonzeros_single_transitions_mask_matrix.txt")
+            return nonzeros_nondiag_mask_matrix
+
+        if Q_2_name == "masked":
+            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/4a24ace65777c702fcc76b4e9d9f088170eb7c6b0979b44fbc433e42e62e00e3/output_rate_matrix_dir/result.txt"  # TODO: Call fig_pfam15k instead of hardcoding.
+            pi_2_path = os.path.join(get_stationary_distribution(rate_matrix_path=Q_2_path)["output_probability_distribution_dir"], "result.txt")
+            coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
+            mask_matrix = read_mask_matrix(
+                coevolution_mask_path
+            ).to_numpy()
+        elif Q_2_name == "lg_x_lg":
+            Q_2_path = get_lg_x_lg_path()
+            pi_2_path = get_lg_x_lg_stationary_path()
+            coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
+            mask_matrix = read_mask_matrix(
+                coevolution_mask_path
+            ).to_numpy()
+        elif Q_2_name.startswith("unmasked"):
+            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/bd9ea358bbbbec663a12f4eeec7eb1c2f4a5e2de9d643b9e7e0b87361f8858d4/output_rate_matrix_dir/result.txt"
+            pi_2_path = os.path.join(get_stationary_distribution(rate_matrix_path=Q_2_path)["output_probability_distribution_dir"], "result.txt")
+            coevolution_mask_path = None
+            if Q_2_name == "unmasked-all-transitions":
+                mask_matrix = get_nonzeros_nondiag_mask_matrix(read_rate_matrix(Q_2_path))
+            elif Q_2_name == "unmasked-co-transitions":
+                mask_matrix = get_nonzeros_cotransitions_mask_matrix(read_rate_matrix(Q_2_path))
+            elif Q_2_name == "unmasked-single-transitions":
+                mask_matrix = get_nonzeros_single_transitions_mask_matrix(read_rate_matrix(Q_2_path))
+
         (
             msa_dir,
             contact_map_dir,
@@ -2700,13 +2760,15 @@ def fig_pair_site_quantization_error(
             num_processes=num_processes,
             random_seed=random_seed,
             use_cpp_simulation_implementation=use_cpp_implementation,
+            pi_2_path=pi_2_path,
+            Q_2_path=Q_2_path,
         )
 
         cherry_estimator_res = cherry_estimator_coevolution(
             msa_dir=msa_dir,
             contact_map_dir=contact_map_dir,
             minimum_distance_for_nontrivial_contact=mdnc,
-            coevolution_mask_path="data/mask_matrices/aa_coevolution_mask.txt",
+            coevolution_mask_path=coevolution_mask_path,
             families=families_train,
             tree_estimator=partial(
                 gt_tree_estimator,
@@ -2762,37 +2824,39 @@ def fig_pair_site_quantization_error(
         )
         print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
 
-        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+        learned_rate_matrix_df = read_rate_matrix(learned_rate_matrix_path)
 
-        learned_rate_matrix = learned_rate_matrix.to_numpy()
+        learned_rate_matrix = learned_rate_matrix_df.to_numpy()
         Qs.append(learned_rate_matrix)
 
-        lg_x_lg = read_rate_matrix(get_lg_x_lg_path()).to_numpy()
-        mask_matrix = read_mask_matrix(
-            "data/mask_matrices/aa_coevolution_mask.txt"
-        ).to_numpy()
+        Q_2_df = read_rate_matrix(Q_2_path)
+        Q_2 = Q_2_df.to_numpy()
 
         yss_relative_errors.append(
             relative_errors(
-                lg_x_lg,
+                Q_2,
                 learned_rate_matrix,
                 mask_matrix,
             )
         )
 
+        print(f"Q_2_df.loc['VI', 'IV'] = {Q_2_df.loc['VI', 'IV']}")
+        print(f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}")
+
     for i in range(len(q_points)):
-        plot_rate_matrix_predictions(lg_x_lg, Qs[i], mask_matrix)
-        plt.title(
-            "True vs predicted rate matrix entries\nmax quantization error = "
-            "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
-        )
-        plt.tight_layout()
-        plt.savefig(
-            f"{output_image_dir}/log_log_plot_{i}_"
-            f"{rate_matrix_filename.split('.')[0]}",
-            dpi=300,
-        )
-        plt.close()
+        for density_plot in [False, True]:
+            plot_rate_matrix_predictions(Q_2, Qs[i], mask_matrix, density_plot=density_plot)
+            plt.title(
+                "True vs predicted rate matrix entries\nmax quantization error = "
+                "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+            )
+            plt.tight_layout()
+            plt.savefig(
+                f"{output_image_dir}/log_log_plot_{i}_"
+                f"{rate_matrix_filename.split('.')[0]}_density_{density_plot}",
+                dpi=300,
+            )
+            plt.close()
 
     df = pd.DataFrame(
         {
@@ -3527,6 +3591,111 @@ def fig_pfam15k(
         )
         plt.close()
 
+
+def fig_MSA_VI_cotransition(
+    num_families_train: int = 12000,
+    aa_1 = "E",
+    aa_2 = "K",
+    families = ["4kv7_1_A"],
+):
+    """
+    Explore to what extent the cotransition VI <-> IV is apparent from looking at raw MSAs.
+    """
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    output_image_dir = "images/fig_pfam15k"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    PFAM_15K_MSA_DIR = "input_data/a3m"
+    PFAM_15K_PDB_DIR = "input_data/pdb"
+
+    num_processes = 32
+    num_sequences = 1024
+    num_families_test = 3000
+    train_test_split_seed = 0
+    use_cpp_implementation = True
+    use_best_iterate = True
+    angstrom_cutoff = 8.0
+    minimum_distance_for_nontrivial_contact = 7
+    use_maximal_matching = True
+
+    families_all = get_families(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+    )
+    np.random.seed(train_test_split_seed)
+    np.random.shuffle(families_all)
+
+    families_train = sorted(families_all[:num_families_train])
+    if num_families_test == 0:
+        families_test = []
+    else:
+        families_test = sorted(families_all[-num_families_test:])
+    if num_families_train + num_families_test > len(families_all):
+        raise Exception("Training and testing set would overlap!")
+    assert len(set(families_train + families_test)) == len(
+        families_train
+    ) + len(families_test)
+
+    # Subsample the MSAs
+    msa_dir_train = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+        num_sequences=num_sequences,
+        families=families_train,
+        num_processes=num_processes,
+    )["output_msa_dir"]
+
+    for family in families_train:
+        if families is not None and family not in families:
+            continue
+        msa_path = os.path.join(msa_dir_train, family + ".txt")
+        print(f"MSA path = {msa_path}")
+        msa = read_msa(msa_path)
+        msa_list = list(msa.items())
+        num_seqs = len(msa_list)
+        seq_len = len(msa_list[0][1])
+        position_aas = [set() for _ in range(seq_len)]
+        for i in range(seq_len):
+            for n in range(num_seqs):
+                position_aas[i].add(msa_list[n][1][i])
+        cols_with_IV = []
+        for i in range(seq_len):
+            if aa_1 in position_aas[i] and aa_2 in position_aas[i]:
+                cols_with_IV.append(i)
+        # print(f"len(cols_with_IV) = {len(cols_with_IV)} / {seq_len} = {len(cols_with_IV) / seq_len}")
+
+        # pair_cols_with_IV_VI = []
+        for i in cols_with_IV:
+            for j in cols_with_IV:
+                if i >= j:
+                    continue
+                IVs = []
+                VIs = []
+                IIs = []
+                VVs = []
+                for n in range(num_seqs):
+                    if msa_list[n][1][i] == aa_1 and msa_list[n][1][j] == aa_2:
+                        IVs.append(n)
+                    elif msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_1:
+                        VIs.append(n)
+                    elif msa_list[n][1][i] == aa_1 and msa_list[n][1][j] == aa_1:
+                        IIs.append(n)
+                    elif msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_2:
+                        VVs.append(n)
+                tot_IV_VI_II_VV = len(IVs) + len(VIs) + len(IIs) + len(VVs)
+                # if tot_IV_VI_II_VV >= num_seqs / 2:
+                if tot_IV_VI_II_VV >= num_seqs / 8:
+                    pct_IV = len(IVs) / tot_IV_VI_II_VV
+                    pct_VI = len(VIs) / tot_IV_VI_II_VV
+                    pct_II = len(IIs) / tot_IV_VI_II_VV
+                    pct_VV = len(VVs) / tot_IV_VI_II_VV
+                    if pct_IV > 0.2 and pct_VI > 0.2:
+                        print(f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, {aa_1}{aa_1}, {aa_2}{aa_2}) =", "(%.2f, %.2f, %.2f, %.2f)" % (pct_IV, len(VIs) / tot_IV_VI_II_VV, len(IIs) / tot_IV_VI_II_VV, len(VVs) / tot_IV_VI_II_VV), f"over {tot_IV_VI_II_VV} pairs")
+        #         if have_IV and have_VI:
+        #             pair_cols_with_IV_VI.append((i, j))
+        # print(f"pair_cols_with_IV_VI = {len(pair_cols_with_IV_VI)} / {len(cols_with_IV) * (len(cols_with_IV) - 1) / 2} = {len(pair_cols_with_IV_VI) / (len(cols_with_IV) * (len(cols_with_IV) - 1) / 2)}")
+                    
 
 # EM #
 
