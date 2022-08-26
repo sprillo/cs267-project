@@ -21,11 +21,7 @@ from figures import (
 if __name__ == "__main__":
     print("Main starting ...")
 
-    # fig_lg_paper(
-    #     figsize=(6.4, 4.8),
-    #     show_legend=True,
-    #     num_processes=4,
-    # )  # Note: Cannot run Historian because it models gap instead of treating them as MACAR...
+    # fig_lg_paper()
 
     # fig_single_site_quantization_error(
     #     use_best_iterate=True,

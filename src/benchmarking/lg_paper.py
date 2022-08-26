@@ -399,7 +399,7 @@ def reproduce_lg_paper_fig_4(
     family_name_len: int,
     figsize: Tuple[float, float] = (6.4, 4.8),
     num_bootstraps: int = 0,
-    show_legend: bool = True,
+    use_colors: bool = True,
     output_image_dir: str = "./",
 ):
     """
@@ -481,7 +481,6 @@ def reproduce_lg_paper_fig_4(
         return log_likelihoods
 
     y = get_log_likelihoods(df, [x[0] for x in rate_estimator_names])
-    yerr = None
     if num_bootstraps > 0:
         np.random.seed(0)
         y_bootstraps = []
@@ -499,30 +498,15 @@ def reproduce_lg_paper_fig_4(
             y_bootstraps.append(y_bootstrap)
         y_bootstraps = np.array(y_bootstraps)
         assert y_bootstraps.shape == (num_bootstraps, len(rate_estimator_names))
-        # yerr = np.array(
-        #     [
-        #         [
-        #             y[i] - np.quantile(y_bootstraps[:, i], 0.025),  # Below
-        #             np.quantile(y_bootstraps[:, i], 0.975) - y[i],  # Above
-        #         ]
-        #         for i in range(len(model_names))
-        #     ]
-        # ).T
 
     colors = []
     for model_name in [x[0] for x in rate_estimator_names]:
-        if not show_legend:
-            colors.append("black")
-        elif "reported" in model_name:
+        if not use_colors:
             colors.append("black")
         elif "reproduced" in model_name:
             colors.append("blue")
         elif "Cherry" in model_name:
             colors.append("red")
-        elif "MP" in model_name:
-            colors.append("green")
-        elif "JTT-IPW" in model_name:
-            colors.append("grey")
         else:
             colors.append("brown")
     plt.figure(figsize=figsize)
@@ -530,28 +514,23 @@ def reproduce_lg_paper_fig_4(
         x=[x[1] for x in rate_estimator_names],
         height=y,
         color=colors,
-        yerr=yerr,
-    )  # , width=0.3)
+    )
     plt.xticks(rotation=0)
     ax = plt.gca()
     ax.yaxis.grid()
-    if show_legend:
+    if use_colors:
         plt.legend(
             handles=[
-                # mpatches.Patch(color="black", label="Reported"),
                 mpatches.Patch(color="blue", label="Reproduced"),
                 mpatches.Patch(color="red", label="Cherry Method"),
-                # mpatches.Patch(color="green", label="M. Parsimony"),
-                # mpatches.Patch(color="grey", label="JTT-IPW"),
-                # mpatches.Patch(color="brown", label="Other"),
             ]
         )
-    # plt.grid()
     plt.tight_layout()
     plt.title("Results on Pfam data from LG paper")
     if baseline_rate_estimator_name is not None:
         plt.ylabel(
-            f"Average per-site log-likelihood\nimprovement over {baseline_rate_estimator_name[1]}, in nats"
+            "Average per-site log-likelihood\nimprovement over "
+            f"{baseline_rate_estimator_name[1]}, in nats"
         )
     else:
         plt.ylabel(f"Average per-site log-likelihood, in nats")

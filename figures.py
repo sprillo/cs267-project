@@ -34,6 +34,11 @@ from src import (
     cherry_estimator_coevolution,
     em_estimator,
 )
+from src.benchmarking.lg_paper import (
+    get_lg_PfamTestingAlignments_data,
+    get_lg_PfamTrainingAlignments_data,
+    reproduce_lg_paper_fig_4,
+)
 from src.benchmarking.pfam_15k import (
     compute_contact_maps,
     get_families,
@@ -76,9 +81,9 @@ from src.markov_chain import (
     matrix_exponential,
     normalized,
 )
-from src.phylogeny_estimation import fast_tree, gt_tree_estimator
+from src.phylogeny_estimation import fast_tree, gt_tree_estimator, phyml
 from src.types import PhylogenyEstimatorType
-from src.utils import get_process_args
+from src.utils import get_families, get_process_args
 
 
 def _init_logger():
@@ -2978,24 +2983,21 @@ def fig_pair_site_quantization_error(
 
 
 def fig_lg_paper(
-    figsize=(14.4, 4.8),
-    show_legend=True,
+    figsize=(6.4, 4.8),
+    rate_estimator_names: List[Tuple[str, str]] = [
+        ("reproduced WAG", "WAG"),
+        ("reproduced LG", "LG"),
+        ("Cherry__4__1e-1__2000", "LG\nw/Cherry Method"),
+    ],
+    baseline_rate_estimator_name: Tuple[str, str] = ("reproduced JTT", "JTT"),
     num_processes: int = 4,
 ):
     """
-    LG paper figure 4.
+    LG paper figure 4, extended with LG w/CherryML.
     """
-    import os
-    from functools import partial
-    from typing import List
-
-    from src import caching
-    from src.benchmarking.lg_paper import (
-        get_lg_PfamTestingAlignments_data,
-        get_lg_PfamTrainingAlignments_data,
-        reproduce_lg_paper_fig_4,
-    )
-    from src.phylogeny_estimation import fast_tree, phyml
+    output_image_dir = "images/fig_lg_paper/"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
 
     caching.set_cache_dir("_cache_lg_paper")
     caching.set_hash_len(64)
@@ -3008,36 +3010,6 @@ def fig_lg_paper(
     get_lg_PfamTrainingAlignments_data(LG_PFAM_TRAINING_ALIGNMENTS_DIR)
     get_lg_PfamTestingAlignments_data(LG_PFAM_TESTING_ALIGNMENTS_DIR)
 
-    output_image_dir = "images/lg_paper/"
-    if not os.path.exists(output_image_dir):
-        os.makedirs(output_image_dir)
-
-    def get_families(
-        msa_dir: str,
-    ) -> List[str]:
-        """
-        TODO: Remove this function; import it from src.utils directly
-        Get the list of protein families names.
-
-        Args:
-            msa_dir: Directory with the MSA files. There should be one file with
-                name family.txt for each protein family.
-
-        Returns:
-            The list of protein family names in the provided directory.
-        """
-        families = sorted(list(os.listdir(msa_dir)))
-        families = [x.split(".")[0] for x in families if x.endswith(".txt")]
-        return families
-
-    fast_tree_partial = partial(
-        fast_tree,
-        num_rate_categories=4,
-        num_processes=num_processes,
-        extra_command_line_args="-gamma",
-    )
-    del fast_tree_partial  # Not used right now, but can be used below in the call to reproduce_lg_paper_fig_4  # noqa
-
     phyml_partial = partial(
         phyml,
         num_rate_categories=4,
@@ -3049,35 +3021,16 @@ def fig_lg_paper(
         families_train=get_families(LG_PFAM_TRAINING_ALIGNMENTS_DIR),
         msa_test_dir=LG_PFAM_TESTING_ALIGNMENTS_DIR,
         families_test=get_families(LG_PFAM_TESTING_ALIGNMENTS_DIR),
-        rate_estimator_names=[
-            # "EQU",
-            # ("reported JTT", "JTT\n(reported)"),
-            # ("reproduced JTT", "JTT"),
-            # ("reported WAG", "WAG\n(reported)"),
-            ("reproduced WAG", "WAG"),
-            # ("reported WAG', "WAG'\n(reported)"),
-            # ("Historian__1__1__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "WAG'\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
-            # ("reported LG", "LG\n(reported)"),
-            ("reproduced LG", "LG"),
-            # ("Historian__1__4__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "LG\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
-            # ("Cherry__1__1e-1__2000", "Cherry\n1st iteration"),
-            # ("Cherry__2__1e-1__2000", "Cherry\n2nd iteration"),
-            # ("Cherry__3__1e-1__2000", "Cherry\n3rd iteration"),
-            # ("Cherry__4__1e-1__2000", "Cherry\n4th iteration"),
-            ("Cherry__4__1e-1__2000", "LG\nw/Cherry Method"),
-            # ("Cherry__5__1e-1__2000", "Cherry\n5th iteration"),
-            # ("Cherry__6__1e-1__2000", "Cherry\n6th iteration"),
-        ],
-        baseline_rate_estimator_name=("reproduced JTT", "JTT"),
+        rate_estimator_names=rate_estimator_names[:],
+        baseline_rate_estimator_name=baseline_rate_estimator_name,
         evaluation_phylogeny_estimator=phyml_partial,
-        # evaluation_phylogeny_estimator=fast_tree_partial,
         num_processes=num_processes,
         pfam_or_treebase="pfam",
         family_name_len=7,
         figsize=figsize,
         num_bootstraps=100,
         output_image_dir=output_image_dir,
-        show_legend=show_legend,
+        use_colors=True,
     )
 
 
