@@ -119,11 +119,11 @@ def train_quantization(
     rate_module,
     quantized_dataset,
     m=1.0,
-    lr=1.0,
-    num_epochs=1000,
+    lr=1e-1,
+    num_epochs=2000,
     Q_true=None,
     optimizer=None,
-    loss_normalization=False,
+    loss_normalization: bool = True,
     return_best_iter: bool = True,
 ) -> Tuple[pd.DataFrame, Dict]:
     """

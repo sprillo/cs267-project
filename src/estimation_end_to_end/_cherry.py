@@ -128,33 +128,31 @@ def _subset_data_to_sites_subset(
     logger.info("Subsetting data to sites subset done!")
 
 
-def cherry_estimator(
+def lg_end_to_end_with_cherryml_optimizer(
     msa_dir: str,
     families: List[str],
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
-    num_iterations: int,
-    num_processes: int = 2,
+    num_iterations: Optional[int] = 1,
     quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 64,
     use_cpp_counting_implementation: bool = True,
-    device: str = "cpu",
+    optimizer_device: str = "cpu",
     learning_rate: float = 1e-1,
     num_epochs: int = 2000,
     do_adam: bool = True,
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
-    num_processes_tree_estimation: Optional[int] = None,
-    num_processes_counting: Optional[int] = None,
-    num_processes_optimization: Optional[int] = 2,
+    num_processes_tree_estimation: int = 8,
+    num_processes_counting: int = 8,
+    num_processes_optimization: int = 2,
     optimizer_initialization: str = "jtt-ipw",
-    optimizer_return_best_iter: bool = True,
     sites_subset_dir: Optional[str] = None,
 ) -> Dict:
     """
-    Cherry estimator.
+    LG pipeline with CherryML optimizer.
 
     Returns a dictionary with the directories to the intermediate outputs. In
     particular, the learned rate matrix is indexed by
@@ -164,16 +162,9 @@ def cherry_estimator(
     sites_subset_dir. This is a file containing the indices of the sites used
     for training. Note that ALL the sites will the used when fitting the trees.
     """
-    if num_processes_tree_estimation is None:
-        num_processes_tree_estimation = num_processes
-    if num_processes_counting is None:
-        num_processes_counting = num_processes
-    if num_processes_optimization is None:
-        num_processes_optimization = num_processes
-
     if sites_subset_dir is not None and num_iterations > 1:
         raise Exception(
-            "You are doing more than 1 iteration while learning a model only"
+            "You are using more than 1 iteration while learning a model only"
             "on a subset of sites. This is most certainly a usage error."
         )
 
@@ -259,13 +250,12 @@ def cherry_estimator(
             mask_path=None,
             stationary_distribution_path=None,
             rate_matrix_parameterization="pande_reversible",
-            device=device,
+            device=optimizer_device,
             learning_rate=learning_rate,
             num_epochs=num_epochs,
             do_adam=do_adam,
             OMP_NUM_THREADS=num_processes_optimization,
             OPENBLAS_NUM_THREADS=num_processes_optimization,
-            return_best_iter=optimizer_return_best_iter,
         )["output_rate_matrix_dir"]
 
         res[f"rate_matrix_dir_{iteration}"] = rate_matrix_dir
@@ -279,7 +269,7 @@ def cherry_estimator(
     return res
 
 
-def cherry_estimator_coevolution(
+def coevolution_end_to_end_with_cherryml_optimizer(
     msa_dir: str,
     contact_map_dir: str,
     minimum_distance_for_nontrivial_contact: int,

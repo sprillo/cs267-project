@@ -1,2 +1,5 @@
-from ._cherry import cherry_estimator, cherry_estimator_coevolution
+from ._cherry import (
+    coevolution_end_to_end_with_cherryml_optimizer,
+    lg_end_to_end_with_cherryml_optimizer,
+)
 from ._em import em_estimator

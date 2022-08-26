@@ -295,10 +295,10 @@ def get_family_sizes(
 @caching.cached()
 def get_families_within_cutoff(
     pfam_15k_msa_dir: str,
-    min_num_sites: int,
-    max_num_sites: int,
-    min_num_sequences: int,
-    max_num_sequences: int,
+    min_num_sites: Optional[int] = 0,
+    max_num_sites: Optional[int] = 1000000,
+    min_num_sequences: Optional[int] = 0,
+    max_num_sequences: Optional[int] = 1000000,
 ) -> List[str]:
     family_size_df = get_family_sizes(
         pfam_15k_msa_dir=pfam_15k_msa_dir,

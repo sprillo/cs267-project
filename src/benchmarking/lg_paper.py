@@ -17,7 +17,11 @@ import numpy as np
 import pandas as pd
 import wget
 
-from src import PhylogenyEstimatorType, cherry_estimator, em_estimator
+from src import (
+    PhylogenyEstimatorType,
+    em_estimator,
+    lg_end_to_end_with_cherryml_optimizer,
+)
 from src.io import read_log_likelihood
 from src.markov_chain import (
     get_equ_path,
@@ -318,8 +322,8 @@ def run_rate_estimator(
         res = get_lg_path()
     elif rate_estimator_name.startswith("Cherry__"):
         tokens = rate_estimator_name.split("__")
-        assert len(tokens) == 4
-        return cherry_estimator(
+        assert len(tokens) == 2
+        return lg_end_to_end_with_cherryml_optimizer(
             msa_dir=msa_train_dir,
             families=families_train,
             tree_estimator=partial(
@@ -328,29 +332,8 @@ def run_rate_estimator(
             ),
             initial_tree_estimator_rate_matrix_path=get_equ_path(),
             num_iterations=int(tokens[1]),
-            num_processes=num_processes,
-            learning_rate=float(tokens[2]),
-            num_epochs=int(tokens[3]),
-            do_adam=True,
-            num_processes_optimization=2,
-            optimizer_return_best_iter=True,
-        )["learned_rate_matrix_path"]
-    elif rate_estimator_name.startswith(
-        "Historian__"
-    ):  # TODO: This fails because gaps are NOT being treated as MACAR...
-        tokens = rate_estimator_name.split("__")
-        assert len(tokens) == 4
-        return em_estimator(
-            msa_dir=msa_train_dir,
-            families=families_train,
-            tree_estimator=partial(
-                fast_tree,
-                num_rate_categories=int(tokens[2]),
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=int(tokens[1]),
-            num_processes=num_processes,
-            extra_em_command_line_args=tokens[3],
+            num_processes_tree_estimation=num_processes,
+            num_processes_counting=num_processes,
         )["learned_rate_matrix_path"]
     else:
         raise ValueError(f"Unknown rate estimator name: {rate_estimator_name}")

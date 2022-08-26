@@ -30,9 +30,9 @@ from matplotlib.colors import LogNorm
 import src.utils as utils
 from src import (
     caching,
-    cherry_estimator,
-    cherry_estimator_coevolution,
+    coevolution_end_to_end_with_cherryml_optimizer,
     em_estimator,
+    lg_end_to_end_with_cherryml_optimizer,
 )
 from src.benchmarking.lg_paper import (
     get_lg_PfamTestingAlignments_data,
@@ -277,7 +277,7 @@ def add_annotations_to_violinplot(
 #             use_cpp_simulation_implementation=use_cpp_implementation,
 #         )
 
-#         cherry_estimator_res = cherry_estimator_coevolution(
+#         lg_end_to_end_with_cherryml_optimizer_res = coevolution_end_to_end_with_cherryml_optimizer(
 #             msa_dir=msa_dir,
 #             contact_map_dir=contact_map_dir,
 #             minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
@@ -304,17 +304,17 @@ def add_annotations_to_violinplot(
 
 #         print(
 #             f"tree_estimator_output_dirs_{i} = ",
-#             cherry_estimator_res["tree_estimator_output_dirs_0"],
+#             lg_end_to_end_with_cherryml_optimizer_res["tree_estimator_output_dirs_0"],
 #         )
 
-#         count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
+#         count_matrices_dir = lg_end_to_end_with_cherryml_optimizer_res["count_matrices_dir_0"]
 #         print(f"count_matrices_dir_{i} = {count_matrices_dir}")
 #         # assert(False)
 #         count_matrices = read_count_matrices(
 #             os.path.join(count_matrices_dir, "result.txt")
 #         )
 #         quantization_points = [
-#             float(x) for x in cherry_estimator_res["quantization_points"]
+#             float(x) for x in lg_end_to_end_with_cherryml_optimizer_res["quantization_points"]
 #         ]
 #         plt.title("Number of transitions per time bucket")
 #         plt.bar(
@@ -328,7 +328,7 @@ def add_annotations_to_violinplot(
 #         plt.savefig(f"{output_image_dir}/count_matrices_{i}", dpi=300)
 #         plt.close()
 
-#         learned_rate_matrix_path = cherry_estimator_res[
+#         learned_rate_matrix_path = lg_end_to_end_with_cherryml_optimizer_res[
 #             "learned_rate_matrix_path"
 #         ]
 #         print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
@@ -399,7 +399,7 @@ def add_annotations_to_violinplot(
 def live_demo_pair_of_sites():
     from functools import partial
 
-    from src import caching, cherry_estimator_coevolution
+    from src import caching, coevolution_end_to_end_with_cherryml_optimizer
     from src.benchmarking.pfam_15k import (
         compute_contact_maps,
         get_families,
@@ -436,7 +436,7 @@ def live_demo_pair_of_sites():
     )["output_contact_map_dir"]
 
     # Run the cherry method using FastTree tree estimator
-    learned_rate_matrix_path = cherry_estimator_coevolution(
+    learned_rate_matrix_path = coevolution_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir,
         contact_map_dir=contact_map_dir,
         minimum_distance_for_nontrivial_contact=7,
@@ -575,38 +575,42 @@ def fig_single_site_learning_rate_robustness():
                 use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=lr,
-                num_epochs=num_epochs,
-                do_adam=do_adam,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
-                num_processes_counting=8,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes=num_processes,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=lr,
+                    num_epochs=num_epochs,
+                    do_adam=do_adam,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                    num_processes_optimization=2,
+                    num_processes_counting=8,
+                )
             )
 
             try:
 
                 print(
                     f"tree_estimator_output_dirs_{i} = ",
-                    cherry_estimator_res["tree_estimator_output_dirs_0"],
+                    lg_end_to_end_with_cherryml_optimizer_res[
+                        "tree_estimator_output_dirs_0"
+                    ],
                 )
 
-                count_matrices_dir = cherry_estimator_res[
+                count_matrices_dir = lg_end_to_end_with_cherryml_optimizer_res[
                     "count_matrices_dir_0"
                 ]
                 print(f"count_matrices_dir_{i} = {count_matrices_dir}")
@@ -616,7 +620,9 @@ def fig_single_site_learning_rate_robustness():
                 )
                 quantization_points = [
                     float(x)
-                    for x in cherry_estimator_res["quantization_points"]
+                    for x in lg_end_to_end_with_cherryml_optimizer_res[
+                        "quantization_points"
+                    ]
                 ]
                 plt.title("Number of transitions per time bucket")
                 plt.bar(
@@ -634,9 +640,11 @@ def fig_single_site_learning_rate_robustness():
                 )
                 plt.close()
 
-                learned_rate_matrix_path = cherry_estimator_res[
-                    "learned_rate_matrix_path"
-                ]
+                learned_rate_matrix_path = (
+                    lg_end_to_end_with_cherryml_optimizer_res[
+                        "learned_rate_matrix_path"
+                    ]
+                )
 
                 learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
@@ -1102,32 +1110,35 @@ def fig_convergence_on_large_data_single_site(
                 use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=True,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
-                num_processes_counting=8,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes=num_processes,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=True,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                    num_processes_optimization=2,
+                    num_processes_counting=8,
+                )
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1273,32 +1284,35 @@ def fig_convergence_on_large_data_single_site__variance(
                 use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=32768,
-                do_adam=True,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
-                num_processes_counting=8,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes=num_processes,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=32768,
+                    do_adam=True,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                    num_processes_optimization=2,
+                    num_processes_counting=8,
+                )
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1359,9 +1373,13 @@ def fig_convergence_on_large_data_single_site__variance(
 
 
 def fig_single_site_quantization_error(
-    use_best_iterate: bool = True,
     num_rate_categories: int = 4,
-    num_processes: int = 32,
+    num_processes_tree_estimation: int = 32,
+    num_processes_counting: int = 8,
+    num_processes_optimization: int = 2,
+    num_families_train: int = 15051,
+    num_sequences: int = 1024,
+    random_seed: int = 0,
 ):
     """
     We show that ~100 quantization points (geometric increments of 10%) is
@@ -1370,24 +1388,9 @@ def fig_single_site_quantization_error(
     caching.set_cache_dir("_cache_benchmarking")
     caching.set_hash_len(64)
 
-    rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
-
     output_image_dir = "images/fig_single_site_quantization_error"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
-
-    num_sequences = 1024
-
-    num_families_train = 15051
-    num_families_test = 0
-
-    quantization_grid_center = None
-    quantization_grid_step = None
-    quantization_grid_num_steps = None
-    random_seed = 0
-    learning_rate = 1e-1
-    num_epochs = 2000
-    use_cpp_implementation = True
 
     qs = [
         (0.03, 445.79, 1),
@@ -1417,24 +1420,9 @@ def fig_single_site_quantization_error(
         print(msg)
         print("*" * len(msg))
 
-        families_all = get_families_within_cutoff(
-            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=190 if num_families_train <= 1024 else 0,
-            max_num_sites=230 if num_families_train <= 1024 else 1000000,
-            min_num_sequences=1024 if num_families_train <= 1024 else 0,
-            max_num_sequences=1000000,
+        families_train = get_families_within_cutoff(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR
         )
-        families_train = families_all[:num_families_train]
-        if num_families_test == 0:
-            families_test = []
-        else:
-            families_test = families_all[-num_families_test:]
-        print(f"len(families_all) = {len(families_all)}")
-        if num_families_train + num_families_test > len(families_all):
-            raise Exception("Training and testing set would overlap!")
-        assert len(set(families_train + families_test)) == len(
-            families_train
-        ) + len(families_test)
 
         (
             msa_dir,
@@ -1448,76 +1436,42 @@ def fig_single_site_quantization_error(
             num_sequences=num_sequences,
             families=families_train + families_test,
             num_rate_categories=num_rate_categories,
-            num_processes=num_processes,
+            num_processes=num_processes_tree_estimation,
             random_seed=random_seed,
             use_cpp_simulation_implementation=use_cpp_implementation,
         )
 
-        cherry_estimator_res = cherry_estimator(
-            msa_dir=msa_dir,
-            families=families_train,
-            tree_estimator=partial(
-                gt_tree_estimator,
-                gt_tree_dir=gt_tree_dir,
-                gt_site_rates_dir=gt_site_rates_dir,
-                gt_likelihood_dir=gt_likelihood_dir,
-                num_rate_categories=num_rate_categories,
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=1,
-            num_processes=num_processes,
-            quantization_grid_center=quantization_grid_center,
-            quantization_grid_step=quantization_grid_step,
-            quantization_grid_num_steps=quantization_grid_num_steps,
-            learning_rate=learning_rate,
-            num_epochs=num_epochs,
-            do_adam=True,
-            use_cpp_counting_implementation=use_cpp_implementation,
-            num_processes_optimization=2,
-            num_processes_counting=8,
+        lg_end_to_end_with_cherryml_optimizer_res = (
+            lg_end_to_end_with_cherryml_optimizer(
+                msa_dir=msa_dir,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                quantization_grid_center=quantization_grid_center,
+                quantization_grid_step=quantization_grid_step,
+                quantization_grid_num_steps=quantization_grid_num_steps,
+                num_processes_tree_estimation=num_processes_tree_estimation,
+                num_processes_counting=num_processes_counting,
+                num_processes_optimization=num_processes_optimization,
+            )
         )
-
-        print(
-            f"tree_estimator_output_dirs_{i} = ",
-            cherry_estimator_res["tree_estimator_output_dirs_0"],
-        )
-
-        count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
-        print(f"count_matrices_dir_{i} = {count_matrices_dir}")
-        # assert(False)
-        count_matrices = read_count_matrices(
-            os.path.join(count_matrices_dir, "result.txt")
-        )
-        quantization_points = [
-            float(x) for x in cherry_estimator_res["quantization_points"]
-        ]
-        plt.title("Number of transitions per time bucket")
-        plt.bar(
-            np.log(quantization_points),
-            [x.to_numpy().sum().sum() for (_, x) in count_matrices],
-        )
-        plt.xlabel("Quantization Point")
-        plt.ylabel("Number of Transitions")
-        ticks = [0.0003, 0.003, 0.03, 0.3, 3.0]
-        plt.xticks(np.log(ticks), ticks)
-        plt.savefig(
-            f"{output_image_dir}/count_matrices_{i}_"
-            f"{rate_matrix_filename.split('.')[0]}",
-            dpi=300,
-        )
-        plt.close()
 
         learned_rate_matrix_path = os.path.join(
-            cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+            "result.txt",
         )
 
-        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
-
-        learned_rate_matrix = learned_rate_matrix.to_numpy()
+        learned_rate_matrix = read_rate_matrix(
+            learned_rate_matrix_path
+        ).to_numpy()
         Qs.append(learned_rate_matrix)
-
         lg = read_rate_matrix(get_lg_path()).to_numpy()
-
         yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
 
     for i in range(len(q_points)):
@@ -1553,12 +1507,8 @@ def fig_single_site_quantization_error(
     sns.violinplot(
         x="quantization points",
         y="log relative error",
-        #     hue=None,
         data=df,
-        #     palette="muted",
         inner=None,
-        #     cut=0,
-        #     bw=0.25
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
@@ -1682,41 +1632,47 @@ def fig_single_site_cherry_vs_edge(
 
             # Now run the cherry and oracle edge methods.
             print(f"**** edge_or_cherry = {edge_or_cherry} *****")
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir if edge_or_cherry == "cherry" else gt_msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes_tree_estimation=num_processes,
-                num_processes_optimization=1,
-                num_processes_counting=1,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=True,
-                edge_or_cherry=edge_or_cherry,
-                use_cpp_counting_implementation=use_cpp_implementation,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir
+                    if edge_or_cherry == "cherry"
+                    else gt_msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes_tree_estimation=num_processes,
+                    num_processes_optimization=1,
+                    num_processes_counting=1,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=True,
+                    edge_or_cherry=edge_or_cherry,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                )
             )
 
-            def get_runtime(cherry_estimator_res: str):
+            def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str):
                 res = 0
-                for cherry_estimator_output_dir in [
+                for lg_end_to_end_with_cherryml_optimizer_output_dir in [
                     "count_matrices_dir_0",
                     "jtt_ipw_dir_0",
                     "rate_matrix_dir_0",
                 ]:
                     with open(
                         os.path.join(
-                            cherry_estimator_res[cherry_estimator_output_dir],
+                            lg_end_to_end_with_cherryml_optimizer_res[
+                                lg_end_to_end_with_cherryml_optimizer_output_dir
+                            ],
                             "profiling.txt",
                         ),
                         "r",
@@ -1728,11 +1684,12 @@ def fig_single_site_cherry_vs_edge(
                         res += float(profiling_file_contents.split()[2])
                 return res
 
-            runtime = get_runtime(cherry_estimator_res)
+            runtime = get_runtime(lg_end_to_end_with_cherryml_optimizer_res)
             runtimes.append(runtime)
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1740,12 +1697,16 @@ def fig_single_site_cherry_vs_edge(
             lg = read_rate_matrix(get_lg_path()).to_numpy()
             print(
                 f"tree_estimator_output_dirs_{i} = ",
-                cherry_estimator_res["tree_estimator_output_dirs_0"],
+                lg_end_to_end_with_cherryml_optimizer_res[
+                    "tree_estimator_output_dirs_0"
+                ],
             )
 
-            learned_rate_matrix_path = cherry_estimator_res[
-                "learned_rate_matrix_path"
-            ]
+            learned_rate_matrix_path = (
+                lg_end_to_end_with_cherryml_optimizer_res[
+                    "learned_rate_matrix_path"
+                ]
+            )
             print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
@@ -1920,41 +1881,47 @@ def fig_single_site_cherry_vs_edge_num_sequences(
 
             # Now run the cherry and oracle edge methods.
             print(f"**** edge_or_cherry = {edge_or_cherry} *****")
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir if edge_or_cherry == "cherry" else gt_msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes_tree_estimation=num_processes,
-                num_processes_optimization=1,
-                num_processes_counting=1,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=True,
-                edge_or_cherry=edge_or_cherry,
-                use_cpp_counting_implementation=use_cpp_implementation,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir
+                    if edge_or_cherry == "cherry"
+                    else gt_msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes_tree_estimation=num_processes,
+                    num_processes_optimization=1,
+                    num_processes_counting=1,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=True,
+                    edge_or_cherry=edge_or_cherry,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                )
             )
 
-            def get_runtime(cherry_estimator_res: str):
+            def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str):
                 res = 0
-                for cherry_estimator_output_dir in [
+                for lg_end_to_end_with_cherryml_optimizer_output_dir in [
                     "count_matrices_dir_0",
                     "jtt_ipw_dir_0",
                     "rate_matrix_dir_0",
                 ]:
                     with open(
                         os.path.join(
-                            cherry_estimator_res[cherry_estimator_output_dir],
+                            lg_end_to_end_with_cherryml_optimizer_res[
+                                lg_end_to_end_with_cherryml_optimizer_output_dir
+                            ],
                             "profiling.txt",
                         ),
                         "r",
@@ -1966,11 +1933,12 @@ def fig_single_site_cherry_vs_edge_num_sequences(
                         res += float(profiling_file_contents.split()[2])
                 return res
 
-            runtime = get_runtime(cherry_estimator_res)
+            runtime = get_runtime(lg_end_to_end_with_cherryml_optimizer_res)
             runtimes.append(runtime)
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1978,12 +1946,16 @@ def fig_single_site_cherry_vs_edge_num_sequences(
             lg = read_rate_matrix(get_lg_path()).to_numpy()
             print(
                 f"tree_estimator_output_dirs_{i} = ",
-                cherry_estimator_res["tree_estimator_output_dirs_0"],
+                lg_end_to_end_with_cherryml_optimizer_res[
+                    "tree_estimator_output_dirs_0"
+                ],
             )
 
-            learned_rate_matrix_path = cherry_estimator_res[
-                "learned_rate_matrix_path"
-            ]
+            learned_rate_matrix_path = (
+                lg_end_to_end_with_cherryml_optimizer_res[
+                    "learned_rate_matrix_path"
+                ]
+            )
             print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
@@ -2050,7 +2022,7 @@ def fig_single_site_cherry_vs_edge_num_sequences(
 def live_demo_single_site():
     from functools import partial
 
-    from src import caching, cherry_estimator
+    from src import caching, lg_end_to_end_with_cherryml_optimizer
     from src.benchmarking.pfam_15k import get_families, subsample_pfam_15k_msas
     from src.io import read_rate_matrix
     from src.markov_chain import get_lg_path
@@ -2072,7 +2044,7 @@ def live_demo_single_site():
     )["output_msa_dir"]
 
     # Run the cherry method using FastTree tree estimator
-    learned_rate_matrix_path = cherry_estimator(
+    learned_rate_matrix_path = lg_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir_train,
         families=families,
         tree_estimator=partial(
@@ -2200,33 +2172,36 @@ def fig_jtt_ipw_single_site(
                 use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
-            cherry_estimator_res = cherry_estimator(
-                msa_dir=msa_dir,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_iterations=1,
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=True,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=2,
-                num_processes_counting=8,
-                optimizer_initialization=initialization,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                lg_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir,
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_iterations=1,
+                    num_processes=num_processes,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=True,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                    num_processes_optimization=2,
+                    num_processes_counting=8,
+                    optimizer_initialization=initialization,
+                )
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -2556,34 +2531,37 @@ def fig_convergence_on_large_data_pair_site(
                 use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
-            cherry_estimator_res = cherry_estimator_coevolution(
-                msa_dir=msa_dir,
-                contact_map_dir=contact_map_dir,
-                minimum_distance_for_nontrivial_contact=mdnc,
-                coevolution_mask_path=get_aa_coevolution_mask_path(),
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=True,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=8,
-                num_processes_counting=8,
+            lg_end_to_end_with_cherryml_optimizer_res = (
+                coevolution_end_to_end_with_cherryml_optimizer(
+                    msa_dir=msa_dir,
+                    contact_map_dir=contact_map_dir,
+                    minimum_distance_for_nontrivial_contact=mdnc,
+                    coevolution_mask_path=get_aa_coevolution_mask_path(),
+                    families=families_train,
+                    tree_estimator=partial(
+                        gt_tree_estimator,
+                        gt_tree_dir=gt_tree_dir,
+                        gt_site_rates_dir=gt_site_rates_dir,
+                        gt_likelihood_dir=gt_likelihood_dir,
+                        num_rate_categories=num_rate_categories,
+                    ),
+                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                    num_processes=num_processes,
+                    quantization_grid_center=quantization_grid_center,
+                    quantization_grid_step=quantization_grid_step,
+                    quantization_grid_num_steps=quantization_grid_num_steps,
+                    learning_rate=learning_rate,
+                    num_epochs=num_epochs,
+                    do_adam=True,
+                    use_cpp_counting_implementation=use_cpp_implementation,
+                    num_processes_optimization=8,
+                    num_processes_counting=8,
+                )
             )
 
             learned_rate_matrix_path = os.path.join(
-                cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+                rate_matrix_filename,
             )
             if num_epochs == 8192:
                 print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
@@ -2845,44 +2823,53 @@ def fig_pair_site_quantization_error(
             Q_2_path=Q_2_path,
         )
 
-        cherry_estimator_res = cherry_estimator_coevolution(
-            msa_dir=msa_dir,
-            contact_map_dir=contact_map_dir,
-            minimum_distance_for_nontrivial_contact=mdnc,
-            coevolution_mask_path=coevolution_mask_path,
-            families=families_train,
-            tree_estimator=partial(
-                gt_tree_estimator,
-                gt_tree_dir=gt_tree_dir,
-                gt_site_rates_dir=gt_site_rates_dir,
-                gt_likelihood_dir=gt_likelihood_dir,
-                num_rate_categories=num_rate_categories,
-            ),
-            initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_processes=num_processes,
-            quantization_grid_center=quantization_grid_center,
-            quantization_grid_step=quantization_grid_step,
-            quantization_grid_num_steps=quantization_grid_num_steps,
-            learning_rate=learning_rate,
-            num_epochs=num_epochs,
-            do_adam=do_adam,
-            use_cpp_counting_implementation=use_cpp_implementation,
-            num_processes_optimization=8,
+        lg_end_to_end_with_cherryml_optimizer_res = (
+            coevolution_end_to_end_with_cherryml_optimizer(
+                msa_dir=msa_dir,
+                contact_map_dir=contact_map_dir,
+                minimum_distance_for_nontrivial_contact=mdnc,
+                coevolution_mask_path=coevolution_mask_path,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                num_processes=num_processes,
+                quantization_grid_center=quantization_grid_center,
+                quantization_grid_step=quantization_grid_step,
+                quantization_grid_num_steps=quantization_grid_num_steps,
+                learning_rate=learning_rate,
+                num_epochs=num_epochs,
+                do_adam=do_adam,
+                use_cpp_counting_implementation=use_cpp_implementation,
+                num_processes_optimization=8,
+            )
         )
 
         print(
             f"tree_estimator_output_dirs_{i} = ",
-            cherry_estimator_res["tree_estimator_output_dirs_0"],
+            lg_end_to_end_with_cherryml_optimizer_res[
+                "tree_estimator_output_dirs_0"
+            ],
         )
 
-        count_matrices_dir = cherry_estimator_res["count_matrices_dir_0"]
+        count_matrices_dir = lg_end_to_end_with_cherryml_optimizer_res[
+            "count_matrices_dir_0"
+        ]
         print(f"count_matrices_dir_{i} = {count_matrices_dir}")
 
         count_matrices = read_count_matrices(
             os.path.join(count_matrices_dir, "result.txt")
         )
         quantization_points = [
-            float(x) for x in cherry_estimator_res["quantization_points"]
+            float(x)
+            for x in lg_end_to_end_with_cherryml_optimizer_res[
+                "quantization_points"
+            ]
         ]
         plt.title("Number of transitions per time bucket")
         plt.bar(
@@ -2901,7 +2888,8 @@ def fig_pair_site_quantization_error(
         plt.close()
 
         learned_rate_matrix_path = os.path.join(
-            cherry_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+            rate_matrix_filename,
         )
         print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
 
@@ -2987,7 +2975,7 @@ def fig_lg_paper(
     rate_estimator_names: List[Tuple[str, str]] = [
         ("reproduced WAG", "WAG"),
         ("reproduced LG", "LG"),
-        ("Cherry__4__1e-1__2000", "LG\nw/Cherry Method"),
+        ("Cherry__4", "LG\nw/Cherry Method"),
     ],
     baseline_rate_estimator_name: Tuple[str, str] = ("reproduced JTT", "JTT"),
     num_processes: int = 4,
@@ -3347,7 +3335,7 @@ def fig_pfam15k(
     )["output_msa_dir"]
 
     # Run the cherry method using FastTree tree estimator
-    cherry_path = cherry_estimator(
+    cherry_path = lg_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir_train,
         families=families_train,
         tree_estimator=partial(
@@ -3431,7 +3419,7 @@ def fig_pfam15k(
         num_processes=num_processes,
     )["output_sites_subset_dir"]
 
-    cherry_contact_path = cherry_estimator(
+    cherry_contact_path = lg_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir_train,
         families=families_train,
         tree_estimator=partial(
@@ -3478,7 +3466,7 @@ def fig_pfam15k(
     # )
 
     # Now estimate and evaluate the coevolution model #
-    cherry_2_path = cherry_estimator_coevolution(
+    cherry_2_path = coevolution_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
         minimum_distance_for_nontrivial_contact=mdnc,
@@ -3504,7 +3492,7 @@ def fig_pfam15k(
     )["learned_rate_matrix_path"]
 
     # Coevolution model without masking #
-    cherry_2_no_mask_dir = cherry_estimator_coevolution(
+    cherry_2_no_mask_dir = coevolution_end_to_end_with_cherryml_optimizer(
         msa_dir=msa_dir_train,
         contact_map_dir=contact_map_dir_train,
         minimum_distance_for_nontrivial_contact=mdnc,
@@ -3530,16 +3518,18 @@ def fig_pfam15k(
     )
     cherry_2_no_mask_path = cherry_2_no_mask_dir["learned_rate_matrix_path"]
 
-    def get_runtime(cherry_estimator_res: str):
+    def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str):
         res = 0
-        for cherry_estimator_output_dir in [
+        for lg_end_to_end_with_cherryml_optimizer_output_dir in [
             "count_matrices_dir_0",
             "jtt_ipw_dir_0",
             "rate_matrix_dir_0",
         ]:
             with open(
                 os.path.join(
-                    cherry_estimator_res[cherry_estimator_output_dir],
+                    lg_end_to_end_with_cherryml_optimizer_res[
+                        lg_end_to_end_with_cherryml_optimizer_output_dir
+                    ],
                     "profiling.txt",
                 ),
                 "r",
