@@ -180,7 +180,7 @@ def cherry_estimator(
     res = {}
 
     quantization_points = [
-        ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
+        ("%.8f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )
@@ -324,7 +324,7 @@ def cherry_estimator_coevolution(
     res = {}
 
     quantization_points = [
-        ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
+        ("%.8f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )

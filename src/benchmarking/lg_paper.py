@@ -335,7 +335,9 @@ def run_rate_estimator(
             num_processes_optimization=2,
             optimizer_return_best_iter=True,
         )["learned_rate_matrix_path"]
-    elif rate_estimator_name.startswith("Historian__"):  # TODO: This fails because gaps are NOT being treated as MACAR...
+    elif rate_estimator_name.startswith(
+        "Historian__"
+    ):  # TODO: This fails because gaps are NOT being treated as MACAR...
         tokens = rate_estimator_name.split("__")
         assert len(tokens) == 4
         return em_estimator(
@@ -390,7 +392,7 @@ def reproduce_lg_paper_fig_4(
     msa_test_dir: str,
     families_test: List[str],
     rate_estimator_names: List[Tuple[str]],
-    baseline_rate_estimator_name: Optional[str],
+    baseline_rate_estimator_name: Optional[Tuple[str, str]],
     evaluation_phylogeny_estimator: PhylogenyEstimatorType,
     num_processes: int,
     pfam_or_treebase: str,
@@ -427,7 +429,13 @@ def reproduce_lg_paper_fig_4(
             family[:family_name_len], "Sites"
         ]
 
-    for (rate_estimator_name, _) in rate_estimator_names:
+    if baseline_rate_estimator_name is not None:
+        rate_estimator_names_w_baseline = list(
+            set(rate_estimator_names + [baseline_rate_estimator_name])
+        )
+    else:
+        rate_estimator_names_w_baseline = list(set(rate_estimator_names))
+    for (rate_estimator_name, _) in rate_estimator_names_w_baseline:
         print(f"Evaluating rate_estimator_name: {rate_estimator_name}")
         st = time.time()
         if rate_estimator_name.startswith("reported"):
@@ -468,7 +476,7 @@ def reproduce_lg_paper_fig_4(
         log_likelihoods = 2.0 * df[model_names].sum(axis=0) / num_sites
         if baseline_rate_estimator_name is not None:
             log_likelihoods -= (
-                2.0 * df[baseline_rate_estimator_name].sum() / num_sites
+                2.0 * df[baseline_rate_estimator_name[0]].sum() / num_sites
             )
         return log_likelihoods
 
@@ -503,7 +511,9 @@ def reproduce_lg_paper_fig_4(
 
     colors = []
     for model_name in [x[0] for x in rate_estimator_names]:
-        if "reported" in model_name:
+        if not show_legend:
+            colors.append("black")
+        elif "reported" in model_name:
             colors.append("black")
         elif "reproduced" in model_name:
             colors.append("blue")
@@ -528,9 +538,9 @@ def reproduce_lg_paper_fig_4(
     if show_legend:
         plt.legend(
             handles=[
-                mpatches.Patch(color="black", label="Reported"),
+                # mpatches.Patch(color="black", label="Reported"),
                 mpatches.Patch(color="blue", label="Reproduced"),
-                mpatches.Patch(color="red", label="Cherry"),
+                mpatches.Patch(color="red", label="Cherry Method"),
                 # mpatches.Patch(color="green", label="M. Parsimony"),
                 # mpatches.Patch(color="grey", label="JTT-IPW"),
                 # mpatches.Patch(color="brown", label="Other"),
@@ -539,6 +549,12 @@ def reproduce_lg_paper_fig_4(
     # plt.grid()
     plt.tight_layout()
     plt.title("Results on Pfam data from LG paper")
+    if baseline_rate_estimator_name is not None:
+        plt.ylabel(
+            f"Average per-site log-likelihood\nimprovement over {baseline_rate_estimator_name[1]}, in nats"
+        )
+    else:
+        plt.ylabel(f"Average per-site log-likelihood, in nats")
     plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight")
     plt.show()
 

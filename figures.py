@@ -28,7 +28,12 @@ import tqdm
 from matplotlib.colors import LogNorm
 
 import src.utils as utils
-from src import caching, cherry_estimator, cherry_estimator_coevolution, em_estimator
+from src import (
+    caching,
+    cherry_estimator,
+    cherry_estimator_coevolution,
+    em_estimator,
+)
 from src.benchmarking.pfam_15k import (
     compute_contact_maps,
     get_families,
@@ -152,7 +157,9 @@ def add_annotations_to_violinplot(
     if runtimes is None:
         plt.title(title + "\n(median and max error also reported)")
     else:
-        plt.title(title + "\n(median error, max error and runtime also reported)")
+        plt.title(
+            title + "\n(median error, max error and runtime also reported)"
+        )
     plt.tight_layout()
 
 
@@ -443,7 +450,8 @@ def live_demo_pair_of_sites():
         num_epochs=500,
         do_adam=True,
         use_cpp_counting_implementation=True,
-        num_processes_optimization=2,
+        num_processes_optimization=8,
+        num_processes_counting=8,
     )["learned_rate_matrix_path"]
     learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
 
@@ -583,6 +591,7 @@ def fig_single_site_learning_rate_robustness():
                 do_adam=do_adam,
                 use_cpp_counting_implementation=use_cpp_implementation,
                 num_processes_optimization=2,
+                num_processes_counting=8,
             )
 
             try:
@@ -719,7 +728,7 @@ def debug_pytorch_optimizer():
     # quantization_grid_num_steps = 0
 
     quantization_points_str = [
-        ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
+        ("%.8f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )
@@ -1109,6 +1118,7 @@ def fig_convergence_on_large_data_single_site(
                 do_adam=True,
                 use_cpp_counting_implementation=use_cpp_implementation,
                 num_processes_optimization=2,
+                num_processes_counting=8,
             )
 
             learned_rate_matrix_path = os.path.join(
@@ -1279,6 +1289,7 @@ def fig_convergence_on_large_data_single_site__variance(
                 do_adam=True,
                 use_cpp_counting_implementation=use_cpp_implementation,
                 num_processes_optimization=2,
+                num_processes_counting=8,
             )
 
             learned_rate_matrix_path = os.path.join(
@@ -1344,6 +1355,8 @@ def fig_convergence_on_large_data_single_site__variance(
 
 def fig_single_site_quantization_error(
     use_best_iterate: bool = True,
+    num_rate_categories: int = 4,
+    num_processes: int = 32,
 ):
     """
     We show that ~100 quantization points (geometric increments of 10%) is
@@ -1358,9 +1371,7 @@ def fig_single_site_quantization_error(
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-    num_processes = 32
     num_sequences = 1024
-    num_rate_categories = 20
 
     num_families_train = 15051
     num_families_test = 0
@@ -1458,6 +1469,7 @@ def fig_single_site_quantization_error(
             do_adam=True,
             use_cpp_counting_implementation=use_cpp_implementation,
             num_processes_optimization=2,
+            num_processes_counting=8,
         )
 
         print(
@@ -1556,6 +1568,8 @@ def fig_single_site_quantization_error(
 
 def fig_single_site_cherry_vs_edge(
     use_best_iterate: bool = True,
+    num_rate_categories: int = 4,
+    num_processes: int = 32,
 ):
     """
     We compare the efficiency of our Cherry method ("cherry") against that of
@@ -1574,9 +1588,7 @@ def fig_single_site_cherry_vs_edge(
         if not os.path.exists(output_image_dir):
             os.makedirs(output_image_dir)
 
-        num_processes = 32
         num_sequences = 128
-        num_rate_categories = 1
 
         num_families_train = None
         num_families_test = 0
@@ -1689,14 +1701,28 @@ def fig_single_site_cherry_vs_edge(
                 edge_or_cherry=edge_or_cherry,
                 use_cpp_counting_implementation=use_cpp_implementation,
             )
+
             def get_runtime(cherry_estimator_res: str):
                 res = 0
-                for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
-                    with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
-                        profiling_file_contents = profiling_file.read()    
-                        print(f"profiling_file_contents = {profiling_file_contents}")
+                for cherry_estimator_output_dir in [
+                    "count_matrices_dir_0",
+                    "jtt_ipw_dir_0",
+                    "rate_matrix_dir_0",
+                ]:
+                    with open(
+                        os.path.join(
+                            cherry_estimator_res[cherry_estimator_output_dir],
+                            "profiling.txt",
+                        ),
+                        "r",
+                    ) as profiling_file:
+                        profiling_file_contents = profiling_file.read()
+                        print(
+                            f"profiling_file_contents = {profiling_file_contents}"
+                        )
                         res += float(profiling_file_contents.split()[2])
                 return res
+
             runtime = get_runtime(cherry_estimator_res)
             runtimes.append(runtime)
 
@@ -1794,9 +1820,7 @@ def fig_single_site_cherry_vs_edge_num_sequences(
     rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
 
     for edge_or_cherry in ["edge", "cherry"]:
-        output_image_dir = (
-            f"images/fig_single_site_cherry_vs_edge_num_sequences/{edge_or_cherry}"
-        )
+        output_image_dir = f"images/fig_single_site_cherry_vs_edge_num_sequences/{edge_or_cherry}"
         if not os.path.exists(output_image_dir):
             os.makedirs(output_image_dir)
 
@@ -1915,14 +1939,28 @@ def fig_single_site_cherry_vs_edge_num_sequences(
                 edge_or_cherry=edge_or_cherry,
                 use_cpp_counting_implementation=use_cpp_implementation,
             )
+
             def get_runtime(cherry_estimator_res: str):
                 res = 0
-                for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
-                    with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
-                        profiling_file_contents = profiling_file.read()    
-                        print(f"profiling_file_contents = {profiling_file_contents}")
+                for cherry_estimator_output_dir in [
+                    "count_matrices_dir_0",
+                    "jtt_ipw_dir_0",
+                    "rate_matrix_dir_0",
+                ]:
+                    with open(
+                        os.path.join(
+                            cherry_estimator_res[cherry_estimator_output_dir],
+                            "profiling.txt",
+                        ),
+                        "r",
+                    ) as profiling_file:
+                        profiling_file_contents = profiling_file.read()
+                        print(
+                            f"profiling_file_contents = {profiling_file_contents}"
+                        )
                         res += float(profiling_file_contents.split()[2])
                 return res
+
             runtime = get_runtime(cherry_estimator_res)
             runtimes.append(runtime)
 
@@ -1971,8 +2009,7 @@ def fig_single_site_cherry_vs_edge_num_sequences(
             {
                 "number of sequences": sum(
                     [
-                        [num_sequences_list[i]]
-                        * len(yss_relative_errors[i])
+                        [num_sequences_list[i]] * len(yss_relative_errors[i])
                         for i in range(len(yss_relative_errors))
                     ],
                     [],
@@ -2048,6 +2085,7 @@ def live_demo_single_site():
         do_adam=True,
         use_cpp_counting_implementation=True,
         num_processes_optimization=2,
+        num_processes_counting=8,
     )["learned_rate_matrix_path"]
     learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path).to_numpy()
 
@@ -2178,6 +2216,7 @@ def fig_jtt_ipw_single_site(
                 do_adam=True,
                 use_cpp_counting_implementation=use_cpp_implementation,
                 num_processes_optimization=2,
+                num_processes_counting=8,
                 optimizer_initialization=initialization,
             )
 
@@ -2535,6 +2574,7 @@ def fig_convergence_on_large_data_pair_site(
                 do_adam=True,
                 use_cpp_counting_implementation=use_cpp_implementation,
                 num_processes_optimization=8,
+                num_processes_counting=8,
             )
 
             learned_rate_matrix_path = os.path.join(
@@ -2604,21 +2644,23 @@ def fig_convergence_on_large_data_pair_site(
 
 def fig_pair_site_quantization_error(
     use_best_iterate: bool = True,
-    Q_2_name = "masked",
+    Q_2_name="masked",
+    num_rate_categories: int = 1,
+    num_processes: int = 8,
 ):
     """
     We show that ~100 quantization points (geometric increments of 10%) is
     enough on Q estimated on REAL data (fig_pfam15k with 1 rate category)
     """
-    output_image_dir = f"images/fig_pair_site_quantization_error__Q_2_name__{Q_2_name}"
+    output_image_dir = (
+        f"images/fig_pair_site_quantization_error__Q_2_name__{Q_2_name}"
+    )
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
     rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
 
-    num_processes = 8
     num_sequences = 1024
-    num_rate_categories = 20
 
     num_families_train = 15051
     num_families_test = 0
@@ -2696,51 +2738,85 @@ def fig_pair_site_quantization_error(
                     if Q[i, j] == 0:
                         res[i, j] = 0
             return res
-        
+
         def get_nonzeros_cotransitions_mask_matrix(Q):
             res = np.zeros(shape=Q.shape, dtype=int)
             for i, ab in enumerate(Q.index):
                 for j, cd in enumerate(Q.index):
-                    if len(set(ab) - set(cd)) == len(set(ab)) and len(set(cd) - set(ab)) == len(set(cd)):
+                    if len(set(ab) - set(cd)) == len(set(ab)) and len(
+                        set(cd) - set(ab)
+                    ) == len(set(cd)):
                         if Q.loc[ab, cd] > 0:
                             res[i, j] = 1
-            write_rate_matrix(res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt")
+            write_rate_matrix(
+                res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt"
+            )
             return res
-        
+
         def get_nonzeros_single_transitions_mask_matrix(Q):
             nonzeros_nondiag_mask_matrix = get_nonzeros_nondiag_mask_matrix(Q)
-            nonzeros_cotransitions_mask_matrix = get_nonzeros_cotransitions_mask_matrix(Q)
+            nonzeros_cotransitions_mask_matrix = (
+                get_nonzeros_cotransitions_mask_matrix(Q)
+            )
             for i in range(Q.shape[0]):
                 for j in range(Q.shape[1]):
                     if nonzeros_cotransitions_mask_matrix[i, j] == 1:
                         nonzeros_nondiag_mask_matrix[i, j] = 0
-            write_rate_matrix(nonzeros_nondiag_mask_matrix, Q.index, "get_nonzeros_single_transitions_mask_matrix.txt")
+            write_rate_matrix(
+                nonzeros_nondiag_mask_matrix,
+                Q.index,
+                "get_nonzeros_single_transitions_mask_matrix.txt",
+            )
             return nonzeros_nondiag_mask_matrix
 
         if Q_2_name == "masked":
-            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/4a24ace65777c702fcc76b4e9d9f088170eb7c6b0979b44fbc433e42e62e00e3/output_rate_matrix_dir/result.txt"  # TODO: Call fig_pfam15k instead of hardcoding.
-            pi_2_path = os.path.join(get_stationary_distribution(rate_matrix_path=Q_2_path)["output_probability_distribution_dir"], "result.txt")
+            # Q_2_path was trained on all 15051 families, with just 1 rate category.
+            # Old version, with no JTT-IPW pseudocounts
+            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/3d9bdb9b8e8577616bc0842dbc691cce0a3566c1f41398f994d7360c13085270/output_rate_matrix_dir/result.txt"  # TODO: Call fig_pfam15k instead of hardcoding.
+            # New version, with JTT-IPW pseudocounts
+            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/34710edb976fe9de0c99ad0022574ad64019e42f75c28a38d7a7ecf839c36c88/output_rate_matrix_dir/result.txt"
+            # New version, with JTT-IPW pseudocounts and %.8f grid
+            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/687f8e4f167392c5e1e419030f347752ddccb420de13aec8ac8113a82f3eee6a/output_rate_matrix_dir/result.txt"
+            pi_2_path = os.path.join(
+                get_stationary_distribution(rate_matrix_path=Q_2_path)[
+                    "output_probability_distribution_dir"
+                ],
+                "result.txt",
+            )
             coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
-            mask_matrix = read_mask_matrix(
-                coevolution_mask_path
-            ).to_numpy()
+            mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
         elif Q_2_name == "lg_x_lg":
             Q_2_path = get_lg_x_lg_path()
             pi_2_path = get_lg_x_lg_stationary_path()
             coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
-            mask_matrix = read_mask_matrix(
-                coevolution_mask_path
-            ).to_numpy()
+            mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
         elif Q_2_name.startswith("unmasked"):
-            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/bd9ea358bbbbec663a12f4eeec7eb1c2f4a5e2de9d643b9e7e0b87361f8858d4/output_rate_matrix_dir/result.txt"
-            pi_2_path = os.path.join(get_stationary_distribution(rate_matrix_path=Q_2_path)["output_probability_distribution_dir"], "result.txt")
+            # Q_2_path was trained on all 15051 families, with just 1 rate category.
+            # Old version, with no JTT-IPW pseudocounts; JTT-IPW = _cache_benchmarking/jtt_ipw/d8be3acb1c8954f14cdf1fc9d0145bc2f5e8396b9feefb47b3957958a141e0c1/output_rate_matrix_dir/result.txt ; count_matrices_path = _cache_benchmarking/count_co_transitions/412efb7d0e15338876da30eea722baaad5d0fd309dc3e57153825730a88395ec/output_count_matrices_dir/result.txt
+            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/1795b9a6bdaaa50d0f8d4cb90c91768944b56c7b464fcd38fdc09ec7dd630c37/output_rate_matrix_dir/result.txt"
+            # New version, with JTT-IPW pseudocounts; JTT-IPW = _cache_benchmarking/jtt_ipw/215f326a069a9a043591b292400c3de0e0a189b8101c25d90dec9c3e64445c3b/output_rate_matrix_dir/result.txt ; count_matrices_path = _cache_benchmarking/count_co_transitions/412efb7d0e15338876da30eea722baaad5d0fd309dc3e57153825730a88395ec/output_count_matrices_dir/result.txt (same as for no pseudocounts, of course!)
+            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/9120e787ed026d2bbdf5a5c928fecac0f0d9220b6cc6526a323f55ecad860701/output_rate_matrix_dir/result.txt"
+            # New version, with JTT-IPW pseudocounts and %.8f grid
+            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/96b3fefbea6788cfd31ac778755d59e7aed1273764553291eb60d4b50a1968a1/output_rate_matrix_dir/result.txt"
+            pi_2_path = os.path.join(
+                get_stationary_distribution(rate_matrix_path=Q_2_path)[
+                    "output_probability_distribution_dir"
+                ],
+                "result.txt",
+            )
             coevolution_mask_path = None
             if Q_2_name == "unmasked-all-transitions":
-                mask_matrix = get_nonzeros_nondiag_mask_matrix(read_rate_matrix(Q_2_path))
+                mask_matrix = get_nonzeros_nondiag_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
             elif Q_2_name == "unmasked-co-transitions":
-                mask_matrix = get_nonzeros_cotransitions_mask_matrix(read_rate_matrix(Q_2_path))
+                mask_matrix = get_nonzeros_cotransitions_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
             elif Q_2_name == "unmasked-single-transitions":
-                mask_matrix = get_nonzeros_single_transitions_mask_matrix(read_rate_matrix(Q_2_path))
+                mask_matrix = get_nonzeros_single_transitions_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
 
         (
             msa_dir,
@@ -2841,11 +2917,15 @@ def fig_pair_site_quantization_error(
         )
 
         print(f"Q_2_df.loc['VI', 'IV'] = {Q_2_df.loc['VI', 'IV']}")
-        print(f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}")
+        print(
+            f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}"
+        )
 
     for i in range(len(q_points)):
         for density_plot in [False, True]:
-            plot_rate_matrix_predictions(Q_2, Qs[i], mask_matrix, density_plot=density_plot)
+            plot_rate_matrix_predictions(
+                Q_2, Qs[i], mask_matrix, density_plot=density_plot
+            )
             plt.title(
                 "True vs predicted rate matrix entries\nmax quantization error = "
                 "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
@@ -2897,7 +2977,11 @@ def fig_pair_site_quantization_error(
 # Real-data experiments #
 
 
-def fig_lg_paper():
+def fig_lg_paper(
+    figsize=(14.4, 4.8),
+    show_legend=True,
+    num_processes: int = 4,
+):
     """
     LG paper figure 4.
     """
@@ -2912,8 +2996,6 @@ def fig_lg_paper():
         reproduce_lg_paper_fig_4,
     )
     from src.phylogeny_estimation import fast_tree, phyml
-
-    num_processes = 4
 
     caching.set_cache_dir("_cache_lg_paper")
     caching.set_hash_len(64)
@@ -2969,31 +3051,33 @@ def fig_lg_paper():
         families_test=get_families(LG_PFAM_TESTING_ALIGNMENTS_DIR),
         rate_estimator_names=[
             # "EQU",
-            ("reported JTT", "JTT\n(reported)"),
-            ("reproduced JTT", "JTT\n(reproduced)"),
-            ("reported WAG", "WAG\n(reported)"),
-            ("reproduced WAG", "WAG\n(reproduced)"),
+            # ("reported JTT", "JTT\n(reported)"),
+            # ("reproduced JTT", "JTT"),
+            # ("reported WAG", "WAG\n(reported)"),
+            ("reproduced WAG", "WAG"),
             # ("reported WAG', "WAG'\n(reported)"),
             # ("Historian__1__1__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "WAG'\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
-            ("reported LG", "LG\n(reported)"),
-            ("reproduced LG", "LG\n(reproduced)"),
+            # ("reported LG", "LG\n(reported)"),
+            ("reproduced LG", "LG"),
             # ("Historian__1__4__-band 0 -fixgaprates -mininc 0.000001 -maxiter 10000 -nolaplace", "LG\n(reproduced w/Historian)\n1st iteration"),  # TODO: This fails because gaps are NOT being treated as MACAR...
-            ("Cherry__1__1e-1__2000", "Cherry\n1st iteration"),
-            ("Cherry__2__1e-1__2000", "Cherry\n2nd iteration"),
-            ("Cherry__3__1e-1__2000", "Cherry\n3rd iteration"),
-            ("Cherry__4__1e-1__2000", "Cherry\n4th iteration"),
-            ("Cherry__5__1e-1__2000", "Cherry\n5th iteration"),
-            ("Cherry__6__1e-1__2000", "Cherry\n6th iteration"),
+            # ("Cherry__1__1e-1__2000", "Cherry\n1st iteration"),
+            # ("Cherry__2__1e-1__2000", "Cherry\n2nd iteration"),
+            # ("Cherry__3__1e-1__2000", "Cherry\n3rd iteration"),
+            # ("Cherry__4__1e-1__2000", "Cherry\n4th iteration"),
+            ("Cherry__4__1e-1__2000", "LG\nw/Cherry Method"),
+            # ("Cherry__5__1e-1__2000", "Cherry\n5th iteration"),
+            # ("Cherry__6__1e-1__2000", "Cherry\n6th iteration"),
         ],
-        baseline_rate_estimator_name="reported JTT",
+        baseline_rate_estimator_name=("reproduced JTT", "JTT"),
         evaluation_phylogeny_estimator=phyml_partial,
         # evaluation_phylogeny_estimator=fast_tree_partial,
         num_processes=num_processes,
         pfam_or_treebase="pfam",
         family_name_len=7,
-        figsize=(14.4, 4.8),
+        figsize=figsize,
         num_bootstraps=100,
         output_image_dir=output_image_dir,
+        show_legend=show_legend,
     )
 
 
@@ -3254,6 +3338,9 @@ def _compute_contacting_sites(
 
 def fig_pfam15k(
     num_rate_categories: int = 4,  # To be fair with LG, since LG was trained with 4 rate categories  # noqa
+    num_families_train: int = 12000,
+    num_families_test: int = 3000,
+    num_processes: int = 32,
 ):
     """
     We use 12K families for training and 3K for testing.
@@ -3278,10 +3365,7 @@ def fig_pfam15k(
     PFAM_15K_MSA_DIR = "input_data/a3m"
     PFAM_15K_PDB_DIR = "input_data/pdb"
 
-    num_processes = 32
     num_sequences = 1024
-    num_families_train = 12000
-    num_families_test = 3000
     train_test_split_seed = 0
     use_cpp_implementation = True
     use_best_iterate = True
@@ -3300,11 +3384,6 @@ def fig_pfam15k(
         families_test = []
     else:
         families_test = sorted(families_all[-num_families_test:])
-    if num_families_train + num_families_test > len(families_all):
-        raise Exception("Training and testing set would overlap!")
-    assert len(set(families_train + families_test)) == len(
-        families_train
-    ) + len(families_test)
 
     # Subsample the MSAs
     msa_dir_train = subsample_pfam_15k_msas(
@@ -3333,6 +3412,7 @@ def fig_pfam15k(
         do_adam=True,
         use_cpp_counting_implementation=use_cpp_implementation,
         num_processes_optimization=2,
+        num_processes_counting=8,
         optimizer_return_best_iter=use_best_iterate,
     )["learned_rate_matrix_path"]
     cherry = read_rate_matrix(cherry_path).to_numpy()
@@ -3363,7 +3443,9 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_name, rate_matrix_path in single_site_rate_matrices:
-        mutation_rate = compute_mutation_rate(read_rate_matrix(rate_matrix_path))
+        mutation_rate = compute_mutation_rate(
+            read_rate_matrix(rate_matrix_path)
+        )
         print(
             f"***** Evaluating: {rate_matrix_name} at {rate_matrix_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"  # noqa
         )
@@ -3414,12 +3496,15 @@ def fig_pfam15k(
         do_adam=True,
         use_cpp_counting_implementation=use_cpp_implementation,
         num_processes_optimization=2,
+        num_processes_counting=8,
         optimizer_return_best_iter=use_best_iterate,
         sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
     cherry_contact = read_rate_matrix(cherry_contact_path).to_numpy()
     mutation_rate = compute_mutation_rate(read_rate_matrix(cherry_contact_path))
-    print(f"***** cherry_contact_path = {cherry_contact_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****")
+    print(
+        f"***** cherry_contact_path = {cherry_contact_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"
+    )
     print("Cherry contact topleft 3x3 corner:")
     print(cherry_contact[:3, :3])
 
@@ -3460,6 +3545,7 @@ def fig_pfam15k(
         do_adam=True,
         use_cpp_counting_implementation=use_cpp_implementation,
         num_processes_optimization=8,
+        num_processes_counting=8,
         optimizer_return_best_iter=use_best_iterate,
         use_maximal_matching=use_maximal_matching,
     )["learned_rate_matrix_path"]
@@ -3485,18 +3571,31 @@ def fig_pfam15k(
         do_adam=True,
         use_cpp_counting_implementation=use_cpp_implementation,
         num_processes_optimization=8,
+        num_processes_counting=8,
         optimizer_return_best_iter=use_best_iterate,
         use_maximal_matching=use_maximal_matching,
     )
     cherry_2_no_mask_path = cherry_2_no_mask_dir["learned_rate_matrix_path"]
+
     def get_runtime(cherry_estimator_res: str):
         res = 0
-        for cherry_estimator_output_dir in ["count_matrices_dir_0", "jtt_ipw_dir_0", "rate_matrix_dir_0"]:
-            with open(os.path.join(cherry_estimator_res[cherry_estimator_output_dir], "profiling.txt"), "r") as profiling_file:
-                profiling_file_contents = profiling_file.read()    
+        for cherry_estimator_output_dir in [
+            "count_matrices_dir_0",
+            "jtt_ipw_dir_0",
+            "rate_matrix_dir_0",
+        ]:
+            with open(
+                os.path.join(
+                    cherry_estimator_res[cherry_estimator_output_dir],
+                    "profiling.txt",
+                ),
+                "r",
+            ) as profiling_file:
+                profiling_file_contents = profiling_file.read()
                 print(f"profiling_file_contents = {profiling_file_contents}")
                 res += float(profiling_file_contents.split()[2])
         return res
+
     runtime_coevolution = get_runtime(cherry_2_no_mask_dir)
     print(f"Runtime for coevolution: {runtime_coevolution}")
 
@@ -3524,7 +3623,9 @@ def fig_pfam15k(
     ]
 
     for rate_matrix_2_name, rate_matrix_2_path in pair_site_rate_matrices:
-        mutation_rate = compute_mutation_rate(read_rate_matrix(rate_matrix_2_path))
+        mutation_rate = compute_mutation_rate(
+            read_rate_matrix(rate_matrix_2_path)
+        )
         print(
             f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"  # noqa
         )
@@ -3594,9 +3695,9 @@ def fig_pfam15k(
 
 def fig_MSA_VI_cotransition(
     num_families_train: int = 12000,
-    aa_1 = "E",
-    aa_2 = "K",
-    families = ["4kv7_1_A"],
+    aa_1="E",
+    aa_2="K",
+    families=None,
 ):
     """
     Explore to what extent the cotransition VI <-> IV is apparent from looking at raw MSAs.
@@ -3677,11 +3778,17 @@ def fig_MSA_VI_cotransition(
                 for n in range(num_seqs):
                     if msa_list[n][1][i] == aa_1 and msa_list[n][1][j] == aa_2:
                         IVs.append(n)
-                    elif msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_1:
+                    elif (
+                        msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_1
+                    ):
                         VIs.append(n)
-                    elif msa_list[n][1][i] == aa_1 and msa_list[n][1][j] == aa_1:
+                    elif (
+                        msa_list[n][1][i] == aa_1 and msa_list[n][1][j] == aa_1
+                    ):
                         IIs.append(n)
-                    elif msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_2:
+                    elif (
+                        msa_list[n][1][i] == aa_2 and msa_list[n][1][j] == aa_2
+                    ):
                         VVs.append(n)
                 tot_IV_VI_II_VV = len(IVs) + len(VIs) + len(IIs) + len(VVs)
                 # if tot_IV_VI_II_VV >= num_seqs / 2:
@@ -3691,11 +3798,21 @@ def fig_MSA_VI_cotransition(
                     pct_II = len(IIs) / tot_IV_VI_II_VV
                     pct_VV = len(VVs) / tot_IV_VI_II_VV
                     if pct_IV > 0.2 and pct_VI > 0.2:
-                        print(f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, {aa_1}{aa_1}, {aa_2}{aa_2}) =", "(%.2f, %.2f, %.2f, %.2f)" % (pct_IV, len(VIs) / tot_IV_VI_II_VV, len(IIs) / tot_IV_VI_II_VV, len(VVs) / tot_IV_VI_II_VV), f"over {tot_IV_VI_II_VV} pairs")
+                        print(
+                            f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, {aa_1}{aa_1}, {aa_2}{aa_2}) =",
+                            "(%.2f, %.2f, %.2f, %.2f)"
+                            % (
+                                pct_IV,
+                                len(VIs) / tot_IV_VI_II_VV,
+                                len(IIs) / tot_IV_VI_II_VV,
+                                len(VVs) / tot_IV_VI_II_VV,
+                            ),
+                            f"over {tot_IV_VI_II_VV} pairs",
+                        )
         #         if have_IV and have_VI:
         #             pair_cols_with_IV_VI.append((i, j))
         # print(f"pair_cols_with_IV_VI = {len(pair_cols_with_IV_VI)} / {len(cols_with_IV) * (len(cols_with_IV) - 1) / 2} = {len(pair_cols_with_IV_VI) / (len(cols_with_IV) * (len(cols_with_IV) - 1) / 2)}")
-                    
+
 
 # EM #
 
@@ -3703,6 +3820,7 @@ def fig_MSA_VI_cotransition(
 def fig_single_site_em(
     extra_em_command_line_args: str,
     num_processes: int = 32,
+    num_rate_categories: int = 4,  # TODO: See results
 ):
     """
     We show that on single-site data simulated on top of real trees, the EM
@@ -3718,14 +3836,13 @@ def fig_single_site_em(
     rate_matrix_filename = "result.txt"
 
     output_image_dir = (
-        f"images/fig_single_site_em__" + 
-        extra_em_command_line_args.replace(' ', '_')
+        f"images/fig_single_site_em__"
+        + extra_em_command_line_args.replace(" ", "_")
     )
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
     num_sequences = 128
-    num_rate_categories = 1
 
     num_families_train = None
     num_families_test = 0
@@ -3769,9 +3886,7 @@ def fig_single_site_em(
 
         families_all = get_families_within_cutoff(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=min_num_sites
-            if num_families_train <= 1024
-            else 0,
+            min_num_sites=min_num_sites if num_families_train <= 1024 else 0,
             max_num_sites=max_num_sites
             if num_families_train <= 1024
             else 1000000,
@@ -3835,7 +3950,10 @@ def fig_single_site_em(
                 profiling_file_contents = profiling_file.read()
                 print(f"profiling_file_contents = {profiling_file_contents}")
                 return float(profiling_file_contents.split()[2])
-        runtime = get_runtime(os.path.join(em_estimator_res["rate_matrix_dir_0"], "profiling.txt"))
+
+        runtime = get_runtime(
+            os.path.join(em_estimator_res["rate_matrix_dir_0"], "profiling.txt")
+        )
         runtimes.append(runtime)
 
         learned_rate_matrix_path = os.path.join(
@@ -3850,9 +3968,7 @@ def fig_single_site_em(
             em_estimator_res["tree_estimator_output_dirs_0"],
         )
 
-        learned_rate_matrix_path = em_estimator_res[
-            "learned_rate_matrix_path"
-        ]
+        learned_rate_matrix_path = em_estimator_res["learned_rate_matrix_path"]
         print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
         learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
@@ -3883,8 +3999,7 @@ def fig_single_site_em(
         {
             "number of families": sum(
                 [
-                    [num_families_train_list[i]]
-                    * len(yss_relative_errors[i])
+                    [num_families_train_list[i]] * len(yss_relative_errors[i])
                     for i in range(len(yss_relative_errors))
                 ],
                 [],

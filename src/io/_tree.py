@@ -1,8 +1,7 @@
-import ete3
-
+import tempfile
 from typing import List, Tuple
 
-import tempfile
+import ete3
 
 
 class Tree:
@@ -151,7 +150,7 @@ class Tree:
         if len(self.children(self.root())) == 2:
             # No trifurcation
             return self.to_ete3()
-        assert(len(self.children(self.root())) == 3)
+        assert len(self.children(self.root())) == 3
 
         tree_ete = ete3.Tree(name=self.root() + "_fakeroot")
         ete3_node_dict = {}
@@ -159,12 +158,12 @@ class Tree:
 
         # Create binary root manually
         first_root_child, dist = self.children(self.root())[0]
-        ete3_node_dict[first_root_child] = ete3_node_dict[self.root() + "_fakeroot"].add_child(
-            name=first_root_child, dist=dist / 2
-        )
-        ete3_node_dict[self.root()] = ete3_node_dict[self.root() + "_fakeroot"].add_child(
-            name=self.root(), dist=dist / 2
-        )
+        ete3_node_dict[first_root_child] = ete3_node_dict[
+            self.root() + "_fakeroot"
+        ].add_child(name=first_root_child, dist=dist / 2)
+        ete3_node_dict[self.root()] = ete3_node_dict[
+            self.root() + "_fakeroot"
+        ].add_child(name=self.root(), dist=dist / 2)
 
         for node in self.preorder_traversal():
             for (i, (child, dist)) in enumerate(self.children(node)):

@@ -275,8 +275,12 @@ def count_co_transitions(
                     os.remove(result_pid_path)
 
             logger.info("Done!")
-            with open(os.path.join(output_count_matrices_dir, "profiling.txt"), "w") as profiling_file:
-                profiling_file.write(f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n")
+            with open(
+                os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
+            ) as profiling_file:
+                profiling_file.write(
+                    f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+                )
             return
 
     map_args = [
@@ -319,5 +323,9 @@ def count_co_transitions(
     write_count_matrices(
         count_matrices, os.path.join(output_count_matrices_dir, "result.txt")
     )
-    with open(os.path.join(output_count_matrices_dir, "profiling.txt"), "w") as profiling_file:
-        profiling_file.write(f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n")
+    with open(
+        os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
+    ) as profiling_file:
+        profiling_file.write(
+            f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+        )

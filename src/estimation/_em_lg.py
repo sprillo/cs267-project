@@ -1,24 +1,29 @@
 """
 Classical EM for the LG model.
 """
+import json
 import logging
 import os
 import sys
 import tempfile
 import time
 from typing import List, Optional
-import json
 
 import numpy as np
 import pandas as pd
 
 from src import caching
-from src.utils import pushd
-from src.io import read_msa, read_tree, read_site_rates, read_rate_matrix, write_rate_matrix
+from src.io import (
+    read_msa,
+    read_rate_matrix,
+    read_site_rates,
+    read_tree,
+    write_rate_matrix,
+)
 from src.markov_chain import compute_stationary_distribution
+from src.utils import pushd
 
-
-MISSING_DATA_CHARACTER = 'x'
+MISSING_DATA_CHARACTER = "x"
 
 
 def _init_logger():
@@ -38,19 +43,18 @@ _init_logger()
 def _install_historian():
     logger = logging.getLogger(__name__)
     dir_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "historian"
+        os.path.dirname(os.path.realpath(__file__)), "historian"
     )
     bin_path = os.path.join(dir_path, "bin/historian")
     if not os.path.exists(dir_path):
-        git_clone_command = f"git clone https://github.com/evoldoers/historian {dir_path}"
+        git_clone_command = (
+            f"git clone https://github.com/evoldoers/historian {dir_path}"
+        )
         logger.info(f"Going to run: {git_clone_command}")
         os.system(git_clone_command)
     if not os.path.exists(bin_path):
         with pushd(dir_path):
-            compile_command = (
-                "make"
-            )
+            compile_command = "make"
             logger.info(f"Building Historian with:\n{compile_command}")
             # See https://github.com/evoldoers/historian
             os.system(compile_command)
@@ -90,6 +94,7 @@ def _translate_tree_and_msa_to_stock_format(
             else:
                 new_seq.append(MISSING_DATA_CHARACTER)
         return new_seq
+
     msa = {
         seq_name: apply_missing_data_character(seq)
         for (seq_name, seq) in msa_orig.items()
@@ -107,15 +112,30 @@ def _translate_tree_and_msa_to_stock_format(
 
         tree = read_tree(input_tree_path)
         tree = tree.scaled(rate_category, node_name_prefix=fake_family + "-")
-        stock_str += "#=GF NH " + tree.to_newick_resolve_root_trifurcation(format=3) + "\n"
+        stock_str += (
+            "#=GF NH "
+            + tree.to_newick_resolve_root_trifurcation(format=3)
+            + "\n"
+        )
 
-        sites_with_this_rate_category = [i for i in range(len(site_rates)) if site_rates[i] == rate_category]
+        sites_with_this_rate_category = [
+            i for i in range(len(site_rates)) if site_rates[i] == rate_category
+        ]
         msa_str = ""
         for seq_name, seq in msa.items():
-            msa_str += fake_family + "-" + seq_name + " " + ''.join([seq[i] for i in sites_with_this_rate_category]) + "\n"
+            msa_str += (
+                fake_family
+                + "-"
+                + seq_name
+                + " "
+                + "".join([seq[i] for i in sites_with_this_rate_category])
+                + "\n"
+            )
         stock_str += msa_str
 
-        with open(os.path.join(output_stock_dir, fake_family + ".txt"), "w") as output_stock_file:
+        with open(
+            os.path.join(output_stock_dir, fake_family + ".txt"), "w"
+        ) as output_stock_file:
             output_stock_file.write(stock_str)
     return res
 
@@ -156,26 +176,19 @@ def _translate_rate_matrix_from_historian_format(
     with open(historian_learned_rate_matrix_path) as json_file:
         learned_rate_matrix_json = json.load(json_file)
     res = pd.DataFrame(
-        np.zeros(
-            shape=(
-                len(alphabet),
-                len(alphabet)
-            )
-        ),
+        np.zeros(shape=(len(alphabet), len(alphabet))),
         index=alphabet,
         columns=alphabet,
     )
     for state_1 in alphabet:
         for state_2 in alphabet:
             if state_1 != state_2:
-                res.loc[state_1, state_2] = learned_rate_matrix_json["subrate"][state_1][state_2]
+                res.loc[state_1, state_2] = learned_rate_matrix_json["subrate"][
+                    state_1
+                ][state_2]
     for state_1 in alphabet:
         res.loc[state_1, state_1] = -res.loc[state_1, :].sum()
-    write_rate_matrix(
-        res,
-        alphabet,
-        learned_rate_matrix_path
-    )
+    write_rate_matrix(res, alphabet, learned_rate_matrix_path)
 
 
 def _translate_rate_matrix_to_historian_format(
@@ -190,13 +203,10 @@ def _translate_rate_matrix_to_historian_format(
         "delrate": 0.0,
         "insextprob": 0.0,
         "delextprob": 0.0,
-        "alphabet": ''.join(alphabet),
+        "alphabet": "".join(alphabet),
         "wildcard": MISSING_DATA_CHARACTER,
     }
-    res["rootprob"] = {
-        state: pi[i]
-        for (i, state) in enumerate(alphabet)
-    }
+    res["rootprob"] = {state: pi[i] for (i, state) in enumerate(alphabet)}
     res["subrate"] = {}
     for state_1 in alphabet:
         res["subrate"][state_1] = {
@@ -243,8 +253,12 @@ def em_lg(
     with tempfile.TemporaryDirectory() as stock_dir:
         with tempfile.NamedTemporaryFile("w") as historian_init_file:
             historian_init_path = historian_init_file.name
-            with tempfile.NamedTemporaryFile("w") as historian_learned_rate_matrix_file:
-                historian_learned_rate_matrix_path = historian_learned_rate_matrix_file.name
+            with tempfile.NamedTemporaryFile(
+                "w"
+            ) as historian_learned_rate_matrix_file:
+                historian_learned_rate_matrix_path = (
+                    historian_learned_rate_matrix_file.name
+                )
 
                 # Translate data from friendly format to historian format.
                 new_families = _translate_trees_and_msas_to_stock_format(
@@ -264,9 +278,16 @@ def em_lg(
                 dir_path = os.path.dirname(os.path.realpath(__file__))
                 historian_command = (
                     f"{dir_path}/historian/bin/historian"
-                    + " fit " + " ".join([os.path.join(stock_dir, family + ".txt") for family in new_families])
+                    + " fit "
+                    + " ".join(
+                        [
+                            os.path.join(stock_dir, family + ".txt")
+                            for family in new_families
+                        ]
+                    )
                     + f" -model {historian_init_path} "
-                    + " " + extra_command_line_args
+                    + " "
+                    + extra_command_line_args
                     + f" > {historian_learned_rate_matrix_path}"
                 )
                 logger.info(f"Going to run command: {historian_command}")

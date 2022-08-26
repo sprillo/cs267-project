@@ -111,5 +111,9 @@ def quantized_transitions_mle(
                 )
 
     logger.info("Done!")
-    with open(os.path.join(output_rate_matrix_dir, "profiling.txt"), "w") as profiling_file:
-        profiling_file.write(f"Total time: {time.time() - start_time} seconds with {OPENBLAS_NUM_THREADS} OPENBLAS_NUM_THREADS and {OMP_NUM_THREADS} OMP_NUM_THREADS\n")
+    with open(
+        os.path.join(output_rate_matrix_dir, "profiling.txt"), "w"
+    ) as profiling_file:
+        profiling_file.write(
+            f"Total time: {time.time() - start_time} seconds with {OPENBLAS_NUM_THREADS} OPENBLAS_NUM_THREADS and {OMP_NUM_THREADS} OMP_NUM_THREADS\n"
+        )

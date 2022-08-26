@@ -51,7 +51,9 @@ def create_maximal_matching_contact_map(
         for process_rank in range(num_processes)
     ]
 
-    logger.info(f"Going to run on {len(families)} families using {num_processes} processes")
+    logger.info(
+        f"Going to run on {len(families)} families using {num_processes} processes"
+    )
 
     # Map step (distribute families among processes)
     if num_processes > 1:

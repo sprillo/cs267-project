@@ -1,23 +1,40 @@
+import filecmp
+import json
 import os
 import tempfile
 import unittest
-import filecmp
+from collections import defaultdict
 
 import numpy as np
 from ete3 import Tree as TreeETE
-import json
 from parameterized import parameterized
 
-from collections import defaultdict
-
 from src.estimation import em_lg
-from src.estimation._em_lg import _install_historian, _translate_tree_and_msa_to_stock_format, _translate_rate_matrix_to_historian_format, _translate_rate_matrix_from_historian_format, _translate_rate_matrix_from_historian_format
-from src.markov_chain import get_lg_path, get_lg_stationary_path, get_lg_x_lg_path, get_lg_x_lg_stationary_path, get_equ_path
-from src.utils import get_amino_acids
-from src.io import read_rate_matrix, write_contact_map, write_site_rates, read_tree, read_msa, read_probability_distribution
+from src.estimation._em_lg import (
+    _install_historian,
+    _translate_rate_matrix_from_historian_format,
+    _translate_rate_matrix_to_historian_format,
+    _translate_tree_and_msa_to_stock_format,
+)
+from src.io import (
+    read_msa,
+    read_probability_distribution,
+    read_rate_matrix,
+    read_tree,
+    write_contact_map,
+    write_site_rates,
+)
+from src.markov_chain import (
+    get_equ_path,
+    get_lg_path,
+    get_lg_stationary_path,
+    get_lg_x_lg_path,
+    get_lg_x_lg_stationary_path,
+)
 from src.simulation import simulate_msas
-from tests.utils import create_synthetic_contact_map
+from src.utils import get_amino_acids
 from tests.simulation_tests.simulation_test import check_empirical_counts
+from tests.utils import create_synthetic_contact_map
 
 DATA_DIR = "./tests/estimation_tests/test_input_data"
 
@@ -49,7 +66,7 @@ class TestEMLG(unittest.TestCase):
             for i in range(3):
                 filepath_1 = f"{DATA_DIR}/stock_dir/fam1_{i}.txt"
                 filepath_2 = f"{stock_dir}/fam1_{i}.txt"
-                assert(filecmp.cmp(filepath_1, filepath_2))
+                assert filecmp.cmp(filepath_1, filepath_2)
 
     def test_translate_tree_and_msa_to_stock_format_with_trifurcations(self):
         """
@@ -72,7 +89,7 @@ class TestEMLG(unittest.TestCase):
             for i in range(3):
                 filepath_1 = f"{DATA_DIR}/stock_dir_trifurcation/fam1_{i}.txt"
                 filepath_2 = f"{stock_dir}/fam1_{i}.txt"
-                assert(filecmp.cmp(filepath_1, filepath_2))
+                assert filecmp.cmp(filepath_1, filepath_2)
 
     def test_translate_rate_matrix_to_historian_format(self):
         """
@@ -87,13 +104,15 @@ class TestEMLG(unittest.TestCase):
             )
             filepath_1 = f"{DATA_DIR}/historian_init.json"
             filepath_2 = historian_init_path
-            file_1_lines = open(filepath_1).read().split('\n')
-            file_2_lines = open(filepath_2).read().split('\n')
+            file_1_lines = open(filepath_1).read().split("\n")
+            file_2_lines = open(filepath_2).read().split("\n")
             for line_1, line_2 in zip(file_1_lines, file_2_lines):
                 tokens_1, tokens_2 = line_1.split(), line_2.split()
                 for token_1, token_2 in zip(tokens_1, tokens_2):
                     try:
-                        np.testing.assert_almost_equal(float(token_1.strip(',')), float(token_2.strip(',')))
+                        np.testing.assert_almost_equal(
+                            float(token_1.strip(",")), float(token_2.strip(","))
+                        )
                     except Exception:
                         self.assertEqual(token_1, token_2)
 
@@ -101,11 +120,17 @@ class TestEMLG(unittest.TestCase):
         """
         Run Historian from CLI
         """
-        with tempfile.NamedTemporaryFile("w") as historian_learned_rate_matrix_file:
-            historian_learned_rate_matrix_path = historian_learned_rate_matrix_file.name
+        with tempfile.NamedTemporaryFile(
+            "w"
+        ) as historian_learned_rate_matrix_file:
+            historian_learned_rate_matrix_path = (
+                historian_learned_rate_matrix_file.name
+            )
             command = (
                 "src/estimation/historian/bin/historian fit"
-                + ''.join([f" {DATA_DIR}/stock_dir/fam1_{i}.txt" for i in range(3)])
+                + "".join(
+                    [f" {DATA_DIR}/stock_dir/fam1_{i}.txt" for i in range(3)]
+                )
                 + f" -model {DATA_DIR}/historian_init_small.json"
                 + " -band 0"
                 + f" -fixgaprates > {historian_learned_rate_matrix_path} -v2"
@@ -114,7 +139,7 @@ class TestEMLG(unittest.TestCase):
             os.system(command)
             with open(historian_learned_rate_matrix_path) as json_file:
                 learned_rate_matrix_json = json.load(json_file)
-                assert("subrate" in learned_rate_matrix_json.keys())
+                assert "subrate" in learned_rate_matrix_json.keys()
 
     def test_translate_rate_matrix_from_historian_format(self):
         with tempfile.NamedTemporaryFile("w") as learned_rate_matrix_file:
@@ -126,7 +151,7 @@ class TestEMLG(unittest.TestCase):
             )
             filepath_1 = f"{DATA_DIR}/learned_rate_matrix.txt"
             filepath_2 = learned_rate_matrix_path
-            assert(filecmp.cmp(filepath_1, filepath_2))
+            assert filecmp.cmp(filepath_1, filepath_2)
 
     def test_run_historian_from_python_api(self):
         """
@@ -147,7 +172,9 @@ class TestEMLG(unittest.TestCase):
             )
             np.testing.assert_almost_equal(
                 learned_rate_matrix.to_numpy(),
-                read_rate_matrix(f"{DATA_DIR}/learned_rate_matrix.txt").to_numpy(),
+                read_rate_matrix(
+                    f"{DATA_DIR}/learned_rate_matrix.txt"
+                ).to_numpy(),
             )
 
     # def test_run_historian_to_recover_rate_matrix(self):

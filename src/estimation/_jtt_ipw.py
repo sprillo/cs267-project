@@ -35,6 +35,8 @@ def jtt_ipw(
     output_rate_matrix_dir: str,
     normalize: bool = False,
     max_time: Optional[float] = None,
+    pseudocounts: float = 1e-8,
+    symmetrize_count_matrices: bool = True,
 ) -> None:
     """
     JTT-IPW estimator.
@@ -69,13 +71,14 @@ def jtt_ipw(
         ]
         qtimes = [qtimes[i] for i in valid_time_indices]
         cmats = [cmats[i] for i in valid_time_indices]
-    cmats = [cmat.to_numpy() for cmat in cmats]
+    cmats = [(cmat.to_numpy() + pseudocounts) for cmat in cmats]
 
-    # Coalesce transitions a->b and b->a together
     n_time_buckets = len(cmats)
     assert cmats[0].shape == (num_states, num_states)
-    for i in range(n_time_buckets):
-        cmats[i] = (cmats[i] + np.transpose(cmats[i])) / 2.0
+    if symmetrize_count_matrices:
+        # Coalesce transitions a->b and b->a together
+        for i in range(n_time_buckets):
+            cmats[i] = (cmats[i] + np.transpose(cmats[i])) / 2.0
     # Apply masking
     for i in range(n_time_buckets):
         cmats[i] = cmats[i] * mask_mat
@@ -87,7 +90,7 @@ def jtt_ipw(
     # transitions from each state.
     F_off = F * (1.0 - np.eye(num_states))
     # Compute CTPs
-    CTPs = F_off / (F_off.sum(axis=1)[:, None] + 1e-16)
+    CTPs = F_off / (F_off.sum(axis=1)[:, None])
 
     # Compute mutabilities
     if use_ipw:
@@ -97,14 +100,9 @@ def jtt_ipw(
             cmat = cmats[i]
             cmat_off = cmat * (1.0 - np.eye(num_states))
             M += 1.0 / qtime * cmat_off.sum(axis=1)
-        M /= F.sum(axis=1) + 1e-16
+        M /= F.sum(axis=1)
     else:
-        M = (
-            1.0
-            / np.median(qtimes)
-            * F_off.sum(axis=1)
-            / (F.sum(axis=1) + 1e-16)
-        )
+        M = 1.0 / np.median(qtimes) * F_off.sum(axis=1) / (F.sum(axis=1))
 
     # JTT-IPW estimator
     res = np.diag(M) @ CTPs
@@ -118,5 +116,9 @@ def jtt_ipw(
     )
 
     logger.info("Done!")
-    with open(os.path.join(output_rate_matrix_dir, "profiling.txt"), "w") as profiling_file:
-        profiling_file.write(f"Total time: {time.time() - start_time} seconds\n")
+    with open(
+        os.path.join(output_rate_matrix_dir, "profiling.txt"), "w"
+    ) as profiling_file:
+        profiling_file.write(
+            f"Total time: {time.time() - start_time} seconds\n"
+        )

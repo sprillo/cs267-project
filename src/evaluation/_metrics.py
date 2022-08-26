@@ -1,8 +1,8 @@
 from typing import Optional
-import seaborn as sns
 
 import matplotlib.pyplot as plt
 import numpy as np
+import seaborn as sns
 
 RateMatrixType = np.array
 MaskMatrixType = np.array
@@ -126,7 +126,7 @@ def plot_rate_matrix_predictions(
     y_true: RateMatrixType,
     y_pred: RateMatrixType,
     mask_matrix: Optional[MaskMatrixType] = None,
-    density_plot: bool = False
+    density_plot: bool = False,
 ) -> None:
     num_states = y_true.shape[0]
     if mask_matrix is None:

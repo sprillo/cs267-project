@@ -8,7 +8,8 @@ import tqdm
 
 from src import caching
 from src.counting import count_co_transitions, count_transitions
-from src.estimation import jtt_ipw, quantized_transitions_mle
+from src.estimation import em_lg, jtt_ipw, quantized_transitions_mle
+from src.estimation_end_to_end._cherry import _subset_data_to_sites_subset
 from src.evaluation import create_maximal_matching_contact_map
 from src.io import (
     read_msa,
@@ -20,8 +21,6 @@ from src.io import (
 from src.markov_chain import get_equ_path, get_equ_x_equ_path
 from src.types import PhylogenyEstimatorType
 from src.utils import get_amino_acids, get_process_args
-from src.estimation import em_lg
-from src.estimation_end_to_end._cherry import _subset_data_to_sites_subset
 
 
 def _init_logger():
@@ -87,7 +86,7 @@ def em_estimator(
     res = {}
 
     quantization_points = [
-        ("%.5f" % (quantization_grid_center * quantization_grid_step**i))
+        ("%.8f" % (quantization_grid_center * quantization_grid_step**i))
         for i in range(
             -quantization_grid_num_steps, quantization_grid_num_steps + 1, 1
         )
