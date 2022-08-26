@@ -400,7 +400,7 @@ def simulate_ground_truth_data_single_site(
     num_rate_categories: int,
     num_processes: int,
     random_seed: int,
-    use_cpp_simulation_implementation: bool,
+    use_cpp_simulation_implementation: bool = True,
 ):
     """
     Simulate ground truth MSAs with LG.

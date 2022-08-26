@@ -1434,11 +1434,10 @@ def fig_single_site_quantization_error(
         ) = simulate_ground_truth_data_single_site(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
             num_sequences=num_sequences,
-            families=families_train + families_test,
+            families=families_train,
             num_rate_categories=num_rate_categories,
             num_processes=num_processes_tree_estimation,
             random_seed=random_seed,
-            use_cpp_simulation_implementation=use_cpp_implementation,
         )
 
         lg_end_to_end_with_cherryml_optimizer_res = (
@@ -1484,8 +1483,7 @@ def fig_single_site_quantization_error(
         )
         plt.tight_layout()
         plt.savefig(
-            f"{output_image_dir}/log_log_plot_{i}_"
-            f"{rate_matrix_filename.split('.')[0]}",
+            f"{output_image_dir}/log_log_plot_{i}",
             dpi=300,
         )
         plt.close()
@@ -1515,7 +1513,7 @@ def fig_single_site_quantization_error(
         title="Distribution of relative error as quantization improves",
     )
     plt.savefig(
-        f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}",
+        f"{output_image_dir}/violin_plot",
         dpi=300,
     )
     plt.close()
