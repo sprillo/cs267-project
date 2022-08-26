@@ -24,11 +24,7 @@ if __name__ == "__main__":
     # fig_lg_paper()
 
     # fig_single_site_quantization_error()
-    # fig_single_site_cherry_vs_edge(
-    #     use_best_iterate=True,
-    #     num_rate_categories=4,
-    #     num_processes=8,
-    # )
+    # fig_single_site_cherry_vs_edge()
     # fig_pfam15k(
     #     num_rate_categories=1,
     #     num_families_train=15051,

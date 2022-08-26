@@ -1520,9 +1520,10 @@ def fig_single_site_quantization_error(
 
 
 def fig_single_site_cherry_vs_edge(
-    use_best_iterate: bool = True,
     num_rate_categories: int = 4,
-    num_processes: int = 32,
+    num_processes_tree_estimation: int = 32,
+    num_sequences: int = 128,
+    random_seed: int = 0,
 ):
     """
     We compare the efficiency of our Cherry method ("cherry") against that of
@@ -1532,8 +1533,6 @@ def fig_single_site_cherry_vs_edge(
     caching.set_cache_dir("_cache_benchmarking_em")
     caching.set_hash_len(64)
 
-    rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
-
     for edge_or_cherry in ["edge", "cherry"]:
         output_image_dir = (
             f"images/fig_single_site_cherry_vs_edge/{edge_or_cherry}"
@@ -1541,41 +1540,12 @@ def fig_single_site_cherry_vs_edge(
         if not os.path.exists(output_image_dir):
             os.makedirs(output_image_dir)
 
-        num_sequences = 128
-
-        num_families_train = None
-        num_families_test = 0
         min_num_sites = 190
         max_num_sites = 230
         min_num_sequences = num_sequences
         max_num_sequences = 1000000
 
-        quantization_grid_center = 0.03
-        quantization_grid_step = 1.1
-        quantization_grid_num_steps = 64
-        random_seed = 0
-        learning_rate = 1e-1
-        num_epochs = 2000
-        use_cpp_implementation = True
-
-        # num_families_train_list = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
-        num_families_train_list = [
-            # 1,
-            # 2,
-            4,
-            8,
-            16,
-            32,
-            64,
-            128,
-            256,
-            512,
-            1024,
-            # 2048,
-            # 4096,
-            # 8192,
-            # 15051,
-        ]
+        num_families_train_list = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
         runtimes = []
         yss_relative_errors = []
@@ -1588,28 +1558,12 @@ def fig_single_site_cherry_vs_edge(
 
             families_all = get_families_within_cutoff(
                 pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                min_num_sites=min_num_sites
-                if num_families_train <= 1024
-                else 0,
-                max_num_sites=max_num_sites
-                if num_families_train <= 1024
-                else 1000000,
-                min_num_sequences=min_num_sequences
-                if num_families_train <= 1024
-                else 0,
-                max_num_sequences=max_num_sequences,
+                min_num_sites=190,
+                max_num_sites=230,
+                min_num_sequences=num_sequences,
+                max_num_sequences=1000000,
             )
             families_train = families_all[:num_families_train]
-            if num_families_test == 0:
-                families_test = []
-            else:
-                families_test = families_all[-num_families_test:]
-            print(f"len(families_all) = {len(families_all)}")
-            if num_families_train + num_families_test > len(families_all):
-                raise Exception("Training and testing set would overlap!")
-            assert len(set(families_train + families_test)) == len(
-                families_train
-            ) + len(families_test)
 
             (
                 msa_dir,
@@ -1623,9 +1577,8 @@ def fig_single_site_cherry_vs_edge(
                 num_sequences=num_sequences,
                 families=families_all,
                 num_rate_categories=num_rate_categories,
-                num_processes=num_processes,
+                num_processes=num_processes_tree_estimation,
                 random_seed=random_seed,
-                use_cpp_simulation_implementation=use_cpp_implementation,
             )
 
             # Now run the cherry and oracle edge methods.
@@ -1644,22 +1597,19 @@ def fig_single_site_cherry_vs_edge(
                         num_rate_categories=num_rate_categories,
                     ),
                     initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                    num_iterations=1,
-                    num_processes_tree_estimation=num_processes,
+                    num_processes_tree_estimation=num_processes_tree_estimation,
                     num_processes_optimization=1,
                     num_processes_counting=1,
-                    quantization_grid_center=quantization_grid_center,
-                    quantization_grid_step=quantization_grid_step,
-                    quantization_grid_num_steps=quantization_grid_num_steps,
-                    learning_rate=learning_rate,
-                    num_epochs=num_epochs,
-                    do_adam=True,
                     edge_or_cherry=edge_or_cherry,
-                    use_cpp_counting_implementation=use_cpp_implementation,
                 )
             )
 
-            def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str):
+            def get_runtime(
+                lg_end_to_end_with_cherryml_optimizer_res: str,
+            ) -> float:
+                """
+                Get the runtime of CherryML.
+                """
                 res = 0
                 for lg_end_to_end_with_cherryml_optimizer_output_dir in [
                     "count_matrices_dir_0",
@@ -1677,7 +1627,8 @@ def fig_single_site_cherry_vs_edge(
                     ) as profiling_file:
                         profiling_file_contents = profiling_file.read()
                         print(
-                            f"profiling_file_contents = {profiling_file_contents}"
+                            f"{lg_end_to_end_with_cherryml_optimizer_output_dir} "  # noqa
+                            f"profiling_file_contents = {profiling_file_contents}"  # noqa
                         )
                         res += float(profiling_file_contents.split()[2])
                 return res
@@ -1687,25 +1638,17 @@ def fig_single_site_cherry_vs_edge(
 
             learned_rate_matrix_path = os.path.join(
                 lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
-                rate_matrix_filename,
+                "result.txt",
             )
-            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
-            learned_rate_matrix = learned_rate_matrix.to_numpy()
-
+            learned_rate_matrix = read_rate_matrix(
+                learned_rate_matrix_path
+            ).to_numpy()
             lg = read_rate_matrix(get_lg_path()).to_numpy()
-            print(
-                f"tree_estimator_output_dirs_{i} = ",
-                lg_end_to_end_with_cherryml_optimizer_res[
-                    "tree_estimator_output_dirs_0"
-                ],
-            )
-
             learned_rate_matrix_path = (
                 lg_end_to_end_with_cherryml_optimizer_res[
                     "learned_rate_matrix_path"
                 ]
             )
-            print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
             learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
             learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -1725,8 +1668,7 @@ def fig_single_site_cherry_vs_edge(
             )
             plt.tight_layout()
             plt.savefig(
-                f"{output_image_dir}/log_log_plot_{i}_"
-                f"{rate_matrix_filename.split('.')[0]}",
+                f"{output_image_dir}/log_log_plot_{i}",
                 dpi=300,
             )
             plt.close()
@@ -1749,12 +1691,8 @@ def fig_single_site_cherry_vs_edge(
         sns.violinplot(
             x="number of families",
             y="log relative error",
-            #     hue=None,
             data=df,
-            #     palette="muted",
             inner=None,
-            #     cut=0,
-            #     bw=0.25
         )
         add_annotations_to_violinplot(
             yss_relative_errors,
@@ -1762,8 +1700,7 @@ def fig_single_site_cherry_vs_edge(
             runtimes=runtimes,
         )
         plt.savefig(
-            f"{output_image_dir}/violin_plot_"
-            f"{rate_matrix_filename.split('.')[0]}",
+            f"{output_image_dir}/violin_plot",
             dpi=300,
         )
         plt.close()
