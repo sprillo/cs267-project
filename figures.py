@@ -214,9 +214,6 @@ def create_synthetic_count_matrices(
     )
 
 
-# Single site experiments #
-
-
 def fig_single_site_quantization_error(
     num_rate_categories: int = 4,
     num_processes_tree_estimation: int = 32,
@@ -1397,50 +1394,32 @@ def fig_pair_site_quantization_error(
 
 
 def fig_MSA_VI_cotransition(
-    num_families_train: int = 12000,
-    aa_1="E",
-    aa_2="K",
-    families=None,
+    num_families_train: int = 10,
+    aa_1: str = "E",
+    aa_2: str = "K",
+    families: List[str] = ["4kv7_1_A"],
+    num_sequences: int = 1024,
 ):
-    """
-    Explore to what extent the cotransition VI <-> IV is apparent from looking at raw MSAs.
-    """
-    caching.set_cache_dir("_cache_benchmarking")
-    caching.set_hash_len(64)
-
     output_image_dir = "images/fig_pfam15k"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
 
     PFAM_15K_MSA_DIR = "input_data/a3m"
     PFAM_15K_PDB_DIR = "input_data/pdb"
 
     num_processes = 32
-    num_sequences = 1024
-    num_families_test = 3000
     train_test_split_seed = 0
-    use_cpp_implementation = True
-    use_best_iterate = True
-    angstrom_cutoff = 8.0
-    minimum_distance_for_nontrivial_contact = 7
-    use_maximal_matching = True
 
-    families_all = get_families(
+    families_all = get_families_pfam_15k(
         pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
     )
     np.random.seed(train_test_split_seed)
     np.random.shuffle(families_all)
 
     families_train = sorted(families_all[:num_families_train])
-    if num_families_test == 0:
-        families_test = []
-    else:
-        families_test = sorted(families_all[-num_families_test:])
-    if num_families_train + num_families_test > len(families_all):
-        raise Exception("Training and testing set would overlap!")
-    assert len(set(families_train + families_test)) == len(
-        families_train
-    ) + len(families_test)
 
     # Subsample the MSAs
     msa_dir_train = subsample_pfam_15k_msas(
@@ -1467,9 +1446,7 @@ def fig_MSA_VI_cotransition(
         for i in range(seq_len):
             if aa_1 in position_aas[i] and aa_2 in position_aas[i]:
                 cols_with_IV.append(i)
-        # print(f"len(cols_with_IV) = {len(cols_with_IV)} / {seq_len} = {len(cols_with_IV) / seq_len}")
 
-        # pair_cols_with_IV_VI = []
         for i in cols_with_IV:
             for j in cols_with_IV:
                 if i >= j:
@@ -1494,7 +1471,6 @@ def fig_MSA_VI_cotransition(
                     ):
                         VVs.append(n)
                 tot_IV_VI_II_VV = len(IVs) + len(VIs) + len(IIs) + len(VVs)
-                # if tot_IV_VI_II_VV >= num_seqs / 2:
                 if tot_IV_VI_II_VV >= num_seqs / 8:
                     pct_IV = len(IVs) / tot_IV_VI_II_VV
                     pct_VI = len(VIs) / tot_IV_VI_II_VV
@@ -1512,12 +1488,6 @@ def fig_MSA_VI_cotransition(
                             ),
                             f"over {tot_IV_VI_II_VV} pairs",
                         )
-        #         if have_IV and have_VI:
-        #             pair_cols_with_IV_VI.append((i, j))
-        # print(f"pair_cols_with_IV_VI = {len(pair_cols_with_IV_VI)} / {len(cols_with_IV) * (len(cols_with_IV) - 1) / 2} = {len(pair_cols_with_IV_VI) / (len(cols_with_IV) * (len(cols_with_IV) - 1) / 2)}")
-
-
-# EM #
 
 
 def fig_single_site_em(
