@@ -10,13 +10,14 @@ Prerequisites:
     link)
 
 The caching directories which contain all subsequent data are
-_cache_benchmarking and _cache_lg_paper. You can similarly use a symbolic link
-to point to these.
+_cache_benchmarking, _cache_benchmarking_em and _cache_lg_paper. You can
+similarly use a symbolic link to point to these.
 """
 import logging
 import multiprocessing
 import os
 import sys
+from collections import defaultdict
 from functools import partial
 from typing import Dict, List, Optional, Tuple
 
@@ -61,6 +62,7 @@ from src.io import (
     read_mask_matrix,
     read_msa,
     read_rate_matrix,
+    read_site_rates,
     write_count_matrices,
     write_probability_distribution,
     write_rate_matrix,
@@ -121,7 +123,7 @@ def add_annotations_to_violinplot(
             label,  # this is the text
             (
                 i + 0.05,
-                np.log(np.max(ys)) - 3.0,
+                np.log(np.max(ys)) - 1.5,
             ),  # these are the coordinates to position the label
             textcoords="offset points",  # how to position the text
             xytext=(0, 10),  # distance from text to points (x,y)
@@ -129,21 +131,7 @@ def add_annotations_to_violinplot(
             va="top",
             color="black",
             fontsize=12,
-        )  # horizontal alignment can be left, right or center
-        label = "{:.0f}%".format(100 * np.max(ys))
-        plt.annotate(
-            label,  # this is the text
-            (
-                i + 0.05,
-                np.log(np.max(ys)) - 1.5,
-            ),  # these are the coordinates to position the label
-            textcoords="offset points",  # how to position the text
-            xytext=(0, 10),  # distance from text to points (x,y)
-            ha="left",
-            va="top",
-            color="red",
-            fontsize=12,
-        )  # horizontal alignment can be left, right or center
+        )
         if runtimes is not None:
             label = "{:.0f}s".format(runtimes[i])
             plt.annotate(
@@ -158,13 +146,11 @@ def add_annotations_to_violinplot(
                 va="top",
                 color="blue",
                 fontsize=12,
-            )  # horizontal alignment can be left, right or center
+            )
     if runtimes is None:
-        plt.title(title + "\n(median and max error also reported)")
+        plt.title(title + "\n(median error also reported)")
     else:
-        plt.title(
-            title + "\n(median error, max error and runtime also reported)"
-        )
+        plt.title(title + "\n(median error and runtime also reported)")
     plt.tight_layout()
 
 
@@ -700,7 +686,7 @@ def fig_lg_paper(
     rate_estimator_names: List[Tuple[str, str]] = [
         ("reproduced WAG", "WAG"),
         ("reproduced LG", "LG"),
-        ("Cherry__4", "LG\nw/Cherry Method"),
+        ("Cherry__4", "LG w/CherryML"),
     ],
     baseline_rate_estimator_name: Tuple[str, str] = ("reproduced JTT", "JTT"),
     num_processes: int = 4,
@@ -1537,6 +1523,137 @@ def fig_pair_site_quantization_error(
 
     plt.savefig(
         f"{output_image_dir}/violin_plot",
+        dpi=300,
+    )
+    plt.close()
+
+
+@caching.cached()
+def get_site_rates_by_num_nontrivial_contacts(
+    contact_map_dir: str,
+    site_rates_dir: str,
+    families: List[str],
+    minimum_distance_for_nontrivial_contact: int,
+):
+    site_rates_by_num_nontrivial_contacts = defaultdict(list)
+    for family in families:
+        contact_map = read_contact_map(
+            os.path.join(contact_map_dir, family + ".txt")
+        )
+        site_rates = read_site_rates(
+            os.path.join(site_rates_dir, family + ".txt")
+        )
+
+        n = contact_map.shape[0]
+        for i in range(n):
+            num_nontrivial_contacts = 0
+            for j in range(n):
+                if (
+                    abs(i - j) >= minimum_distance_for_nontrivial_contact
+                    and contact_map[i, j] == 1
+                ):
+                    num_nontrivial_contacts += 1
+            site_rates_by_num_nontrivial_contacts[
+                num_nontrivial_contacts
+            ].append(site_rates[i])
+    return site_rates_by_num_nontrivial_contacts
+
+
+# Fig. 2e
+def fig_site_rates_vs_number_of_contacts(
+    num_rate_categories: int = 20,
+    num_sequences: int = 1024,
+    num_families: int = 15051,
+    num_processes: int = 32,
+    angstrom_cutoff: float = 8.0,
+    minimum_distance_for_nontrivial_contact: int = 7,
+) -> Dict:
+    """
+    Returns a dictionary with the learned rate matrices.
+
+    Test set can be used to compute held-out log-likelihoods.
+    """
+    output_image_dir = f"images/fig_site_rates_vs_number_of_contacts"
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    PFAM_15K_MSA_DIR = "input_data/a3m"
+    PFAM_15K_PDB_DIR = "input_data/pdb"
+
+    random_seed = 0
+
+    families_all = get_families_pfam_15k(
+        PFAM_15K_MSA_DIR,
+    )
+    np.random.seed(random_seed)
+    np.random.shuffle(families_all)
+    families = sorted(families_all[:num_families])
+
+    # Subsample the MSAs
+    msa_dir = subsample_pfam_15k_msas(
+        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+        num_sequences=num_sequences,
+        families=families,
+        num_processes=num_processes,
+    )["output_msa_dir"]
+
+    tree_estimator = partial(
+        fast_tree,
+        num_rate_categories=num_rate_categories,
+    )
+
+    tree_dirs = tree_estimator(
+        msa_dir=msa_dir,
+        families=families,
+        rate_matrix_path=get_lg_path(),
+        num_processes=num_processes,
+    )
+
+    contact_map_dir = compute_contact_maps(
+        pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
+        families=families,
+        angstrom_cutoff=angstrom_cutoff,
+        num_processes=num_processes,
+    )["output_contact_map_dir"]
+
+    site_rates_by_num_nontrivial_contacts = get_site_rates_by_num_nontrivial_contacts(
+        contact_map_dir=contact_map_dir,
+        site_rates_dir=tree_dirs["output_site_rates_dir"],
+        families=families,
+        minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+    )
+
+    import matplotlib.pyplot as plt
+
+    xs = sorted(site_rates_by_num_nontrivial_contacts.keys())
+    means = []
+    medians = []
+    number_of_sites = []
+    for x in xs:
+        means.append(np.mean(site_rates_by_num_nontrivial_contacts[x]))
+        medians.append(np.median(site_rates_by_num_nontrivial_contacts[x]))
+        number_of_sites.append(len(site_rates_by_num_nontrivial_contacts[x]))
+    plt.title("Site rate as a function of the number of non-trivial contacts")
+    plt.xlabel("number of non-trivial contacts")
+    plt.ylabel("site rate")
+    plt.plot(xs, means, label="mean site rate")
+    plt.plot(xs, medians, label="median  site rate")
+    plt.legend()
+    plt.savefig(
+        f"{output_image_dir}/site_rate_vs_num_contacts",
+        dpi=300,
+    )
+    plt.close()
+
+    plt.title("Number of sites with a given number of non-trivial contacts")
+    plt.xlabel("number of non-trivial contacts")
+    plt.ylabel("number of sites")
+    plt.plot(xs, number_of_sites)
+    plt.savefig(
+        f"{output_image_dir}/num_contacts_distribution",
         dpi=300,
     )
     plt.close()
