@@ -18,7 +18,7 @@ import multiprocessing
 import os
 import sys
 from functools import partial
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,17 +31,17 @@ import src.utils as utils
 from src import (
     caching,
     coevolution_end_to_end_with_cherryml_optimizer,
-    em_estimator,
     lg_end_to_end_with_cherryml_optimizer,
+    lg_end_to_end_with_em_optimizer,
 )
 from src.benchmarking.lg_paper import (
     get_lg_PfamTestingAlignments_data,
     get_lg_PfamTrainingAlignments_data,
     reproduce_lg_paper_fig_4,
 )
+from src.benchmarking.pfam_15k import compute_contact_maps
+from src.benchmarking.pfam_15k import get_families as get_families_pfam_15k
 from src.benchmarking.pfam_15k import (
-    compute_contact_maps,
-    get_families,
     get_families_within_cutoff,
     simulate_ground_truth_data_coevolution,
     simulate_ground_truth_data_single_site,
@@ -2560,348 +2560,6 @@ def fig_convergence_on_large_data_pair_site(
         plt.close()
 
 
-def fig_pair_site_quantization_error(
-    use_best_iterate: bool = True,
-    Q_2_name="masked",
-    num_rate_categories: int = 1,
-    num_processes: int = 8,
-):
-    """
-    We show that ~100 quantization points (geometric increments of 10%) is
-    enough on Q estimated on REAL data (fig_pfam15k with 1 rate category)
-    """
-    output_image_dir = (
-        f"images/fig_pair_site_quantization_error__Q_2_name__{Q_2_name}"
-    )
-    if not os.path.exists(output_image_dir):
-        os.makedirs(output_image_dir)
-
-    rate_matrix_filename = "Q_best.txt" if use_best_iterate else "Q_last.txt"
-
-    num_sequences = 1024
-
-    num_families_train = 15051
-    num_families_test = 0
-
-    quantization_grid_center = None
-    quantization_grid_step = None
-    quantization_grid_num_steps = None
-    random_seed = 0
-    learning_rate = 1e-1
-    do_adam = True
-    use_cpp_implementation = True
-    minimum_distance_for_nontrivial_contact = 7
-    num_epochs = 500
-    angstrom_cutoff = 8.0
-
-    caching.set_cache_dir("_cache_benchmarking")
-    caching.set_hash_len(64)
-
-    qs = [
-        # (0.03, 445.79, 1),
-        # (0.03, 21.11, 2),
-        # (0.03, 4.59, 4),
-        # (0.03, 2.14, 8),
-        # (0.03, 1.46, 16),
-        # (0.03, 1.21, 32),
-        (0.03, 1.1, 64),
-        # (0.03, 1.048, 128),
-        # (0.03, 1.024, 256),
-    ]
-    q_errors = [(np.sqrt(q[1]) - 1) * 100 for q in qs]
-    q_points = [2 * q[2] + 1 for q in qs]
-    yss_relative_errors = []
-    Qs = []
-    for (
-        i,
-        (
-            quantization_grid_center,
-            quantization_grid_step,
-            quantization_grid_num_steps,
-        ),
-    ) in enumerate(qs):
-        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"  # noqa
-        print("*" * len(msg))
-        print(msg)
-        print("*" * len(msg))
-
-        families_all = get_families_within_cutoff(
-            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=190 if num_families_train <= 1024 else 0,
-            max_num_sites=230 if num_families_train <= 1024 else 1000000,
-            min_num_sequences=1024 if num_families_train <= 1024 else 0,
-            max_num_sequences=1000000,
-        )
-        families_train = families_all[:num_families_train]
-        if num_families_test == 0:
-            families_test = []
-        else:
-            families_test = families_all[-num_families_test:]
-        print(f"len(families_all) = {len(families_all)}")
-        if num_families_train + num_families_test > len(families_all):
-            raise Exception("Training and testing set would overlap!")
-        assert len(set(families_train + families_test)) == len(
-            families_train
-        ) + len(families_test)
-
-        mdnc = minimum_distance_for_nontrivial_contact
-
-        def get_nonzeros_nondiag_mask_matrix(Q):
-            Q = Q.to_numpy()
-            res = np.ones(shape=Q.shape, dtype=int)
-            for i in range(res.shape[0]):
-                res[i, i] = 0
-            for i in range(res.shape[0]):
-                for j in range(res.shape[1]):
-                    if Q[i, j] == 0:
-                        res[i, j] = 0
-            return res
-
-        def get_nonzeros_cotransitions_mask_matrix(Q):
-            res = np.zeros(shape=Q.shape, dtype=int)
-            for i, ab in enumerate(Q.index):
-                for j, cd in enumerate(Q.index):
-                    if len(set(ab) - set(cd)) == len(set(ab)) and len(
-                        set(cd) - set(ab)
-                    ) == len(set(cd)):
-                        if Q.loc[ab, cd] > 0:
-                            res[i, j] = 1
-            write_rate_matrix(
-                res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt"
-            )
-            return res
-
-        def get_nonzeros_single_transitions_mask_matrix(Q):
-            nonzeros_nondiag_mask_matrix = get_nonzeros_nondiag_mask_matrix(Q)
-            nonzeros_cotransitions_mask_matrix = (
-                get_nonzeros_cotransitions_mask_matrix(Q)
-            )
-            for i in range(Q.shape[0]):
-                for j in range(Q.shape[1]):
-                    if nonzeros_cotransitions_mask_matrix[i, j] == 1:
-                        nonzeros_nondiag_mask_matrix[i, j] = 0
-            write_rate_matrix(
-                nonzeros_nondiag_mask_matrix,
-                Q.index,
-                "get_nonzeros_single_transitions_mask_matrix.txt",
-            )
-            return nonzeros_nondiag_mask_matrix
-
-        if Q_2_name == "masked":
-            # Q_2_path was trained on all 15051 families, with just 1 rate category.
-            # Old version, with no JTT-IPW pseudocounts
-            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/3d9bdb9b8e8577616bc0842dbc691cce0a3566c1f41398f994d7360c13085270/output_rate_matrix_dir/result.txt"  # TODO: Call fig_pfam15k instead of hardcoding.
-            # New version, with JTT-IPW pseudocounts
-            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/34710edb976fe9de0c99ad0022574ad64019e42f75c28a38d7a7ecf839c36c88/output_rate_matrix_dir/result.txt"
-            # New version, with JTT-IPW pseudocounts and %.8f grid
-            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/687f8e4f167392c5e1e419030f347752ddccb420de13aec8ac8113a82f3eee6a/output_rate_matrix_dir/result.txt"
-            pi_2_path = os.path.join(
-                get_stationary_distribution(rate_matrix_path=Q_2_path)[
-                    "output_probability_distribution_dir"
-                ],
-                "result.txt",
-            )
-            coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
-            mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
-        elif Q_2_name == "lg_x_lg":
-            Q_2_path = get_lg_x_lg_path()
-            pi_2_path = get_lg_x_lg_stationary_path()
-            coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
-            mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
-        elif Q_2_name.startswith("unmasked"):
-            # Q_2_path was trained on all 15051 families, with just 1 rate category.
-            # Old version, with no JTT-IPW pseudocounts; JTT-IPW = _cache_benchmarking/jtt_ipw/d8be3acb1c8954f14cdf1fc9d0145bc2f5e8396b9feefb47b3957958a141e0c1/output_rate_matrix_dir/result.txt ; count_matrices_path = _cache_benchmarking/count_co_transitions/412efb7d0e15338876da30eea722baaad5d0fd309dc3e57153825730a88395ec/output_count_matrices_dir/result.txt
-            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/1795b9a6bdaaa50d0f8d4cb90c91768944b56c7b464fcd38fdc09ec7dd630c37/output_rate_matrix_dir/result.txt"
-            # New version, with JTT-IPW pseudocounts; JTT-IPW = _cache_benchmarking/jtt_ipw/215f326a069a9a043591b292400c3de0e0a189b8101c25d90dec9c3e64445c3b/output_rate_matrix_dir/result.txt ; count_matrices_path = _cache_benchmarking/count_co_transitions/412efb7d0e15338876da30eea722baaad5d0fd309dc3e57153825730a88395ec/output_count_matrices_dir/result.txt (same as for no pseudocounts, of course!)
-            # Q_2_path = "_cache_benchmarking/quantized_transitions_mle/9120e787ed026d2bbdf5a5c928fecac0f0d9220b6cc6526a323f55ecad860701/output_rate_matrix_dir/result.txt"
-            # New version, with JTT-IPW pseudocounts and %.8f grid
-            Q_2_path = "_cache_benchmarking/quantized_transitions_mle/96b3fefbea6788cfd31ac778755d59e7aed1273764553291eb60d4b50a1968a1/output_rate_matrix_dir/result.txt"
-            pi_2_path = os.path.join(
-                get_stationary_distribution(rate_matrix_path=Q_2_path)[
-                    "output_probability_distribution_dir"
-                ],
-                "result.txt",
-            )
-            coevolution_mask_path = None
-            if Q_2_name == "unmasked-all-transitions":
-                mask_matrix = get_nonzeros_nondiag_mask_matrix(
-                    read_rate_matrix(Q_2_path)
-                )
-            elif Q_2_name == "unmasked-co-transitions":
-                mask_matrix = get_nonzeros_cotransitions_mask_matrix(
-                    read_rate_matrix(Q_2_path)
-                )
-            elif Q_2_name == "unmasked-single-transitions":
-                mask_matrix = get_nonzeros_single_transitions_mask_matrix(
-                    read_rate_matrix(Q_2_path)
-                )
-
-        (
-            msa_dir,
-            contact_map_dir,
-            gt_msa_dir,
-            gt_tree_dir,
-            gt_site_rates_dir,
-            gt_likelihood_dir,
-        ) = simulate_ground_truth_data_coevolution(
-            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
-            minimum_distance_for_nontrivial_contact=mdnc,
-            angstrom_cutoff=angstrom_cutoff,
-            num_sequences=num_sequences,
-            families=families_all,
-            num_rate_categories=num_rate_categories,
-            num_processes=num_processes,
-            random_seed=random_seed,
-            use_cpp_simulation_implementation=use_cpp_implementation,
-            pi_2_path=pi_2_path,
-            Q_2_path=Q_2_path,
-        )
-
-        lg_end_to_end_with_cherryml_optimizer_res = (
-            coevolution_end_to_end_with_cherryml_optimizer(
-                msa_dir=msa_dir,
-                contact_map_dir=contact_map_dir,
-                minimum_distance_for_nontrivial_contact=mdnc,
-                coevolution_mask_path=coevolution_mask_path,
-                families=families_train,
-                tree_estimator=partial(
-                    gt_tree_estimator,
-                    gt_tree_dir=gt_tree_dir,
-                    gt_site_rates_dir=gt_site_rates_dir,
-                    gt_likelihood_dir=gt_likelihood_dir,
-                    num_rate_categories=num_rate_categories,
-                ),
-                initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                num_processes=num_processes,
-                quantization_grid_center=quantization_grid_center,
-                quantization_grid_step=quantization_grid_step,
-                quantization_grid_num_steps=quantization_grid_num_steps,
-                learning_rate=learning_rate,
-                num_epochs=num_epochs,
-                do_adam=do_adam,
-                use_cpp_counting_implementation=use_cpp_implementation,
-                num_processes_optimization=8,
-            )
-        )
-
-        print(
-            f"tree_estimator_output_dirs_{i} = ",
-            lg_end_to_end_with_cherryml_optimizer_res[
-                "tree_estimator_output_dirs_0"
-            ],
-        )
-
-        count_matrices_dir = lg_end_to_end_with_cherryml_optimizer_res[
-            "count_matrices_dir_0"
-        ]
-        print(f"count_matrices_dir_{i} = {count_matrices_dir}")
-
-        count_matrices = read_count_matrices(
-            os.path.join(count_matrices_dir, "result.txt")
-        )
-        quantization_points = [
-            float(x)
-            for x in lg_end_to_end_with_cherryml_optimizer_res[
-                "quantization_points"
-            ]
-        ]
-        plt.title("Number of transitions per time bucket")
-        plt.bar(
-            np.log(quantization_points),
-            [x.to_numpy().sum().sum() for (_, x) in count_matrices],
-        )
-        plt.xlabel("Quantization Point")
-        plt.ylabel("Number of Transitions")
-        ticks = [0.0003, 0.003, 0.03, 0.3, 3.0]
-        plt.xticks(np.log(ticks), ticks)
-        plt.savefig(
-            f"{output_image_dir}/count_matrices_{i}_"
-            f"{rate_matrix_filename.split('.')[0]}",
-            dpi=300,
-        )
-        plt.close()
-
-        learned_rate_matrix_path = os.path.join(
-            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
-            rate_matrix_filename,
-        )
-        print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
-
-        learned_rate_matrix_df = read_rate_matrix(learned_rate_matrix_path)
-
-        learned_rate_matrix = learned_rate_matrix_df.to_numpy()
-        Qs.append(learned_rate_matrix)
-
-        Q_2_df = read_rate_matrix(Q_2_path)
-        Q_2 = Q_2_df.to_numpy()
-
-        yss_relative_errors.append(
-            relative_errors(
-                Q_2,
-                learned_rate_matrix,
-                mask_matrix,
-            )
-        )
-
-        print(f"Q_2_df.loc['VI', 'IV'] = {Q_2_df.loc['VI', 'IV']}")
-        print(
-            f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}"
-        )
-
-    for i in range(len(q_points)):
-        for density_plot in [False, True]:
-            plot_rate_matrix_predictions(
-                Q_2, Qs[i], mask_matrix, density_plot=density_plot
-            )
-            plt.title(
-                "True vs predicted rate matrix entries\nmax quantization error = "
-                "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
-            )
-            plt.tight_layout()
-            plt.savefig(
-                f"{output_image_dir}/log_log_plot_{i}_"
-                f"{rate_matrix_filename.split('.')[0]}_density_{density_plot}",
-                dpi=300,
-            )
-            plt.close()
-
-    df = pd.DataFrame(
-        {
-            "quantization points": sum(
-                [
-                    [q_points[i]] * len(yss_relative_errors[i])
-                    for i in range(len(yss_relative_errors))
-                ],
-                [],
-            ),
-            "relative error": sum(yss_relative_errors, []),
-        }
-    )
-    df["log relative error"] = np.log(df["relative error"])
-
-    sns.violinplot(
-        x="quantization points",
-        y="log relative error",
-        #     hue=None,
-        data=df,
-        #     palette="muted",
-        inner=None,
-        #     cut=0,
-        #     bw=0.25
-    )
-    add_annotations_to_violinplot(
-        yss_relative_errors,
-        title="Distribution of relative error as quantization improves",
-    )
-
-    plt.savefig(
-        f"{output_image_dir}/violin_plot_{rate_matrix_filename.split('.')[0]}",
-        dpi=300,
-    )
-    plt.close()
-
-
 # Real-data experiments #
 
 
@@ -3212,45 +2870,37 @@ def _compute_contacting_sites(
     logger.info("Computing contacting sites done!")
 
 
-def fig_pfam15k(
-    num_rate_categories: int = 4,  # To be fair with LG, since LG was trained with 4 rate categories  # noqa
-    num_families_train: int = 12000,
-    num_families_test: int = 3000,
-    num_processes: int = 32,
-):
+def learn_coevolution_model_on_pfam15k(
+    num_rate_categories: int = 1,
+    num_sequences: int = 1024,
+    num_families_train: int = 15051,
+    num_families_test: int = 1,
+    num_processes_tree_estimation: int = 32,
+    num_processes_counting: int = 8,
+    num_processes_optimization_single_site: int = 2,
+    num_processes_optimization_coevolution: int = 8,
+    angstrom_cutoff: float = 8.0,
+    minimum_distance_for_nontrivial_contact: int = 7,
+) -> Dict:
     """
-    We use 12K families for training and 3K for testing.
+    Returns a dictionary with the learned rate matrices.
 
-    We fit trees with LG and then learn a single-site model (Cherry) and a
-    coevolution model (Cherry2).
-
-    We next fit trees on the 3K test families and compute the likelihood under:
-    - JTT
-    - WAG
-    - LG
-    - Cherry
-    - Cherry + Cherry2
+    Test set can be used to compute held-out log-likelihoods.
     """
-    caching.set_cache_dir("_cache_benchmarking")
-    caching.set_hash_len(64)
-
-    output_image_dir = "images/fig_pfam15k"
+    output_image_dir = "images/learn_coevolution_model_on_pfam15k"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
 
     PFAM_15K_MSA_DIR = "input_data/a3m"
     PFAM_15K_PDB_DIR = "input_data/pdb"
 
-    num_sequences = 1024
     train_test_split_seed = 0
-    use_cpp_implementation = True
-    use_best_iterate = True
-    angstrom_cutoff = 8.0
-    minimum_distance_for_nontrivial_contact = 7
-    use_maximal_matching = True
 
-    families_all = get_families(
-        pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+    families_all = get_families_pfam_15k(
+        PFAM_15K_MSA_DIR,
     )
     np.random.seed(train_test_split_seed)
     np.random.shuffle(families_all)
@@ -3266,7 +2916,7 @@ def fig_pfam15k(
         pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
         num_sequences=num_sequences,
         families=families_train,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["output_msa_dir"]
 
     # Run the cherry method using FastTree tree estimator
@@ -3278,40 +2928,24 @@ def fig_pfam15k(
             num_rate_categories=num_rate_categories,
         ),
         initial_tree_estimator_rate_matrix_path=get_lg_path(),
-        num_iterations=1,
-        num_processes=num_processes,
-        quantization_grid_center=0.03,
-        quantization_grid_step=1.1,
-        quantization_grid_num_steps=64,
-        learning_rate=1e-1,
-        num_epochs=2000,
-        do_adam=True,
-        use_cpp_counting_implementation=use_cpp_implementation,
-        num_processes_optimization=2,
-        num_processes_counting=8,
-        optimizer_return_best_iter=use_best_iterate,
+        num_processes_tree_estimation=num_processes_tree_estimation,
+        num_processes_optimization=num_processes_optimization_single_site,
+        num_processes_counting=num_processes_counting,
     )["learned_rate_matrix_path"]
     cherry = read_rate_matrix(cherry_path).to_numpy()
 
     lg = read_rate_matrix(get_lg_path()).to_numpy()
-
-    # Now compare matrices
-    print("Cherry topleft 3x3 corner:")
-    print(cherry[:3, :3])
-    print("LG topleft 3x3 corner:")
-    print(lg[:3, :3])
 
     # Subsample the MSAs
     msa_dir_test = subsample_pfam_15k_msas(
         pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
         num_sequences=num_sequences,
         families=families_test,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["output_msa_dir"]
 
     log_likelihoods = []  # type: List[Tuple[str, float]]
     single_site_rate_matrices = [
-        # ("EQU", get_equ_path()),  # Screws up the plots because its so bad.
         ("JTT", get_jtt_path()),
         ("WAG", get_wag_path()),
         ("LG", get_lg_path()),
@@ -3329,7 +2963,7 @@ def fig_pfam15k(
             msa_dir=msa_dir_test,
             families=families_test,
             rate_matrix_path=rate_matrix_path,
-            num_processes=num_processes,
+            num_processes=num_processes_tree_estimation,
             tree_estimator=partial(
                 fast_tree,
                 num_rate_categories=num_rate_categories,
@@ -3343,7 +2977,7 @@ def fig_pfam15k(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
         families=families_train,
         angstrom_cutoff=angstrom_cutoff,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["output_contact_map_dir"]
 
     mdnc = minimum_distance_for_nontrivial_contact
@@ -3351,7 +2985,7 @@ def fig_pfam15k(
         contact_map_dir=contact_map_dir_train,
         minimum_distance_for_nontrivial_contact=mdnc,
         families=families_train,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["output_sites_subset_dir"]
 
     cherry_contact_path = lg_end_to_end_with_cherryml_optimizer(
@@ -3362,18 +2996,9 @@ def fig_pfam15k(
             num_rate_categories=num_rate_categories,
         ),
         initial_tree_estimator_rate_matrix_path=get_lg_path(),
-        num_iterations=1,
-        num_processes=num_processes,
-        quantization_grid_center=0.03,
-        quantization_grid_step=1.1,
-        quantization_grid_num_steps=64,
-        learning_rate=1e-1,
-        num_epochs=2000,
-        do_adam=True,
-        use_cpp_counting_implementation=use_cpp_implementation,
-        num_processes_optimization=2,
-        num_processes_counting=8,
-        optimizer_return_best_iter=use_best_iterate,
+        num_processes_tree_estimation=num_processes_tree_estimation,
+        num_processes_counting=num_processes_counting,
+        num_processes_optimization=num_processes_optimization_single_site,
         sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
     cherry_contact = read_rate_matrix(cherry_contact_path).to_numpy()
@@ -3381,8 +3006,6 @@ def fig_pfam15k(
     print(
         f"***** cherry_contact_path = {cherry_contact_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"
     )
-    print("Cherry contact topleft 3x3 corner:")
-    print(cherry_contact[:3, :3])
 
     cherry_contact_squared_path = os.path.join(
         chain_product_cached(
@@ -3391,14 +3014,6 @@ def fig_pfam15k(
         )["output_rate_matrix_dir"],
         "result.txt",
     )
-
-    # cherry_squared_path = os.path.join(
-    #     chain_product_cached(
-    #         rate_matrix_1_path=cherry_path,
-    #         rate_matrix_2_path=cherry_path,
-    #     )["output_rate_matrix_dir"],
-    #     "result.txt"
-    # )
 
     # Now estimate and evaluate the coevolution model #
     cherry_2_path = coevolution_end_to_end_with_cherryml_optimizer(
@@ -3412,18 +3027,9 @@ def fig_pfam15k(
             num_rate_categories=num_rate_categories,
         ),
         initial_tree_estimator_rate_matrix_path=get_lg_path(),
-        num_processes=num_processes,
-        quantization_grid_center=0.03,
-        quantization_grid_step=1.1,
-        quantization_grid_num_steps=64,
-        learning_rate=1e-1,
-        num_epochs=500,
-        do_adam=True,
-        use_cpp_counting_implementation=use_cpp_implementation,
-        num_processes_optimization=8,
-        num_processes_counting=8,
-        optimizer_return_best_iter=use_best_iterate,
-        use_maximal_matching=use_maximal_matching,
+        num_processes_tree_estimation=num_processes_tree_estimation,
+        num_processes_counting=num_processes_counting,
+        num_processes_optimization=num_processes_optimization_coevolution,
     )["learned_rate_matrix_path"]
 
     # Coevolution model without masking #
@@ -3438,22 +3044,13 @@ def fig_pfam15k(
             num_rate_categories=num_rate_categories,
         ),
         initial_tree_estimator_rate_matrix_path=get_lg_path(),
-        num_processes=num_processes,
-        quantization_grid_center=0.03,
-        quantization_grid_step=1.1,
-        quantization_grid_num_steps=64,
-        learning_rate=1e-1,
-        num_epochs=500,
-        do_adam=True,
-        use_cpp_counting_implementation=use_cpp_implementation,
-        num_processes_optimization=8,
-        num_processes_counting=8,
-        optimizer_return_best_iter=use_best_iterate,
-        use_maximal_matching=use_maximal_matching,
+        num_processes_tree_estimation=num_processes_tree_estimation,
+        num_processes_counting=num_processes_counting,
+        num_processes_optimization=num_processes_optimization_coevolution,
     )
     cherry_2_no_mask_path = cherry_2_no_mask_dir["learned_rate_matrix_path"]
 
-    def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str):
+    def get_runtime(lg_end_to_end_with_cherryml_optimizer_res: str) -> float:
         res = 0
         for lg_end_to_end_with_cherryml_optimizer_output_dir in [
             "count_matrices_dir_0",
@@ -3470,7 +3067,10 @@ def fig_pfam15k(
                 "r",
             ) as profiling_file:
                 profiling_file_contents = profiling_file.read()
-                print(f"profiling_file_contents = {profiling_file_contents}")
+                print(
+                    f"{lg_end_to_end_with_cherryml_optimizer_output_dir} "  # noqa
+                    f"profiling_file_contents = {profiling_file_contents}"  # noqa
+                )
                 res += float(profiling_file_contents.split()[2])
         return res
 
@@ -3481,21 +3081,20 @@ def fig_pfam15k(
         pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
         families=families_test,
         angstrom_cutoff=angstrom_cutoff,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["output_contact_map_dir"]
     contact_map_dir_test = create_maximal_matching_contact_map(
         i_contact_map_dir=contact_map_dir_test,
         families=families_test,
         minimum_distance_for_nontrivial_contact=mdnc,
-        num_processes=num_processes,
+        num_processes=num_processes_tree_estimation,
     )["o_contact_map_dir"]
 
     pair_site_rate_matrices = [
-        # ("Cherry squared", cherry_squared_path),  # DEBUG: Should give same result as single-site Cherry  # noqa
         (
             "Cherry contact squared",
             cherry_contact_squared_path,
-        ),  # Fair baseline to compare coevolution likelihood against.
+        ),
         ("Cherry2", cherry_2_path),
         ("Cherry2; no mask", cherry_2_no_mask_path),
     ]
@@ -3507,22 +3106,13 @@ def fig_pfam15k(
         print(
             f"***** Evaluating: {rate_matrix_2_name} at {rate_matrix_2_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"  # noqa
         )
-        if num_rate_categories > 1:
-            print(
-                "***** TODO: It is unclear to me whether the evaluation makes "
-                "sense when num_rate_categories > 1, because of "
-                "unidentifiability between site rates and branch lengths, and "
-                "the fact that we are using branch lengths as the time unit "
-                "for the coevolution models. In other words, we might be "
-                "unfair with the coevolution model *****"
-            )
         ll = evaluate_pair_site_model_on_held_out_msas(
             msa_dir=msa_dir_test,
             contact_map_dir=contact_map_dir_test,
             families=families_test,
             rate_matrix_1_path=cherry_path,
             rate_matrix_2_path=rate_matrix_2_path,
-            num_processes=num_processes,
+            num_processes=num_processes_tree_estimation,
             tree_estimator=partial(
                 fast_tree,
                 num_rate_categories=num_rate_categories,
@@ -3569,6 +3159,253 @@ def fig_pfam15k(
             dpi=300,
         )
         plt.close()
+    res = {
+        "cherry_contact_squared_path": cherry_contact_squared_path,
+        "cherry_2_no_mask_path": cherry_2_no_mask_path,
+        "cherry_2_path": cherry_2_path,
+    }
+    return res
+
+
+def fig_pair_site_quantization_error(
+    Q_2_name: str,
+    num_rate_categories: int = 1,
+    num_sequences: int = 1024,
+    num_families_train: int = 15051,
+    num_processes_tree_estimation: int = 32,
+    num_processes_counting: int = 8,
+    num_processes_optimization: int = 8,
+    angstrom_cutoff: float = 8.0,
+    minimum_distance_for_nontrivial_contact: int = 7,
+    random_seed_simulation: int = 0,
+):
+    output_image_dir = (
+        f"images/fig_pair_site_quantization_error__Q_2_name__{Q_2_name}"
+    )
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    caching.set_cache_dir("_cache_benchmarking")
+    caching.set_hash_len(64)
+
+    qs = [
+        (0.03, 1.1, 64),
+    ]
+    q_errors = [(np.sqrt(q[1]) - 1) * 100 for q in qs]
+    q_points = [2 * q[2] + 1 for q in qs]
+    yss_relative_errors = []
+    Qs = []
+    for (
+        i,
+        (
+            quantization_grid_center,
+            quantization_grid_step,
+            quantization_grid_num_steps,
+        ),
+    ) in enumerate(qs):
+        msg = f"***** grid = {(quantization_grid_center, quantization_grid_step, quantization_grid_num_steps)} *****"  # noqa
+        print("*" * len(msg))
+        print(msg)
+        print("*" * len(msg))
+
+        families_all = get_families_within_cutoff(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR
+        )
+        families_train = families_all[:num_families_train]
+
+        mdnc = minimum_distance_for_nontrivial_contact
+
+        def get_nonzeros_nondiag_mask_matrix(Q):
+            Q = Q.to_numpy()
+            res = np.ones(shape=Q.shape, dtype=int)
+            for i in range(res.shape[0]):
+                res[i, i] = 0
+            for i in range(res.shape[0]):
+                for j in range(res.shape[1]):
+                    if Q[i, j] == 0:
+                        res[i, j] = 0
+            return res
+
+        def get_nonzeros_cotransitions_mask_matrix(Q):
+            res = np.zeros(shape=Q.shape, dtype=int)
+            for i, ab in enumerate(Q.index):
+                for j, cd in enumerate(Q.index):
+                    if len(set(ab) - set(cd)) == len(set(ab)) and len(
+                        set(cd) - set(ab)
+                    ) == len(set(cd)):
+                        if Q.loc[ab, cd] > 0:
+                            res[i, j] = 1
+            write_rate_matrix(
+                res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt"
+            )
+            return res
+
+        def get_nonzeros_single_transitions_mask_matrix(Q):
+            nonzeros_nondiag_mask_matrix = get_nonzeros_nondiag_mask_matrix(Q)
+            nonzeros_cotransitions_mask_matrix = (
+                get_nonzeros_cotransitions_mask_matrix(Q)
+            )
+            for i in range(Q.shape[0]):
+                for j in range(Q.shape[1]):
+                    if nonzeros_cotransitions_mask_matrix[i, j] == 1:
+                        nonzeros_nondiag_mask_matrix[i, j] = 0
+            write_rate_matrix(
+                nonzeros_nondiag_mask_matrix,
+                Q.index,
+                "get_nonzeros_single_transitions_mask_matrix.txt",
+            )
+            return nonzeros_nondiag_mask_matrix
+
+        if Q_2_name == "masked":
+            Q_2_path = learn_coevolution_model_on_pfam15k()["cherry_2_path"]
+            pi_2_path = os.path.join(
+                get_stationary_distribution(rate_matrix_path=Q_2_path)[
+                    "output_probability_distribution_dir"
+                ],
+                "result.txt",
+            )
+            coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
+            mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
+        elif Q_2_name.startswith("unmasked"):
+            Q_2_path = Q_2_path = learn_coevolution_model_on_pfam15k()[
+                "cherry_2_no_mask_path"
+            ]
+            pi_2_path = os.path.join(
+                get_stationary_distribution(rate_matrix_path=Q_2_path)[
+                    "output_probability_distribution_dir"
+                ],
+                "result.txt",
+            )
+            coevolution_mask_path = None
+            if Q_2_name == "unmasked-all-transitions":
+                mask_matrix = get_nonzeros_nondiag_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
+            elif Q_2_name == "unmasked-co-transitions":
+                mask_matrix = get_nonzeros_cotransitions_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
+            elif Q_2_name == "unmasked-single-transitions":
+                mask_matrix = get_nonzeros_single_transitions_mask_matrix(
+                    read_rate_matrix(Q_2_path)
+                )
+
+        (
+            msa_dir,
+            contact_map_dir,
+            gt_msa_dir,
+            gt_tree_dir,
+            gt_site_rates_dir,
+            gt_likelihood_dir,
+        ) = simulate_ground_truth_data_coevolution(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+            pfam_15k_pdb_dir=PFAM_15K_PDB_DIR,
+            minimum_distance_for_nontrivial_contact=mdnc,
+            angstrom_cutoff=angstrom_cutoff,
+            num_sequences=num_sequences,
+            families=families_all,
+            num_rate_categories=num_rate_categories,
+            num_processes=num_processes_tree_estimation,
+            random_seed=random_seed_simulation,
+            pi_2_path=pi_2_path,
+            Q_2_path=Q_2_path,
+            use_cpp_simulation_implementation=True,
+        )
+
+        lg_end_to_end_with_cherryml_optimizer_res = coevolution_end_to_end_with_cherryml_optimizer(  # TODO: Rename to coevolution_...
+            msa_dir=msa_dir,
+            contact_map_dir=contact_map_dir,
+            minimum_distance_for_nontrivial_contact=mdnc,
+            coevolution_mask_path=coevolution_mask_path,
+            families=families_train,
+            tree_estimator=partial(
+                gt_tree_estimator,
+                gt_tree_dir=gt_tree_dir,
+                gt_site_rates_dir=gt_site_rates_dir,
+                gt_likelihood_dir=gt_likelihood_dir,
+                num_rate_categories=num_rate_categories,
+            ),
+            initial_tree_estimator_rate_matrix_path=get_equ_path(),
+            quantization_grid_center=quantization_grid_center,
+            quantization_grid_step=quantization_grid_step,
+            quantization_grid_num_steps=quantization_grid_num_steps,
+            num_processes_tree_estimation=num_processes_tree_estimation,
+            num_processes_counting=num_processes_counting,
+            num_processes_optimization=num_processes_optimization,
+        )
+
+        learned_rate_matrix_path = os.path.join(
+            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+            "result.txt",
+        )
+
+        learned_rate_matrix_df = read_rate_matrix(learned_rate_matrix_path)
+
+        learned_rate_matrix = learned_rate_matrix_df.to_numpy()
+        Qs.append(learned_rate_matrix)
+
+        Q_2_df = read_rate_matrix(Q_2_path)
+        Q_2 = Q_2_df.to_numpy()
+
+        yss_relative_errors.append(
+            relative_errors(
+                Q_2,
+                learned_rate_matrix,
+                mask_matrix,
+            )
+        )
+
+        print(f"Q_2_df.loc['VI', 'IV'] = {Q_2_df.loc['VI', 'IV']}")
+        print(
+            f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}"
+        )
+
+    for i in range(len(q_points)):
+        for density_plot in [False, True]:
+            plot_rate_matrix_predictions(
+                Q_2, Qs[i], mask_matrix, density_plot=density_plot
+            )
+            plt.title(
+                "True vs predicted rate matrix entries\nmax quantization error = "
+                "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+            )
+            plt.tight_layout()
+            plt.savefig(
+                f"{output_image_dir}/log_log_plot_{i}_density_{density_plot}",
+                dpi=300,
+            )
+            plt.close()
+
+    df = pd.DataFrame(
+        {
+            "quantization points": sum(
+                [
+                    [q_points[i]] * len(yss_relative_errors[i])
+                    for i in range(len(yss_relative_errors))
+                ],
+                [],
+            ),
+            "relative error": sum(yss_relative_errors, []),
+        }
+    )
+    df["log relative error"] = np.log(df["relative error"])
+
+    sns.violinplot(
+        x="quantization points",
+        y="log relative error",
+        data=df,
+        inner=None,
+    )
+    add_annotations_to_violinplot(
+        yss_relative_errors,
+        title="Distribution of relative error as quantization improves",
+    )
+
+    plt.savefig(
+        f"{output_image_dir}/violin_plot",
+        dpi=300,
+    )
+    plt.close()
 
 
 def fig_MSA_VI_cotransition(
@@ -3696,23 +3533,12 @@ def fig_MSA_VI_cotransition(
 
 
 def fig_single_site_em(
-    extra_em_command_line_args: str,
+    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
     num_processes: int = 32,
-    num_rate_categories: int = 4,  # TODO: See results
+    num_rate_categories: int = 4,
+    num_sequences: int = 128,
+    random_seed: int = 0,
 ):
-    """
-    We show that on single-site data simulated on top of real trees, the EM
-    optimizer converges to the solution.
-
-    NOTE: Historian blows up on 1024 sequences per family, due to an eigenvalue
-    convergence issue. Because of this, I am only using 128 sequences per
-    family for this relative efficiency experiment.
-    """
-    caching.set_cache_dir("_cache_benchmarking_em")
-    caching.set_hash_len(64)
-
-    rate_matrix_filename = "result.txt"
-
     output_image_dir = (
         f"images/fig_single_site_em__"
         + extra_em_command_line_args.replace(" ", "_")
@@ -3720,38 +3546,10 @@ def fig_single_site_em(
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-    num_sequences = 128
+    caching.set_cache_dir("_cache_benchmarking_em")
+    caching.set_hash_len(64)
 
-    num_families_train = None
-    num_families_test = 0
-    min_num_sites = 190
-    max_num_sites = 230
-    min_num_sequences = num_sequences
-    max_num_sequences = 1000000
-
-    quantization_grid_center = 0.03
-    quantization_grid_step = 1.1
-    quantization_grid_num_steps = 64
-    random_seed = 0
-    use_cpp_implementation = True
-
-    num_families_train_list = [
-        # 1,
-        # 2,
-        4,
-        8,
-        16,
-        32,
-        64,
-        128,
-        256,
-        512,
-        1024,
-        # 2048,
-        # 4096,
-        # 8192,
-        # 15051,
-    ]
+    num_families_train_list = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
     yss_relative_errors = []
     runtimes = []
@@ -3764,26 +3562,12 @@ def fig_single_site_em(
 
         families_all = get_families_within_cutoff(
             pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-            min_num_sites=min_num_sites if num_families_train <= 1024 else 0,
-            max_num_sites=max_num_sites
-            if num_families_train <= 1024
-            else 1000000,
-            min_num_sequences=min_num_sequences
-            if num_families_train <= 1024
-            else 0,
-            max_num_sequences=max_num_sequences,
+            min_num_sites=190,
+            max_num_sites=230,
+            min_num_sequences=num_sequences,
+            max_num_sequences=1000000,
         )
         families_train = families_all[:num_families_train]
-        if num_families_test == 0:
-            families_test = []
-        else:
-            families_test = families_all[-num_families_test:]
-        print(f"len(families_all) = {len(families_all)}")
-        if num_families_train + num_families_test > len(families_all):
-            raise Exception("Training and testing set would overlap!")
-        assert len(set(families_train + families_test)) == len(
-            families_train
-        ) + len(families_test)
 
         (
             msa_dir,
@@ -3799,11 +3583,9 @@ def fig_single_site_em(
             num_rate_categories=num_rate_categories,
             num_processes=num_processes,
             random_seed=random_seed,
-            use_cpp_simulation_implementation=use_cpp_implementation,
         )
 
-        # Now run the EM methods.
-        em_estimator_res = em_estimator(
+        em_estimator_res = lg_end_to_end_with_em_optimizer(
             msa_dir=msa_dir,
             families=families_train,
             tree_estimator=partial(
@@ -3814,12 +3596,6 @@ def fig_single_site_em(
                 num_rate_categories=num_rate_categories,
             ),
             initial_tree_estimator_rate_matrix_path=get_equ_path(),
-            num_iterations=1,
-            num_processes=2,
-            quantization_grid_center=quantization_grid_center,
-            quantization_grid_step=quantization_grid_step,
-            quantization_grid_num_steps=quantization_grid_num_steps,
-            use_cpp_counting_implementation=use_cpp_implementation,
             extra_em_command_line_args=extra_em_command_line_args,
         )
 
@@ -3835,22 +3611,16 @@ def fig_single_site_em(
         runtimes.append(runtime)
 
         learned_rate_matrix_path = os.path.join(
-            em_estimator_res["rate_matrix_dir_0"], rate_matrix_filename
+            em_estimator_res["rate_matrix_dir_0"], "result.txt"
         )
         learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
         learned_rate_matrix = learned_rate_matrix.to_numpy()
 
         lg = read_rate_matrix(get_lg_path()).to_numpy()
-        print(
-            f"tree_estimator_output_dirs_{i} = ",
-            em_estimator_res["tree_estimator_output_dirs_0"],
-        )
-
         learned_rate_matrix_path = em_estimator_res["learned_rate_matrix_path"]
-        print(f"learned_rate_matrix_path = {learned_rate_matrix_path}")
-        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
-
-        learned_rate_matrix = learned_rate_matrix.to_numpy()
+        learned_rate_matrix = read_rate_matrix(
+            learned_rate_matrix_path
+        ).to_numpy()
         Qs.append(learned_rate_matrix)
 
         lg = read_rate_matrix(get_lg_path()).to_numpy()
@@ -3867,8 +3637,7 @@ def fig_single_site_em(
         )
         plt.tight_layout()
         plt.savefig(
-            f"{output_image_dir}/log_log_plot_{i}_"
-            f"{rate_matrix_filename.split('.')[0]}",
+            f"{output_image_dir}/log_log_plot_{i}",
             dpi=300,
         )
         plt.close()
@@ -3890,12 +3659,8 @@ def fig_single_site_em(
     sns.violinplot(
         x="number of families",
         y="log relative error",
-        #     hue=None,
         data=df,
-        #     palette="muted",
         inner=None,
-        #     cut=0,
-        #     bw=0.25
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
@@ -3903,8 +3668,7 @@ def fig_single_site_em(
         runtimes=runtimes,
     )
     plt.savefig(
-        f"{output_image_dir}/violin_plot_"
-        f"{rate_matrix_filename.split('.')[0]}",
+        f"{output_image_dir}/violin_plot",
         dpi=300,
     )
     plt.close()

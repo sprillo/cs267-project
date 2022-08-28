@@ -277,8 +277,6 @@ def coevolution_end_to_end_with_cherryml_optimizer(
     families: List[str],
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
-    # num_iterations: int,  # There is no iteration in this case!
-    num_processes: int = 8,
     quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 64,
@@ -290,12 +288,12 @@ def coevolution_end_to_end_with_cherryml_optimizer(
     edge_or_cherry: str = "cherry",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
-    num_processes_tree_estimation: Optional[int] = None,
-    num_processes_counting: Optional[int] = None,
-    num_processes_optimization: Optional[int] = 8,
+    num_processes_tree_estimation: int = 8,
+    num_processes_counting: int = 8,
+    num_processes_optimization: int = 8,
     optimizer_initialization: str = "jtt-ipw",
     optimizer_return_best_iter: bool = True,
-    use_maximal_matching: bool = False,
+    use_maximal_matching: bool = True,
 ) -> Dict:
     """
     Cherry estimator for coevolution.
@@ -304,13 +302,6 @@ def coevolution_end_to_end_with_cherryml_optimizer(
     particular, the learned coevolution rate matrix is indexed by
     "learned_rate_matrix_path"
     """
-    if num_processes_tree_estimation is None:
-        num_processes_tree_estimation = num_processes
-    if num_processes_counting is None:
-        num_processes_counting = num_processes
-    if num_processes_optimization is None:
-        num_processes_optimization = num_processes
-
     res = {}
 
     quantization_points = [

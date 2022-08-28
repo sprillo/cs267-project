@@ -230,7 +230,7 @@ def em_lg(
     families: List[str],
     initialization_rate_matrix_path: str,
     output_rate_matrix_dir: Optional[str] = None,
-    extra_command_line_args: str = "-band 0 -fixgaprates -nolaplace",
+    extra_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
 ):
     """
     Args:
@@ -242,7 +242,10 @@ def em_lg(
         initialization_rate_matrix_path: Rate matrix used to initialize EM optimizer.
     """
     logger = logging.getLogger(__name__)
-    logger.info(f"Going to run on {len(families)} families")
+    logger.info(
+        f"Going to run on {len(families)} families, with output at:"
+        f"{output_rate_matrix_dir}"
+    )
 
     if not os.path.exists(output_rate_matrix_dir):
         os.makedirs(output_rate_matrix_dir)

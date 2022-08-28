@@ -37,46 +37,25 @@ def _init_logger():
 _init_logger()
 
 
-def em_estimator(
+def lg_end_to_end_with_em_optimizer(
     msa_dir: str,
     families: List[str],
     tree_estimator: PhylogenyEstimatorType,
     initial_tree_estimator_rate_matrix_path: str,
-    num_iterations: int,
-    num_processes: int = 2,
+    num_iterations: Optional[int] = 1,
     quantization_grid_center: float = 0.03,
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 64,
     use_cpp_counting_implementation: bool = True,
+    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
-    num_processes_tree_estimation: Optional[int] = None,
-    num_processes_counting: Optional[int] = None,
-    num_processes_optimization: Optional[int] = 2,
+    num_processes_tree_estimation: int = 8,
+    num_processes_counting: int = 8,
+    num_processes_optimization: int = 2,
     optimizer_initialization: str = "jtt-ipw",
-    optimizer_return_best_iter: bool = True,  # TODO: Unused, remove.
     sites_subset_dir: Optional[str] = None,
-    extra_em_command_line_args: str = "-band 0 -fixgaprates -nolaplace",
 ) -> Dict:
-    """
-    Cherry estimator.
-
-    Returns a dictionary with the directories to the intermediate outputs. In
-    particular, the learned rate matrix is indexed by
-    "learned_rate_matrix_path".
-
-    One can train a model on only a subset of the sites by specifying
-    sites_subset_dir. This is a file containing the indices of the sites used
-    for training. Note that ALL the sites will the used when fitting the trees.
-    """
-
-    if num_processes_tree_estimation is None:
-        num_processes_tree_estimation = num_processes
-    if num_processes_counting is None:
-        num_processes_counting = num_processes
-    if num_processes_optimization is None:
-        num_processes_optimization = num_processes
-
     if sites_subset_dir is not None and num_iterations > 1:
         raise Exception(
             "You are doing more than 1 iteration while learning a model only"

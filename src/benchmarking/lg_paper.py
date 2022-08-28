@@ -17,11 +17,7 @@ import numpy as np
 import pandas as pd
 import wget
 
-from src import (
-    PhylogenyEstimatorType,
-    em_estimator,
-    lg_end_to_end_with_cherryml_optimizer,
-)
+from src import PhylogenyEstimatorType, lg_end_to_end_with_cherryml_optimizer
 from src.io import read_log_likelihood
 from src.markov_chain import (
     get_equ_path,
