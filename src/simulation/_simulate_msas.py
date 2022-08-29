@@ -350,7 +350,8 @@ def simulate_msas(
     """
     logger = logging.getLogger(__name__)
     logger.info(
-        f"Going to simulate MSAs for {len(families)} families using {num_processes} processes."
+        f"Going to simulate MSAs for {len(families)} families using "
+        f"{num_processes} processes."
     )
 
     if not os.path.exists(output_msa_dir):

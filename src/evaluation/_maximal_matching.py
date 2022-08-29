@@ -52,7 +52,8 @@ def create_maximal_matching_contact_map(
     ]
 
     logger.info(
-        f"Going to run on {len(families)} families using {num_processes} processes"
+        f"Going to run on {len(families)} families using {num_processes} "
+        "processes"
     )
 
     # Map step (distribute families among processes)

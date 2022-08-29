@@ -1,26 +1,14 @@
 import logging
-import multiprocessing
 import os
 import sys
 from typing import Dict, List, Optional
 
-import tqdm
-
-from src import caching
-from src.counting import count_co_transitions, count_transitions
-from src.estimation import em_lg, jtt_ipw, quantized_transitions_mle
+from src.counting import count_transitions
+from src.estimation import em_lg, jtt_ipw
 from src.estimation_end_to_end._cherry import _subset_data_to_sites_subset
-from src.evaluation import create_maximal_matching_contact_map
-from src.io import (
-    read_msa,
-    read_site_rates,
-    read_sites_subset,
-    write_msa,
-    write_site_rates,
-)
-from src.markov_chain import get_equ_path, get_equ_x_equ_path
+from src.markov_chain import get_equ_path
 from src.types import PhylogenyEstimatorType
-from src.utils import get_amino_acids, get_process_args
+from src.utils import get_amino_acids
 
 
 def _init_logger():
@@ -47,7 +35,7 @@ def lg_end_to_end_with_em_optimizer(
     quantization_grid_step: float = 1.1,
     quantization_grid_num_steps: int = 64,
     use_cpp_counting_implementation: bool = True,
-    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
+    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",  # noqa
     cpp_counting_command_line_prefix: str = "",
     cpp_counting_command_line_suffix: str = "",
     num_processes_tree_estimation: int = 8,
@@ -135,7 +123,7 @@ def lg_end_to_end_with_em_optimizer(
             initialization_path = None
         else:
             raise ValueError(
-                f"Uknown optimizer_initialization = {optimizer_initialization}"
+                f"Unknown optimizer_initialization = {optimizer_initialization}"
             )
 
         rate_matrix_dir = em_lg(

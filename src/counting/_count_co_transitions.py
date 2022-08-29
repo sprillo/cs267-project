@@ -279,7 +279,8 @@ def count_co_transitions(
                 os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
             ) as profiling_file:
                 profiling_file.write(
-                    f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+                    f"Total time: {time.time() - start_time} seconds with "
+                    f"{num_processes} processes.\n"
                 )
             return
 
@@ -327,5 +328,6 @@ def count_co_transitions(
         os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
     ) as profiling_file:
         profiling_file.write(
-            f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+            f"Total time: {time.time() - start_time} seconds with "
+            f"{num_processes} processes.\n"
         )

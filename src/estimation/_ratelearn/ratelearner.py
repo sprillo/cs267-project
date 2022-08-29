@@ -148,7 +148,6 @@ class RateMatrixLearner:
     def process_results(self):
         output_dir = self.output_dir
         states = self.states
-        df_res = self.df_res
         Q_dict = self.Q_dict
         for key, value in Q_dict.items():
             write_rate_matrix(

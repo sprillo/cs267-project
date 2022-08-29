@@ -512,7 +512,7 @@ def reproduce_lg_paper_fig_4(
             f"{baseline_rate_estimator_name[1]}, in nats"
         )
     else:
-        plt.ylabel(f"Average per-site log-likelihood, in nats")
+        plt.ylabel("Average per-site log-likelihood, in nats")
     plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight")
     plt.close()
 

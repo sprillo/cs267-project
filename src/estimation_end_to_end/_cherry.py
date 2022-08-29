@@ -241,7 +241,7 @@ def lg_end_to_end_with_cherryml_optimizer(
             initialization_path = None
         else:
             raise ValueError(
-                f"Uknown optimizer_initialization = {optimizer_initialization}"
+                f"Unknown optimizer_initialization = {optimizer_initialization}"
             )
 
         rate_matrix_dir = quantized_transitions_mle(
@@ -373,7 +373,7 @@ def coevolution_end_to_end_with_cherryml_optimizer(
             initialization_path = None
         else:
             raise ValueError(
-                f"Uknown optimizer_initialization = {optimizer_initialization}"
+                f"Unknown optimizer_initialization = {optimizer_initialization}"
             )
 
         rate_matrix_dir = quantized_transitions_mle(

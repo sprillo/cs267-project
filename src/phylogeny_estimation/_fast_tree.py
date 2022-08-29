@@ -322,7 +322,8 @@ def fast_tree(
 ) -> None:
     logger = logging.getLogger(__name__)
     logger.info(
-        f"Going to run on {len(families)} families using {num_processes} processes"
+        f"Going to run on {len(families)} families using {num_processes} "
+        "processes"
     )
 
     if not os.path.exists(output_tree_dir):

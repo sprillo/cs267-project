@@ -26,7 +26,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import tqdm
-from matplotlib.colors import LogNorm
 
 import src.utils as utils
 from src import (
@@ -48,7 +47,6 @@ from src.benchmarking.pfam_15k import (
     simulate_ground_truth_data_single_site,
     subsample_pfam_15k_msas,
 )
-from src.estimation import quantized_transitions_mle
 from src.evaluation import (
     compute_log_likelihoods,
     create_maximal_matching_contact_map,
@@ -57,7 +55,6 @@ from src.evaluation import (
 )
 from src.io import (
     read_contact_map,
-    read_count_matrices,
     read_log_likelihood,
     read_mask_matrix,
     read_msa,
@@ -74,11 +71,8 @@ from src.markov_chain import (
     compute_stationary_distribution,
     get_aa_coevolution_mask_path,
     get_equ_path,
-    get_equ_x_equ_path,
     get_jtt_path,
     get_lg_path,
-    get_lg_x_lg_path,
-    get_lg_x_lg_stationary_path,
     get_wag_path,
     matrix_exponential,
     normalized,
@@ -223,11 +217,6 @@ def fig_single_site_cherry_vs_edge(
         )
         if not os.path.exists(output_image_dir):
             os.makedirs(output_image_dir)
-
-        min_num_sites = 190
-        max_num_sites = 230
-        min_num_sequences = num_sequences
-        max_num_sequences = 1000000
 
         num_families_train_list = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
 
@@ -392,14 +381,14 @@ def fig_single_site_cherry_vs_edge(
 
 # Fig. 1b
 def fig_single_site_em(
-    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
+    extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",  # noqa
     num_processes: int = 32,
     num_rate_categories: int = 1,
     num_sequences: int = 128,
     random_seed: int = 0,
 ):
     output_image_dir = (
-        f"images/fig_single_site_em__"
+        "images/fig_single_site_em__"
         + extra_em_command_line_args.replace(" ", "_")
     )
     if not os.path.exists(output_image_dir):
@@ -1054,8 +1043,10 @@ def learn_coevolution_model_on_pfam15k(
         num_processes_counting=num_processes_counting,
     )["learned_rate_matrix_path"]
     cherry = read_rate_matrix(cherry_path).to_numpy()
+    del cherry  # unused
 
     lg = read_rate_matrix(get_lg_path()).to_numpy()
+    del lg  # unused
 
     # Subsample the MSAs
     msa_dir_test = subsample_pfam_15k_msas(
@@ -1123,9 +1114,12 @@ def learn_coevolution_model_on_pfam15k(
         sites_subset_dir=contacting_sites_dir,
     )["learned_rate_matrix_path"]
     cherry_contact = read_rate_matrix(cherry_contact_path).to_numpy()
+    del cherry_contact  # unused
     mutation_rate = compute_mutation_rate(read_rate_matrix(cherry_contact_path))
     print(
-        f"***** cherry_contact_path = {cherry_contact_path} ({num_rate_categories} rate categories) with global mutation rate {mutation_rate} *****"
+        f"***** cherry_contact_path = {cherry_contact_path} "
+        f"({num_rate_categories} rate categories) with global mutation rate "
+        f"{mutation_rate} *****"
     )
 
     cherry_contact_squared_path = os.path.join(
@@ -1422,7 +1416,7 @@ def fig_pair_site_quantization_error(
             use_cpp_simulation_implementation=True,
         )
 
-        lg_end_to_end_with_cherryml_optimizer_res = coevolution_end_to_end_with_cherryml_optimizer(  # TODO: Rename to coevolution_...
+        res_dict = coevolution_end_to_end_with_cherryml_optimizer(
             msa_dir=msa_dir,
             contact_map_dir=contact_map_dir,
             minimum_distance_for_nontrivial_contact=mdnc,
@@ -1445,7 +1439,7 @@ def fig_pair_site_quantization_error(
         )
 
         learned_rate_matrix_path = os.path.join(
-            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+            res_dict["rate_matrix_dir_0"],
             "result.txt",
         )
 
@@ -1467,7 +1461,8 @@ def fig_pair_site_quantization_error(
 
         print(f"Q_2_df.loc['VI', 'IV'] = {Q_2_df.loc['VI', 'IV']}")
         print(
-            f"learned_rate_matrix_df.loc['VI', 'IV'] = {learned_rate_matrix_df.loc['VI', 'IV']}"
+            "learned_rate_matrix_df.loc['VI', 'IV'] = "
+            f"{learned_rate_matrix_df.loc['VI', 'IV']}"
         )
 
     for i in range(len(q_points)):
@@ -1476,8 +1471,8 @@ def fig_pair_site_quantization_error(
                 Q_2, Qs[i], mask_matrix, density_plot=density_plot
             )
             plt.title(
-                "True vs predicted rate matrix entries\nmax quantization error = "
-                "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+                "True vs predicted rate matrix entries\nmax quantization error "
+                "= %.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
             )
             plt.tight_layout()
             plt.savefig(
@@ -1565,7 +1560,7 @@ def fig_site_rates_vs_number_of_contacts(
 
     Test set can be used to compute held-out log-likelihoods.
     """
-    output_image_dir = f"images/fig_site_rates_vs_number_of_contacts"
+    output_image_dir = "images/fig_site_rates_vs_number_of_contacts"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
@@ -1611,11 +1606,11 @@ def fig_site_rates_vs_number_of_contacts(
         num_processes=num_processes,
     )["output_contact_map_dir"]
 
-    site_rates_by_num_nontrivial_contacts = get_site_rates_by_num_nontrivial_contacts(
+    site_rates_by_num_nontrivial_contacts = get_site_rates_by_num_nontrivial_contacts(  # noqa
         contact_map_dir=contact_map_dir,
         site_rates_dir=tree_dirs["output_site_rates_dir"],
         families=families,
-        minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,
+        minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,  # noqa
     )
 
     import matplotlib.pyplot as plt
@@ -1667,7 +1662,6 @@ def fig_MSA_VI_cotransition(
     caching.set_hash_len(64)
 
     PFAM_15K_MSA_DIR = "input_data/a3m"
-    PFAM_15K_PDB_DIR = "input_data/pdb"
 
     num_processes = 32
     train_test_split_seed = 0
@@ -1737,13 +1731,14 @@ def fig_MSA_VI_cotransition(
                     pct_VV = len(VVs) / tot_IV_VI_II_VV
                     if pct_IV > 0.2 and pct_VI > 0.2:
                         print(
-                            f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, {aa_1}{aa_1}, {aa_2}{aa_2}) =",
+                            f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, "
+                            f"{aa_1}{aa_1}, {aa_2}{aa_2}) ="
                             "(%.2f, %.2f, %.2f, %.2f)"
                             % (
                                 pct_IV,
-                                len(VIs) / tot_IV_VI_II_VV,
-                                len(IIs) / tot_IV_VI_II_VV,
-                                len(VVs) / tot_IV_VI_II_VV,
+                                pct_VI,
+                                pct_II,
+                                pct_VV,
                             ),
                             f"over {tot_IV_VI_II_VV} pairs",
                         )

@@ -232,7 +232,8 @@ def count_transitions(
             command += f" {output_count_matrices_dir}"
             command += f" {cpp_command_line_suffix}"
             logger.info(
-                f"Going to run C++ implementation on {len(families)} families using {num_processes} processes"
+                f"Going to run C++ implementation on {len(families)} families "
+                f"using {num_processes} processes"
             )
             os.system(command)
 
@@ -249,7 +250,8 @@ def count_transitions(
                 os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
             ) as profiling_file:
                 profiling_file.write(
-                    f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+                    f"Total time: {time.time() - start_time} seconds with "
+                    f"{num_processes} processes.\n"
                 )
             return
 
@@ -294,5 +296,6 @@ def count_transitions(
         os.path.join(output_count_matrices_dir, "profiling.txt"), "w"
     ) as profiling_file:
         profiling_file.write(
-            f"Total time: {time.time() - start_time} seconds with {num_processes} processes.\n"
+            f"Total time: {time.time() - start_time} seconds with "
+            f"{num_processes} processes.\n"
         )

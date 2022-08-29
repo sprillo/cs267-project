@@ -304,7 +304,8 @@ def phyml(
     ]
 
     logger.info(
-        f"Going to run on {len(families)} families using {num_processes} processes"
+        f"Going to run on {len(families)} families using {num_processes} "
+        "processes"
     )
 
     if num_processes > 1:

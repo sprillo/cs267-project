@@ -230,7 +230,7 @@ def em_lg(
     families: List[str],
     initialization_rate_matrix_path: str,
     output_rate_matrix_dir: Optional[str] = None,
-    extra_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
+    extra_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",  # noqa
 ):
     """
     Args:
@@ -239,7 +239,8 @@ def em_lg(
         site_rates_dir: Directory to the files containing the rates at which
             each site evolves.
         families: The protein families for which to perform the computation.
-        initialization_rate_matrix_path: Rate matrix used to initialize EM optimizer.
+        initialization_rate_matrix_path: Rate matrix used to initialize EM
+            optimizer.
     """
     logger = logging.getLogger(__name__)
     logger.info(

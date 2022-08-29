@@ -202,7 +202,10 @@ def write_tree(
         res += f"{node_name_prefix + node}\n"
     res += f"{tree.num_edges()} edges\n"
     for (u, v, d) in tree.edges():
-        res += f"{node_name_prefix + u} {node_name_prefix + v} {d * scaling_factor}\n"
+        res += (
+            f"{node_name_prefix + u} {node_name_prefix + v} "
+            f"{d * scaling_factor}\n"
+        )
     open(tree_path, "w").write(res)
 
 
