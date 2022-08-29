@@ -1382,17 +1382,17 @@ def fig_pair_site_quantization_error(
                 mask_matrix = get_nondiag_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
-                assert(mask_matrix.sum().sum() == 400 * 399)
+                assert mask_matrix.sum().sum() == 400 * 399
             elif Q_2_name == "unmasked-co-transitions":
                 mask_matrix = get_cotransitions_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
-                assert(mask_matrix.sum().sum() == 400 * 19 * 19)
+                assert mask_matrix.sum().sum() == 400 * 19 * 19
             elif Q_2_name == "unmasked-single-transitions":
                 mask_matrix = get_single_transitions_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
-                assert(mask_matrix.sum().sum() == 400 * 19 * 2)
+                assert mask_matrix.sum().sum() == 400 * 19 * 2
 
         (
             msa_dir,
