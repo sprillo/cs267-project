@@ -14,9 +14,7 @@ from src.estimation._em_lg import (
     _translate_tree_and_msa_to_stock_format,
 )
 from src.io import read_rate_matrix
-from src.markov_chain import (
-    get_lg_path,
-)
+from src.markov_chain import get_lg_path
 from src.utils import get_amino_acids
 
 DATA_DIR = "./tests/estimation_tests/test_input_data"
@@ -51,7 +49,9 @@ class TestEMLG(unittest.TestCase):
                 filepath_2 = f"{stock_dir}/fam1_{i}.txt"
                 assert filecmp.cmp(filepath_1, filepath_2)
 
-    def test_translate_tree_and_msa_to_stock_format_with_trifurcations(self):  # noqa
+    def test_translate_tree_and_msa_to_stock_format_with_trifurcations(
+        self,
+    ):  # noqa
         """
         The expected output is at
         ./test_input_data/stock_dir_trifurcation/fam1_{i}.txt
