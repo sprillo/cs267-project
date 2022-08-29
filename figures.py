@@ -10,8 +10,8 @@ Prerequisites:
     link)
 
 The caching directories which contain all subsequent data are
-_cache_benchmarking, _cache_benchmarking_em and _cache_lg_paper. You can
-similarly use a symbolic link to point to these.
+_cache_benchmarking and _cache_benchmarking_em. You can similarly use a symbolic
+link to point to these.
 """
 import logging
 import multiprocessing
@@ -110,10 +110,12 @@ def add_annotations_to_violinplot(
     yss_relative_errors: List[float],
     title: str,
     runtimes: Optional[List[float]] = None,
+    grid: bool = True,
 ):
     yticks = [np.log(10**i) for i in range(-5, 2)]
     ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
-    plt.grid()
+    if grid:
+        plt.grid()
     plt.ylabel("relative error (%)")
     plt.yticks(yticks, ytickslabels)
     for i, ys in enumerate(yss_relative_errors):
@@ -145,7 +147,7 @@ def add_annotations_to_violinplot(
                 ha="left",
                 va="top",
                 color="blue",
-                fontsize=12,
+                fontsize=10,
             )
     if runtimes is None:
         plt.title(title + "\n(median error also reported)")
@@ -202,7 +204,7 @@ def create_synthetic_count_matrices(
 
 # Fig. 1a
 def fig_single_site_cherry_vs_edge(
-    num_rate_categories: int = 4,
+    num_rate_categories: int = 1,
     num_processes_tree_estimation: int = 32,
     num_sequences: int = 128,
     random_seed: int = 0,
@@ -392,7 +394,7 @@ def fig_single_site_cherry_vs_edge(
 def fig_single_site_em(
     extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",
     num_processes: int = 32,
-    num_rate_categories: int = 4,
+    num_rate_categories: int = 1,
     num_sequences: int = 128,
     random_seed: int = 0,
 ):
@@ -1335,46 +1337,31 @@ def fig_pair_site_quantization_error(
 
         mdnc = minimum_distance_for_nontrivial_contact
 
-        def get_nonzeros_nondiag_mask_matrix(Q):
+        def get_nondiag_mask_matrix(Q):
+            assert (Q != 0).all().all()
+            assert Q.abs().min().min() > 1e-16
             Q = Q.to_numpy()
             res = np.ones(shape=Q.shape, dtype=int)
             for i in range(res.shape[0]):
                 res[i, i] = 0
-            for i in range(res.shape[0]):
-                for j in range(res.shape[1]):
-                    if Q[i, j] == 0:
-                        res[i, j] = 0
             return res
 
-        def get_nonzeros_cotransitions_mask_matrix(Q):
+        def get_cotransitions_mask_matrix(Q):
             res = np.zeros(shape=Q.shape, dtype=int)
             for i, ab in enumerate(Q.index):
                 for j, cd in enumerate(Q.index):
-                    if len(set(ab) - set(cd)) == len(set(ab)) and len(
-                        set(cd) - set(ab)
-                    ) == len(set(cd)):
-                        if Q.loc[ab, cd] > 0:
-                            res[i, j] = 1
-            write_rate_matrix(
-                res, Q.index, "get_nonzeros_cotransitions_mask_matrix.txt"
-            )
+                    if ab[0] != cd[0] and ab[1] != cd[1]:
+                        res[i, j] = 1
             return res
 
-        def get_nonzeros_single_transitions_mask_matrix(Q):
-            nonzeros_nondiag_mask_matrix = get_nonzeros_nondiag_mask_matrix(Q)
-            nonzeros_cotransitions_mask_matrix = (
-                get_nonzeros_cotransitions_mask_matrix(Q)
-            )
+        def get_single_transitions_mask_matrix(Q):
+            nondiag_mask_matrix = get_nondiag_mask_matrix(Q)
+            cotransitions_mask_matrix = get_cotransitions_mask_matrix(Q)
             for i in range(Q.shape[0]):
                 for j in range(Q.shape[1]):
-                    if nonzeros_cotransitions_mask_matrix[i, j] == 1:
-                        nonzeros_nondiag_mask_matrix[i, j] = 0
-            write_rate_matrix(
-                nonzeros_nondiag_mask_matrix,
-                Q.index,
-                "get_nonzeros_single_transitions_mask_matrix.txt",
-            )
-            return nonzeros_nondiag_mask_matrix
+                    if cotransitions_mask_matrix[i, j] == 1:
+                        nondiag_mask_matrix[i, j] = 0
+            return nondiag_mask_matrix
 
         if Q_2_name == "masked":
             Q_2_path = learn_coevolution_model_on_pfam15k()["cherry_2_path"]
@@ -1398,17 +1385,20 @@ def fig_pair_site_quantization_error(
             )
             coevolution_mask_path = None
             if Q_2_name == "unmasked-all-transitions":
-                mask_matrix = get_nonzeros_nondiag_mask_matrix(
+                mask_matrix = get_nondiag_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
+                assert(mask_matrix.sum().sum() == 400 * 399)
             elif Q_2_name == "unmasked-co-transitions":
-                mask_matrix = get_nonzeros_cotransitions_mask_matrix(
+                mask_matrix = get_cotransitions_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
+                assert(mask_matrix.sum().sum() == 400 * 19 * 19)
             elif Q_2_name == "unmasked-single-transitions":
-                mask_matrix = get_nonzeros_single_transitions_mask_matrix(
+                mask_matrix = get_single_transitions_mask_matrix(
                     read_rate_matrix(Q_2_path)
                 )
+                assert(mask_matrix.sum().sum() == 400 * 19 * 2)
 
         (
             msa_dir,
@@ -1515,10 +1505,12 @@ def fig_pair_site_quantization_error(
         y="log relative error",
         data=df,
         inner=None,
+        grid=False,
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
         title="Distribution of relative error as quantization improves",
+        grid=False,
     )
 
     plt.savefig(
