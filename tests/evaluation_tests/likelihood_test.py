@@ -481,10 +481,10 @@ class Test_small_equ_x_wag_3_seqs(unittest.TestCase):
             device_2=device,
             method="python",
         )
-        epected_ll = -9.382765 + -9.714873
-        np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
+        expected_ll = -9.382765 + -9.714873
+        np.testing.assert_almost_equal(ll, expected_ll, decimal=4)
         np.testing.assert_almost_equal(
-            lls, [epected_ll / 2, epected_ll / 2], decimal=4
+            lls, [expected_ll / 2, expected_ll / 2], decimal=4
         )
 
 
@@ -536,10 +536,10 @@ class Test_small_wag_x_equ_3_seqs(unittest.TestCase):
             device_2=device,
             method="python",
         )
-        epected_ll = -9.714873 + -9.382765
-        np.testing.assert_almost_equal(ll, epected_ll, decimal=4)
+        expected_ll = -9.714873 + -9.382765
+        np.testing.assert_almost_equal(ll, expected_ll, decimal=4)
         np.testing.assert_almost_equal(
-            lls, [epected_ll / 2, epected_ll / 2], decimal=4
+            lls, [expected_ll / 2, expected_ll / 2], decimal=4
         )
 
 
