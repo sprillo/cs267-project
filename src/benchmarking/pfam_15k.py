@@ -28,6 +28,9 @@ from src.utils import get_amino_acids, get_process_args
 from ._contact_generation.ContactMatrix import ContactMatrix
 
 
+from src.global_vars import TITLES
+
+
 def _init_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -324,11 +327,13 @@ def fig_family_sizes(
         msa_dir=msa_dir,
         max_families=max_families,
     )
-    plt.title("Distribution of family num_sequences")
+    if TITLES:
+        plt.title("Distribution of family num_sequences")
     plt.hist(family_size_df.num_sequences)
     plt.show()
 
-    plt.title("Distribution of family num_sites")
+    if TITLES:
+        plt.title("Distribution of family num_sites")
     print(f"median num_sites = {family_size_df.num_sites.median()}")
     print(f"mode num_sites = {family_size_df.num_sites.mode()}")
     print(f"mean num_sites = {family_size_df.num_sites.mean()}")

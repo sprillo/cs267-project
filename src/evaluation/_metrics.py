@@ -7,6 +7,8 @@ import seaborn as sns
 RateMatrixType = np.array
 MaskMatrixType = np.array
 
+from src.global_vars import TITLES
+
 
 def _masked_log_ratio(
     y: RateMatrixType,
@@ -148,16 +150,24 @@ def plot_rate_matrix_predictions(
     if density_plot:
         sns.jointplot(x=ys_true, y=ys_pred, kind="hex", color="#4CB391")
     else:
-        plt.scatter(ys_true, ys_pred, alpha=0.3)
+        sns.scatterplot(ys_true, ys_pred, alpha=0.3)
+        # plt.scatter(ys_true, ys_pred, alpha=0.3)
 
-    plt.title("True vs predicted rate matrix entries")
-    plt.xlabel("True entry $Q[i, j]$", fontsize=18)
-    plt.ylabel("Predicted entry $\hat{Q}[i, j]$", fontsize=18)  # noqa
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
 
-    ticks = [np.log(10**i) / np.log(10) for i in range(-5, 1)]
-    tickslabels = [f"$10^{{{i}}}$" for i in range(-5, 1)]
+    if TITLES:
+        plt.title("True vs predicted rate matrix entries")
+    plt.xlabel("True entry $Q_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$", fontsize=18)
+    plt.ylabel("Predicted entry $\hat{Q}_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$", fontsize=18)  # noqa
+    plt.axis('scaled')
+
+    min_y_data = min(ys_true + ys_pred)
+    min_y = -7
+
+    ticks = [np.log(10**i) / np.log(10) for i in range(min_y, 1)]
+    tickslabels = [f"$10^{{{i}}}$" for i in range(min_y, 1)]
     plt.xticks(ticks, tickslabels)
     plt.yticks(ticks, tickslabels)
 
-    min_y = min(ys_true + ys_pred)
     plt.plot([min_y, 0], [min_y, 0], color="r")

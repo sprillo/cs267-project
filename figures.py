@@ -82,6 +82,9 @@ from src.types import PhylogenyEstimatorType
 from src.utils import get_families, get_process_args
 
 
+from src.global_vars import TITLES
+
+
 def _init_logger():
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -103,15 +106,19 @@ PFAM_15K_PDB_DIR = "input_data/pdb"
 def add_annotations_to_violinplot(
     yss_relative_errors: List[float],
     title: str,
+    xlabel: str,
     runtimes: Optional[List[float]] = None,
     grid: bool = True,
+    fontsize: int = 14,
 ):
+    plt.xlabel(xlabel, fontsize=fontsize)
+    plt.xticks(fontsize=fontsize)
     yticks = [np.log(10**i) for i in range(-5, 2)]
     ytickslabels = [f"$10^{{{i + 2}}}$" for i in range(-5, 2)]
     if grid:
         plt.grid()
-    plt.ylabel("relative error (%)")
-    plt.yticks(yticks, ytickslabels)
+    plt.ylabel("Relative error (%)\nDistribution and median", fontsize=fontsize)
+    plt.yticks(yticks, ytickslabels, fontsize=fontsize)
     for i, ys in enumerate(yss_relative_errors):
         ys = np.array(ys)
         label = "{:.1f}%".format(100 * np.median(ys))
@@ -126,7 +133,7 @@ def add_annotations_to_violinplot(
             ha="left",
             va="top",
             color="black",
-            fontsize=12,
+            fontsize=fontsize,
         )
         if runtimes is not None:
             label = "{:.0f}s".format(runtimes[i])
@@ -141,12 +148,13 @@ def add_annotations_to_violinplot(
                 ha="left",
                 va="top",
                 color="blue",
-                fontsize=10,
+                fontsize=fontsize,
             )
-    if runtimes is None:
-        plt.title(title + "\n(median error also reported)")
-    else:
-        plt.title(title + "\n(median error and runtime also reported)")
+    if TITLES:
+        if runtimes is None:
+            plt.title(title + "\n(median error also reported)")
+        else:
+            plt.title(title + "\n(median error and runtime also reported)")
     plt.tight_layout()
 
 
@@ -196,190 +204,184 @@ def create_synthetic_count_matrices(
     )
 
 
-# Fig. 1a
-def fig_single_site_cherry_vs_edge(
+def fig_single_site_cherry(
     num_rate_categories: int = 1,
     num_processes_tree_estimation: int = 32,
     num_sequences: int = 128,
     random_seed: int = 0,
 ):
-    """
-    We compare the efficiency of our Cherry method ("cherry") against that of
-    the oracle method ("edge"), and show that it is off by 4-8x, as suggested
-    by the back-of-envelope estimate.
-    """
     caching.set_cache_dir("_cache_benchmarking_em")
     caching.set_hash_len(64)
 
-    for edge_or_cherry in ["edge", "cherry"]:
-        output_image_dir = (
-            f"images/fig_single_site_cherry_vs_edge/{edge_or_cherry}"
+    output_image_dir = (
+        f"images/fig_single_site_cherry"
+    )
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    num_families_train_list = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+
+    runtimes = []
+    yss_relative_errors = []
+    Qs = []
+    for (i, num_families_train) in enumerate(num_families_train_list):
+        msg = f"***** num_families_train = {num_families_train} *****"
+        print("*" * len(msg))
+        print(msg)
+        print("*" * len(msg))
+
+        families_all = get_families_within_cutoff(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+            min_num_sites=190,
+            max_num_sites=230,
+            min_num_sequences=num_sequences,
+            max_num_sequences=1000000,
         )
-        if not os.path.exists(output_image_dir):
-            os.makedirs(output_image_dir)
+        families_train = families_all[:num_families_train]
 
-        num_families_train_list = [4, 8, 16, 32, 64, 128, 256, 512, 1024]
+        (
+            msa_dir,
+            contact_map_dir,
+            gt_msa_dir,
+            gt_tree_dir,
+            gt_site_rates_dir,
+            gt_likelihood_dir,
+        ) = simulate_ground_truth_data_single_site(
+            pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
+            num_sequences=num_sequences,
+            families=families_all,
+            num_rate_categories=num_rate_categories,
+            num_processes=num_processes_tree_estimation,
+            random_seed=random_seed,
+        )
 
-        runtimes = []
-        yss_relative_errors = []
-        Qs = []
-        for (i, num_families_train) in enumerate(num_families_train_list):
-            msg = f"***** num_families_train = {num_families_train} *****"
-            print("*" * len(msg))
-            print(msg)
-            print("*" * len(msg))
-
-            families_all = get_families_within_cutoff(
-                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                min_num_sites=190,
-                max_num_sites=230,
-                min_num_sequences=num_sequences,
-                max_num_sequences=1000000,
+        # Now run the cherryml method.
+        lg_end_to_end_with_cherryml_optimizer_res = (
+            lg_end_to_end_with_cherryml_optimizer(
+                msa_dir=msa_dir,
+                families=families_train,
+                tree_estimator=partial(
+                    gt_tree_estimator,
+                    gt_tree_dir=gt_tree_dir,
+                    gt_site_rates_dir=gt_site_rates_dir,
+                    gt_likelihood_dir=gt_likelihood_dir,
+                    num_rate_categories=num_rate_categories,
+                ),
+                initial_tree_estimator_rate_matrix_path=get_equ_path(),
+                num_processes_tree_estimation=num_processes_tree_estimation,
+                num_processes_optimization=1,
+                num_processes_counting=1,
+                edge_or_cherry="cherry",
             )
-            families_train = families_all[:num_families_train]
+        )
 
-            (
-                msa_dir,
-                contact_map_dir,
-                gt_msa_dir,
-                gt_tree_dir,
-                gt_site_rates_dir,
-                gt_likelihood_dir,
-            ) = simulate_ground_truth_data_single_site(
-                pfam_15k_msa_dir=PFAM_15K_MSA_DIR,
-                num_sequences=num_sequences,
-                families=families_all,
-                num_rate_categories=num_rate_categories,
-                num_processes=num_processes_tree_estimation,
-                random_seed=random_seed,
-            )
-
-            # Now run the cherry and oracle edge methods.
-            print(f"**** edge_or_cherry = {edge_or_cherry} *****")
-            lg_end_to_end_with_cherryml_optimizer_res = (
-                lg_end_to_end_with_cherryml_optimizer(
-                    msa_dir=msa_dir
-                    if edge_or_cherry == "cherry"
-                    else gt_msa_dir,
-                    families=families_train,
-                    tree_estimator=partial(
-                        gt_tree_estimator,
-                        gt_tree_dir=gt_tree_dir,
-                        gt_site_rates_dir=gt_site_rates_dir,
-                        gt_likelihood_dir=gt_likelihood_dir,
-                        num_rate_categories=num_rate_categories,
+        def get_runtime(
+            lg_end_to_end_with_cherryml_optimizer_res: str,
+        ) -> float:
+            """
+            Get the runtime of CherryML.
+            """
+            res = 0
+            for lg_end_to_end_with_cherryml_optimizer_output_dir in [
+                "count_matrices_dir_0",
+                "jtt_ipw_dir_0",
+                "rate_matrix_dir_0",
+            ]:
+                with open(
+                    os.path.join(
+                        lg_end_to_end_with_cherryml_optimizer_res[
+                            lg_end_to_end_with_cherryml_optimizer_output_dir
+                        ],
+                        "profiling.txt",
                     ),
-                    initial_tree_estimator_rate_matrix_path=get_equ_path(),
-                    num_processes_tree_estimation=num_processes_tree_estimation,
-                    num_processes_optimization=1,
-                    num_processes_counting=1,
-                    edge_or_cherry=edge_or_cherry,
-                )
-            )
+                    "r",
+                ) as profiling_file:
+                    profiling_file_contents = profiling_file.read()
+                    print(
+                        f"{lg_end_to_end_with_cherryml_optimizer_output_dir} "  # noqa
+                        f"profiling_file_contents = {profiling_file_contents}"  # noqa
+                    )
+                    res += float(profiling_file_contents.split()[2])
+            return res
 
-            def get_runtime(
-                lg_end_to_end_with_cherryml_optimizer_res: str,
-            ) -> float:
-                """
-                Get the runtime of CherryML.
-                """
-                res = 0
-                for lg_end_to_end_with_cherryml_optimizer_output_dir in [
-                    "count_matrices_dir_0",
-                    "jtt_ipw_dir_0",
-                    "rate_matrix_dir_0",
-                ]:
-                    with open(
-                        os.path.join(
-                            lg_end_to_end_with_cherryml_optimizer_res[
-                                lg_end_to_end_with_cherryml_optimizer_output_dir
-                            ],
-                            "profiling.txt",
-                        ),
-                        "r",
-                    ) as profiling_file:
-                        profiling_file_contents = profiling_file.read()
-                        print(
-                            f"{lg_end_to_end_with_cherryml_optimizer_output_dir} "  # noqa
-                            f"profiling_file_contents = {profiling_file_contents}"  # noqa
-                        )
-                        res += float(profiling_file_contents.split()[2])
-                return res
+        runtime = get_runtime(lg_end_to_end_with_cherryml_optimizer_res)
+        runtimes.append(runtime)
 
-            runtime = get_runtime(lg_end_to_end_with_cherryml_optimizer_res)
-            runtimes.append(runtime)
+        learned_rate_matrix_path = os.path.join(
+            lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
+            "result.txt",
+        )
+        learned_rate_matrix = read_rate_matrix(
+            learned_rate_matrix_path
+        ).to_numpy()
+        lg = read_rate_matrix(get_lg_path()).to_numpy()
+        learned_rate_matrix_path = (
+            lg_end_to_end_with_cherryml_optimizer_res[
+                "learned_rate_matrix_path"
+            ]
+        )
+        learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
-            learned_rate_matrix_path = os.path.join(
-                lg_end_to_end_with_cherryml_optimizer_res["rate_matrix_dir_0"],
-                "result.txt",
-            )
-            learned_rate_matrix = read_rate_matrix(
-                learned_rate_matrix_path
-            ).to_numpy()
-            lg = read_rate_matrix(get_lg_path()).to_numpy()
-            learned_rate_matrix_path = (
-                lg_end_to_end_with_cherryml_optimizer_res[
-                    "learned_rate_matrix_path"
-                ]
-            )
-            learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
+        learned_rate_matrix = learned_rate_matrix.to_numpy()
+        Qs.append(learned_rate_matrix)
 
-            learned_rate_matrix = learned_rate_matrix.to_numpy()
-            Qs.append(learned_rate_matrix)
+        lg = read_rate_matrix(get_lg_path()).to_numpy()
 
-            lg = read_rate_matrix(get_lg_path()).to_numpy()
+        yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
 
-            yss_relative_errors.append(relative_errors(lg, learned_rate_matrix))
-
-        for i in range(len(num_families_train_list)):
-            plot_rate_matrix_predictions(
-                read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
-            )
+    for i in range(len(num_families_train_list)):
+        plot_rate_matrix_predictions(
+            read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
+        )
+        if TITLES:
             plt.title(
                 "True vs predicted rate matrix entries\nnumber of families = %i"
                 % num_families_train_list[i]
             )
-            plt.tight_layout()
-            plt.savefig(
-                f"{output_image_dir}/log_log_plot_{i}",
-                dpi=300,
-            )
-            plt.close()
-
-        df = pd.DataFrame(
-            {
-                "number of families": sum(
-                    [
-                        [num_families_train_list[i]]
-                        * len(yss_relative_errors[i])
-                        for i in range(len(yss_relative_errors))
-                    ],
-                    [],
-                ),
-                "relative error": sum(yss_relative_errors, []),
-            }
-        )
-        df["log relative error"] = np.log(df["relative error"])
-
-        sns.violinplot(
-            x="number of families",
-            y="log relative error",
-            data=df,
-            inner=None,
-        )
-        add_annotations_to_violinplot(
-            yss_relative_errors,
-            title="Distribution of relative error as sample size increases",
-            runtimes=runtimes,
-        )
+        plt.tight_layout()
         plt.savefig(
-            f"{output_image_dir}/violin_plot",
+            f"{output_image_dir}/log_log_plot_{i}",
             dpi=300,
         )
         plt.close()
 
+    df = pd.DataFrame(
+        {
+            "Number of families": sum(
+                [
+                    [num_families_train_list[i]]
+                    * len(yss_relative_errors[i])
+                    for i in range(len(yss_relative_errors))
+                ],
+                [],
+            ),
+            "Relative error": sum(yss_relative_errors, []),
+        }
+    )
+    df["Log relative error"] = np.log(df["Relative error"])
 
-# Fig. 1b
+    sns.violinplot(
+        x="Number of families",
+        y="Log relative error",
+        data=df,
+        inner=None,
+    )
+    add_annotations_to_violinplot(
+        yss_relative_errors,
+        title="Distribution of relative error as sample size increases",
+        xlabel="Number of families",
+        runtimes=runtimes,
+    )
+    plt.savefig(
+        f"{output_image_dir}/violin_plot",
+        dpi=300,
+    )
+    plt.close()
+
+    ys_relative_errors = [np.median(ys) for ys in yss_relative_errors]
+    return num_families_train_list, ys_relative_errors, runtimes
+
+
 def fig_single_site_em(
     extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",  # noqa
     num_processes: int = 32,
@@ -479,10 +481,11 @@ def fig_single_site_em(
         plot_rate_matrix_predictions(
             read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
         )
-        plt.title(
-            "True vs predicted rate matrix entries\nnumber of families = %i"
-            % num_families_train_list[i]
-        )
+        if TITLES:
+            plt.title(
+                "True vs predicted rate matrix entries\nnumber of families = %i"
+                % num_families_train_list[i]
+            )
         plt.tight_layout()
         plt.savefig(
             f"{output_image_dir}/log_log_plot_{i}",
@@ -492,27 +495,28 @@ def fig_single_site_em(
 
     df = pd.DataFrame(
         {
-            "number of families": sum(
+            "Number of families": sum(
                 [
                     [num_families_train_list[i]] * len(yss_relative_errors[i])
                     for i in range(len(yss_relative_errors))
                 ],
                 [],
             ),
-            "relative error": sum(yss_relative_errors, []),
+            "Relative error": sum(yss_relative_errors, []),
         }
     )
-    df["log relative error"] = np.log(df["relative error"])
+    df["Log relative error"] = np.log(df["Relative error"])
 
     sns.violinplot(
-        x="number of families",
-        y="log relative error",
+        x="Number of families",
+        y="Log relative error",
         data=df,
         inner=None,
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
         title="Distribution of relative error as sample size increases",
+        xlabel="Number of families",
         runtimes=runtimes,
     )
     plt.savefig(
@@ -521,8 +525,78 @@ def fig_single_site_em(
     )
     plt.close()
 
+    ys_relative_errors = [np.median(ys) for ys in yss_relative_errors]
+    return num_families_train_list, ys_relative_errors, runtimes
 
-# Fig. 1c
+
+# Fig. 1b, 1c
+def fig_computational_and_stat_eff_cherry_vs_em():
+    fontsize = 14
+
+    output_image_dir = (
+        "images/fig_computational_and_stat_eff_cherry_vs_em"
+    )
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+    num_families_cherry, cherry_errors_nonpct, cherry_times = fig_single_site_cherry()
+    cherry_times = [int(x) for x in cherry_times]
+    cherry_errors = [float("%.1f" % (100 * x)) for x in cherry_errors_nonpct]
+    num_families_em, em_errors_nonpct, em_times = fig_single_site_em()
+    em_times = [int(x) for x in em_times]
+    em_errors = [float("%.1f" % (100 * x)) for x in em_errors_nonpct]
+    assert(num_families_cherry == num_families_em)
+
+    print(f"cherry_errors = {cherry_errors}")
+    print(f"cherry_times = {cherry_times}")
+    print(f"em_errors = {em_errors}")
+    print(f"em_times = {em_times}")
+
+    num_families = num_families_cherry
+    indices = [i for i in range(len(num_families))]
+    plt.figure(dpi = 300)
+    plt.plot(indices, cherry_errors, 'o-', label = 'CherryML')
+    plt.plot(indices, em_errors, 'o-', label = 'EM')
+    plt.ylim((0.5, 200))
+    plt.xticks(indices, num_families, fontsize=fontsize)
+    plt.yscale('log', base=10)
+    plt.yticks(fontsize=fontsize)
+    plt.grid()
+    plt.legend(loc = 'upper left', fontsize=fontsize)
+    plt.xlabel('Number of families', fontsize=fontsize)
+    plt.ylabel('Median relative error (%)', fontsize=fontsize)
+    for a, b in zip(indices, em_errors): 
+        plt.text(a - 0.35, b/1.5, str(b) + '%', fontsize=fontsize)
+    for a, b in zip(indices, cherry_errors): 
+        plt.text(a - 0.3, 1.2*b, str(b) + '%', fontsize=fontsize)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_image_dir, "errors"))
+    plt.close()
+
+
+    num_families = num_families_cherry
+    indices = [i for i in range(len(num_families))]
+    plt.figure(dpi = 300)
+    plt.plot(indices, cherry_times, 'o-', label = 'CherryML')
+    plt.plot(indices, em_times, 'o-', label = 'EM')
+    plt.ylim((5, 5e5))
+    plt.xticks(indices, num_families, fontsize=fontsize)
+    plt.yscale('log', base = 10)
+    plt.yticks(fontsize=fontsize)
+    plt.grid()
+    plt.legend(loc='upper left', fontsize=fontsize)
+    plt.xlabel('Number of families', fontsize=fontsize)
+    plt.ylabel('Runtime (s)', fontsize=fontsize)
+    for a, b in zip(indices, em_times): 
+        plt.text(a - 0.35, b*1.5, str(b) + 's', fontsize=fontsize)
+    for a, b in zip(indices, cherry_times): 
+        plt.text(a - 0.3, b*1.5, str(b) + 's', fontsize=fontsize)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_image_dir, "times"))
+    plt.close()
+
+
+# Fig. 1d
 def fig_single_site_quantization_error(
     num_rate_categories: int = 4,
     num_processes_tree_estimation: int = 32,
@@ -628,10 +702,11 @@ def fig_single_site_quantization_error(
         plot_rate_matrix_predictions(
             read_rate_matrix(get_lg_path()).to_numpy(), Qs[i]
         )
-        plt.title(
-            "True vs predicted rate matrix entries\nmax quantization error = "
-            "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
-        )
+        if TITLES:
+            plt.title(
+                "True vs predicted rate matrix entries\nmax quantization error = "
+                "%.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+            )
         plt.tight_layout()
         plt.savefig(
             f"{output_image_dir}/log_log_plot_{i}",
@@ -641,27 +716,28 @@ def fig_single_site_quantization_error(
 
     df = pd.DataFrame(
         {
-            "quantization points": sum(
+            "Quantization points": sum(
                 [
                     [q_points[i]] * len(yss_relative_errors[i])
                     for i in range(len(yss_relative_errors))
                 ],
                 [],
             ),
-            "relative error": sum(yss_relative_errors, []),
+            "Relative error": sum(yss_relative_errors, []),
         }
     )
-    df["log relative error"] = np.log(df["relative error"])
+    df["Log relative error"] = np.log(df["Relative error"])
 
     sns.violinplot(
-        x="quantization points",
-        y="log relative error",
+        x="Quantization points",
+        y="Log relative error",
         data=df,
         inner=None,
     )
     add_annotations_to_violinplot(
         yss_relative_errors,
         title="Distribution of relative error as quantization improves",
+        xlabel="Quantization points",
     )
     plt.savefig(
         f"{output_image_dir}/violin_plot",
@@ -670,7 +746,7 @@ def fig_single_site_quantization_error(
     plt.close()
 
 
-# Fig. 1d
+# Fig. 1e
 def fig_lg_paper(
     num_rate_categories: int = 4,
     figsize=(6.4, 4.8),
@@ -979,7 +1055,6 @@ def _compute_contacting_sites(
     logger.info("Computing contacting sites done!")
 
 
-# Fig. 2c, 2d
 def learn_coevolution_model_on_pfam15k(
     num_rate_categories: int = 1,
     num_sequences: int = 1024,
@@ -1257,14 +1332,16 @@ def learn_coevolution_model_on_pfam15k(
         ax.yaxis.grid()
         plt.xticks(rotation=90)
         if baseline:
-            plt.title(
-                "Results on Pfam 15K data\n(held-out log-Likelihood "
-                "improvement over JTT)"
-            )
+            if TITLES:
+                plt.title(
+                    "Results on Pfam 15K data\n(held-out log-Likelihood "
+                    "improvement over JTT)"
+                )
         else:
-            plt.title(
-                "Results on Pfam 15K data\n(held-out negative log-Likelihood)"
-            )
+            if TITLES:
+                plt.title(
+                    "Results on Pfam 15K data\n(held-out negative log-Likelihood)"
+                )
         plt.tight_layout()
         plt.savefig(
             os.path.join(
@@ -1282,7 +1359,7 @@ def learn_coevolution_model_on_pfam15k(
     return res
 
 
-# Fig. 2a and 2b
+# Fig. 2a, 2b
 def fig_pair_site_quantization_error(
     Q_2_name: str,
     num_rate_categories: int = 1,
@@ -1368,7 +1445,7 @@ def fig_pair_site_quantization_error(
             coevolution_mask_path = "data/mask_matrices/aa_coevolution_mask.txt"
             mask_matrix = read_mask_matrix(coevolution_mask_path).to_numpy()
         elif Q_2_name.startswith("unmasked"):
-            Q_2_path = Q_2_path = learn_coevolution_model_on_pfam15k()[
+            Q_2_path = learn_coevolution_model_on_pfam15k()[
                 "cherry_2_no_mask_path"
             ]
             pi_2_path = os.path.join(
@@ -1470,10 +1547,11 @@ def fig_pair_site_quantization_error(
             plot_rate_matrix_predictions(
                 Q_2, Qs[i], mask_matrix, density_plot=density_plot
             )
-            plt.title(
-                "True vs predicted rate matrix entries\nmax quantization error "
-                "= %.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
-            )
+            if TITLES:
+                plt.title(
+                    "True vs predicted rate matrix entries\nmax quantization error "
+                    "= %.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+                )
             plt.tight_layout()
             plt.savefig(
                 f"{output_image_dir}/log_log_plot_{i}_density_{density_plot}",
@@ -1483,21 +1561,21 @@ def fig_pair_site_quantization_error(
 
     df = pd.DataFrame(
         {
-            "quantization points": sum(
+            "Quantization points": sum(
                 [
                     [q_points[i]] * len(yss_relative_errors[i])
                     for i in range(len(yss_relative_errors))
                 ],
                 [],
             ),
-            "relative error": sum(yss_relative_errors, []),
+            "Relative error": sum(yss_relative_errors, []),
         }
     )
-    df["log relative error"] = np.log(df["relative error"])
+    df["Log relative error"] = np.log(df["Relative error"])
 
     sns.violinplot(
-        x="quantization points",
-        y="log relative error",
+        x="Quantization points",
+        y="Log relative error",
         data=df,
         inner=None,
         grid=False,
@@ -1505,6 +1583,7 @@ def fig_pair_site_quantization_error(
     add_annotations_to_violinplot(
         yss_relative_errors,
         title="Distribution of relative error as quantization improves",
+        xlabel="Quantization points",
         grid=False,
     )
 
@@ -1513,6 +1592,232 @@ def fig_pair_site_quantization_error(
         dpi=300,
     )
     plt.close()
+
+
+# Fig. 2c, 2d
+def fig_coevolution_vs_indep():
+    output_image_dir = (
+        f"images/fig_coevolution_vs_indep"
+    )
+    if not os.path.exists(output_image_dir):
+        os.makedirs(output_image_dir)
+
+
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from scipy import stats
+    from scipy.linalg import expm 
+    from numpy import linalg as la
+
+    def plotHeatmap(inputMat,xlabel,xticklabels,ylabel,yticklabels,title="",plot_file="",font_color = 'w', figsize=(8,8),round=2, **kwargs):
+
+        fig, ax = plt.subplots(figsize=figsize)
+        im = ax.imshow(inputMat,  **kwargs)
+        # show ticks and label them
+        ax.set_xticks(np.arange(len(xticklabels)))
+        ax.set_yticks(np.arange(len(yticklabels)))
+        ax.set_xticklabels(xticklabels, fontsize=14)
+        ax.set_yticklabels(yticklabels, fontsize=14)
+        ax.set_xlabel(xlabel,fontsize=18)
+        ax.set_ylabel(ylabel,fontsize=18)
+        # rotate tick labels
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                rotation_mode="anchor")
+        # add text annotation to each cell
+        for i in range(len(xticklabels)):
+            for j in range(len(yticklabels)):
+                text = ax.text(i, j, np.round(inputMat[j, i],round), ha="center", va="center", color=font_color)
+                # text = ax.text(i, j, inputMat[j, i], ha="center", va="center", color="w")
+                
+        # title
+        if TITLES:
+            ax.set_title(title, fontsize=14)
+        fig.tight_layout()
+        if(len(plot_file)>0): plt.savefig(plot_file, dpi=300)
+        plt.show()
+
+    def heatmap(data, row_labels, col_labels, title="", ax=None,
+                cbar_kw={}, cbarlabel="", **kwargs):
+        """
+        Create a heatmap from a numpy array and two lists of labels.
+
+        Parameters
+        ----------
+        data
+            A 2D numpy array of shape (N, M).
+        row_labels
+            A list or array of length N with the labels for the rows.
+        col_labels
+            A list or array of length M with the labels for the columns.
+        ax
+            A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
+            not provided, use current axes or create a new one.  Optional.
+        cbar_kw
+            A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
+        cbarlabel
+            The label for the colorbar.  Optional.
+        **kwargs
+            All other arguments are forwarded to `imshow`.
+        """
+
+        mask =  np.triu(np.ones_like(data, dtype=np.bool),k=1)
+        data = np.ma.array(data, mask=mask)
+        if not ax:
+            ax = plt.gca()
+
+
+        # Plot the heatmap
+        im = ax.imshow(data, **kwargs)     #vmin, vmax
+        ax.set_title(title, fontsize=18)
+        # Create colorbar
+        cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
+        cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom", fontsize=18)
+
+
+
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(data.shape[1]))
+        ax.set_yticks(np.arange(data.shape[0]))
+        # ... and label them with the respective list entries.
+        ax.set_xticklabels(col_labels, fontsize=14)
+        ax.set_yticklabels(row_labels, fontsize=14)
+
+        # Let the horizontal axes labeling appear on top.
+        ax.tick_params(top=False, bottom=True,
+                    labeltop=False, labelbottom=True)
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                rotation_mode="anchor")
+
+        # Turn spines off and create white grid.
+        for edge, spine in ax.spines.items():
+            spine.set_visible(False)
+
+        ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="w", linestyle='-', linewidth=2)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        # boxes = []
+        for i in range(10):
+            ax.add_patch(patches.Rectangle((i-0.46,i-0.46),0.92,0.92,linewidth=2,edgecolor='red',facecolor='none'))
+        # Add the patch to the Axes
+
+        return im, cbar
+
+    def dict2mat(dict,alphabet):
+        mat = np.zeros((20,20))
+        for iI in range(20):
+            for iJ in range(20):
+                mat[iI,iJ] = dict[alphabet[iI]+alphabet[iJ]]
+        return(mat)        
+        
+    def exp_m_t(t,rate_mat,alphabet):
+        probs = {}
+        exp_mat = expm(t*rate_mat.to_numpy())
+        for first_aa in alphabet:
+            entries = [list(rate_mat.columns).index(first_aa + second_aa) for second_aa in alphabet]
+            probs[first_aa] = exp_mat[entries, :][:,entries]
+        return(probs)
+
+    def transition_prob(rate_mat):
+        new_mat = rate_mat.copy()
+        for state in rate_mat.columns:
+            new_mat.loc[state] = new_mat.loc[state]/(-new_mat.loc[state,state])
+        return(new_mat)
+        
+    def off_diagonal(rate_mat,alphabet):
+        probs = {}
+        new_mat = rate_mat.copy()
+        for state in rate_mat.columns:
+            new_mat.loc[state] = new_mat.loc[state]/(-new_mat.loc[state,state])
+        for first_aa in alphabet:
+            entries = [list(rate_mat.columns).index(first_aa + second_aa) for second_aa in alphabet]
+            probs[first_aa] = new_mat.to_numpy()[entries, :][:,entries]
+        return(probs)    
+
+    def sort_by_val(dictionary,reverse=True):
+        return({k: v for k, v in sorted(dictionary.items(), key=lambda item: item[1],reverse=reverse)})
+
+    def sort_by_val_p(dictionary,reverse=True):
+        total = np.sum(list(dictionary.values()))
+        return({k: v/total for k, v in sorted(dictionary.items(), key=lambda item: item[1],reverse=reverse)})  
+
+    def select_by_val(dict,parent,threshold):
+        return([[np.round(dict[child],3),parent,child] for child in dict.keys() if np.abs(dict[child])>= threshold])        
+
+    by_hydropathy = ['I','V','L','F','C','M','A','G','T','S','W','Y','P','H','N','Q','D','E','K','R']
+    by_polarity = ['I','V','L','F','M','A','W','P','C','G','T','S','Y','N','Q','H','D','E','K','R']
+
+    rate_matrices_dict = learn_coevolution_model_on_pfam15k()
+
+    Q1_contact_x_Q1_contact__1_rates_path = rate_matrices_dict["cherry_contact_squared_path"]
+    Q2_mask__1_rates_path = rate_matrices_dict["cherry_2_path"]
+    nomaskQ_path = rate_matrices_dict["cherry_2_no_mask_path"]
+
+    productQ = pd.read_csv(Q1_contact_x_Q1_contact__1_rates_path,sep='\t',keep_default_na=False)
+    maskQ =  pd.read_csv(Q2_mask__1_rates_path,sep='\t',keep_default_na=False)
+    nomaskQ = pd.read_csv(nomaskQ_path,sep='\t',keep_default_na=False)
+
+    productQ = productQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
+    maskQ = maskQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
+    nomaskQ = nomaskQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
+
+    val, vec = la.eig(np.transpose(productQ.to_numpy()))
+    stationary_product_dict = dict(zip(productQ.columns.to_numpy(),np.round(vec.real[:,np.argmax(val.real)]/np.sum(vec.real[:,np.argmax(val.real)]),4)))
+
+    val, vec = la.eig(np.transpose(nomaskQ.to_numpy()))
+    stationary_nomask_dict = dict(zip(nomaskQ.columns.to_numpy(),np.round(vec[:,np.argmax(val)]/np.sum(vec[:,np.argmax(val)]),4)))
+
+    val, vec = la.eig(np.transpose(maskQ.to_numpy()))
+    stationary_mask_dict = dict(zip(maskQ.columns.to_numpy(),np.round(vec[:,np.argmax(val)]/np.sum(vec[:,np.argmax(val)]),4)))
+
+    vmin_val = np.min((np.min(100*dict2mat(stationary_product_dict, by_hydropathy)),np.min(100*dict2mat(stationary_nomask_dict, by_hydropathy))))
+    vmax_val =np.max((np.max(100*dict2mat(stationary_product_dict, by_hydropathy)),np.max(100*dict2mat(stationary_nomask_dict, by_hydropathy))))
+
+    # plt.rcParams.update({'font.size': 11})
+    plotHeatmap(
+        100*dict2mat(stationary_product_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site Stationary Distribution under the Prouduct Model",figsize=(10,10),vmin=vmin_val,vmax=vmax_val,
+        plot_file=os.path.join(output_image_dir, "stationary_product")
+    )
+    plotHeatmap(
+        100*dict2mat(stationary_nomask_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site Stationary Distribution under the noMask Model",figsize=(10,10),vmin=vmin_val,vmax=vmax_val,
+        plot_file=os.path.join(output_image_dir, "stationary_nomask")
+    )
+    plotHeatmap(
+        dict2mat(stationary_nomask_dict, by_hydropathy)/dict2mat(stationary_product_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="noMask model stationary distribution / product model stationary distribution ",figsize=(10,10),vmin=-0.5,vmax=2.5,font_color='black', cmap=plt.get_cmap('bwr'),
+        plot_file=os.path.join(output_image_dir, "stationary_ratio")
+    )
+
+
+    # Diagonal entries
+    diagonal_product = {}
+    for state in productQ.columns:
+        diagonal_product[state] = np.round(-productQ[state][state],2)
+        
+    diagonal_nomask = {}
+    for state in nomaskQ.columns:
+        diagonal_nomask[state] = np.round(-nomaskQ[state][state],2)
+
+    diagonal_mask = {}    
+    for state in maskQ.columns:
+        diagonal_mask[state] = np.round(-maskQ[state][state],2)
+
+    # plt.rcParams.update({'font.size': 11})
+    plotHeatmap(
+        dict2mat(diagonal_product,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site mutation rates in the Product Model",figsize=(10,10), vmin=0.27, vmax=2.56,
+        plot_file=os.path.join(output_image_dir, "diagonal_product")
+    )
+    plotHeatmap(
+        dict2mat(diagonal_nomask,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site mutation rates in the noMask Model",figsize=(10,10), vmin=0.27, vmax=2.56,
+        plot_file=os.path.join(output_image_dir, "diagonal_nomask")
+    )
+    plotHeatmap(
+        dict2mat(diagonal_nomask,by_hydropathy)/dict2mat(diagonal_product,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="noMask model diagonal / product model diagonal",figsize=(10,10),vmin=0.23,vmax=1.77,font_color='black', cmap=plt.get_cmap('bwr'),
+        plot_file=os.path.join(output_image_dir, "diagonal_ratio")
+    )
 
 
 @caching.cached()
@@ -1554,6 +1859,7 @@ def fig_site_rates_vs_number_of_contacts(
     num_processes: int = 32,
     angstrom_cutoff: float = 8.0,
     minimum_distance_for_nontrivial_contact: int = 7,
+    fontsize: int = 14,
 ) -> Dict:
     """
     Returns a dictionary with the learned rate matrices.
@@ -1613,37 +1919,70 @@ def fig_site_rates_vs_number_of_contacts(
         minimum_distance_for_nontrivial_contact=minimum_distance_for_nontrivial_contact,  # noqa
     )
 
+    # num_contacts_list = list(range(1, 21, 1))
+    # num_contacts_flattened = sum([len(site_rates_by_num_nontrivial_contacts[x]) * [x] for x in num_contacts_list], [])
+    # site_rates_flattened = sum([site_rates_by_num_nontrivial_contacts[x] for x in num_contacts_list], [])
+    
+    # df = pd.DataFrame(
+    #     {
+    #         "Number of non-trivial contacts": num_contacts_flattened,
+    #         "Site rate": site_rates_flattened,
+    #     }
+    # )
+
+    # sns.violinplot(
+    #     x="Number of non-trivial contacts",
+    #     y="Site rate",
+    #     data=df,
+    #     inner=None,
+    # )
+
     import matplotlib.pyplot as plt
 
-    xs = sorted(site_rates_by_num_nontrivial_contacts.keys())
+    fig, ax = plt.subplots()
+    xs = list(range(0, 19, 1))
+    x_ticks = list(range(0, 19, 2))
     means = []
     medians = []
+    upper_qt = []
+    lower_qt = []
     number_of_sites = []
     for x in xs:
         means.append(np.mean(site_rates_by_num_nontrivial_contacts[x]))
         medians.append(np.median(site_rates_by_num_nontrivial_contacts[x]))
+        upper_qt.append(np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.75))
+        lower_qt.append(np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.25))
         number_of_sites.append(len(site_rates_by_num_nontrivial_contacts[x]))
-    plt.title("Site rate as a function of the number of non-trivial contacts")
-    plt.xlabel("number of non-trivial contacts")
-    plt.ylabel("site rate")
-    plt.plot(xs, means, label="mean site rate")
-    plt.plot(xs, medians, label="median  site rate")
-    plt.legend()
+    if TITLES:
+        plt.title("Site rate as a function of the number of non-trivial contacts")
+    plt.xlabel("Number of non-trivial contacts", fontsize=fontsize)
+    plt.ylabel("Site rate", fontsize=fontsize)
+    plt.xticks(x_ticks, fontsize=fontsize)
+    plt.yticks(fontsize=fontsize)
+    ax.plot(xs, means, label="Mean site rate", color='r')
+    # plt.plot(xs, medians, label="median site rate")
+    ax.fill_between(xs, lower_qt, upper_qt, color='b', alpha=.2, label='Interquartile range')
+    plt.grid()
+    plt.legend(fontsize=fontsize)
+
     plt.savefig(
         f"{output_image_dir}/site_rate_vs_num_contacts",
         dpi=300,
     )
     plt.close()
 
-    plt.title("Number of sites with a given number of non-trivial contacts")
-    plt.xlabel("number of non-trivial contacts")
-    plt.ylabel("number of sites")
-    plt.plot(xs, number_of_sites)
-    plt.savefig(
-        f"{output_image_dir}/num_contacts_distribution",
-        dpi=300,
-    )
-    plt.close()
+    print(f"number_of_sites = {number_of_sites}")
+
+    if TITLES:
+        plt.title("Number of sites with a given number of non-trivial contacts")
+    # plt.xlabel("number of non-trivial contacts")
+    # plt.ylabel("number of sites")
+    # plt.plot(xs, number_of_sites)
+    # plt.savefig(
+    #     f"{output_image_dir}/num_contacts_distribution",
+    #     dpi=300,
+    # )
+    # plt.close()
 
 
 # Comment in paragraph.

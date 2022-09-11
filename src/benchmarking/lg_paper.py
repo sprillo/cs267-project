@@ -40,6 +40,9 @@ def init_logger():
     logger.addHandler(consoleHandler)
 
 
+from src.global_vars import TITLES
+
+
 init_logger()
 logger = logging.getLogger(__name__)
 
@@ -380,6 +383,7 @@ def reproduce_lg_paper_fig_4(
     num_bootstraps: int = 0,
     use_colors: bool = True,
     output_image_dir: str = "./",
+    fontsize: int = 14,
 ):
     """
     Reproduce Fig. 4 of the LG paper, extending it with the desired models.
@@ -494,26 +498,30 @@ def reproduce_lg_paper_fig_4(
         height=y,
         color=colors,
     )
-    plt.xticks(rotation=0)
+    plt.xticks(rotation=0, fontsize=fontsize)
     ax = plt.gca()
     ax.yaxis.grid()
     if use_colors:
         plt.legend(
             handles=[
                 mpatches.Patch(color="blue", label="Reproduced"),
-                mpatches.Patch(color="red", label="Cherry Method"),
-            ]
+                mpatches.Patch(color="red", label="CherryML"),
+            ],
+            fontsize=fontsize,
         )
     plt.tight_layout()
-    plt.title("Results on Pfam data from LG paper")
+    if TITLES:
+        plt.title("Results on Pfam data from LG paper", font)
     if baseline_rate_estimator_name is not None:
         plt.ylabel(
             "Average per-site log-likelihood\nimprovement over "
-            f"{baseline_rate_estimator_name[1]}, in nats"
+            f"{baseline_rate_estimator_name[1]}, in nats",
+            fontsize=fontsize,
         )
     else:
-        plt.ylabel("Average per-site log-likelihood, in nats")
-    plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight")
+        plt.ylabel("Average per-site log-likelihood, in nats", fontsize=fontsize)
+    plt.yticks(fontsize=fontsize)
+    plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight", dpi=300)
     plt.close()
 
     if num_bootstraps:
