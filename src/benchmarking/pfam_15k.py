@@ -14,6 +14,7 @@ import tqdm
 from src import caching
 from src.caching import secure_parallel_output
 from src.evaluation import create_maximal_matching_contact_map
+from src.global_vars import TITLES
 from src.io import read_msa, write_contact_map, write_msa
 from src.markov_chain import (
     get_lg_path,
@@ -26,9 +27,6 @@ from src.simulation import simulate_msas
 from src.utils import get_amino_acids, get_process_args
 
 from ._contact_generation.ContactMatrix import ContactMatrix
-
-
-from src.global_vars import TITLES
 
 
 def _init_logger():

@@ -42,7 +42,6 @@ def init_logger():
 
 from src.global_vars import TITLES
 
-
 init_logger()
 logger = logging.getLogger(__name__)
 
@@ -519,9 +518,13 @@ def reproduce_lg_paper_fig_4(
             fontsize=fontsize,
         )
     else:
-        plt.ylabel("Average per-site log-likelihood, in nats", fontsize=fontsize)
+        plt.ylabel(
+            "Average per-site log-likelihood, in nats", fontsize=fontsize
+        )
     plt.yticks(fontsize=fontsize)
-    plt.savefig(f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight", dpi=300)
+    plt.savefig(
+        f"{output_image_dir}/lg_paper_figure.jpg", bbox_inches="tight", dpi=300
+    )
     plt.close()
 
     if num_bootstraps:

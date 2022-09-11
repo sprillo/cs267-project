@@ -158,9 +158,14 @@ def plot_rate_matrix_predictions(
 
     if TITLES:
         plt.title("True vs predicted rate matrix entries")
-    plt.xlabel("True entry $Q_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$", fontsize=18)
-    plt.ylabel("Predicted entry $\hat{Q}_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$", fontsize=18)  # noqa
-    plt.axis('scaled')
+    plt.xlabel(
+        "True entry $Q_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$", fontsize=18
+    )
+    plt.ylabel(
+        "Predicted entry $\hat{Q}_{" + f"{mask_matrix.shape[0]}" + "}[i, j]$",
+        fontsize=18,
+    )  # noqa
+    plt.axis("scaled")
 
     min_y_data = min(ys_true + ys_pred)
     min_y = -7

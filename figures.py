@@ -53,6 +53,7 @@ from src.evaluation import (
     plot_rate_matrix_predictions,
     relative_errors,
 )
+from src.global_vars import TITLES
 from src.io import (
     read_contact_map,
     read_log_likelihood,
@@ -80,9 +81,6 @@ from src.markov_chain import (
 from src.phylogeny_estimation import fast_tree, gt_tree_estimator, phyml
 from src.types import PhylogenyEstimatorType
 from src.utils import get_families, get_process_args
-
-
-from src.global_vars import TITLES
 
 
 def _init_logger():
@@ -213,9 +211,7 @@ def fig_single_site_cherry(
     caching.set_cache_dir("_cache_benchmarking_em")
     caching.set_hash_len(64)
 
-    output_image_dir = (
-        f"images/fig_single_site_cherry"
-    )
+    output_image_dir = f"images/fig_single_site_cherry"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
@@ -315,11 +311,9 @@ def fig_single_site_cherry(
             learned_rate_matrix_path
         ).to_numpy()
         lg = read_rate_matrix(get_lg_path()).to_numpy()
-        learned_rate_matrix_path = (
-            lg_end_to_end_with_cherryml_optimizer_res[
-                "learned_rate_matrix_path"
-            ]
-        )
+        learned_rate_matrix_path = lg_end_to_end_with_cherryml_optimizer_res[
+            "learned_rate_matrix_path"
+        ]
         learned_rate_matrix = read_rate_matrix(learned_rate_matrix_path)
 
         learned_rate_matrix = learned_rate_matrix.to_numpy()
@@ -349,8 +343,7 @@ def fig_single_site_cherry(
         {
             "Number of families": sum(
                 [
-                    [num_families_train_list[i]]
-                    * len(yss_relative_errors[i])
+                    [num_families_train_list[i]] * len(yss_relative_errors[i])
                     for i in range(len(yss_relative_errors))
                 ],
                 [],
@@ -533,19 +526,21 @@ def fig_single_site_em(
 def fig_computational_and_stat_eff_cherry_vs_em():
     fontsize = 14
 
-    output_image_dir = (
-        "images/fig_computational_and_stat_eff_cherry_vs_em"
-    )
+    output_image_dir = "images/fig_computational_and_stat_eff_cherry_vs_em"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-    num_families_cherry, cherry_errors_nonpct, cherry_times = fig_single_site_cherry()
+    (
+        num_families_cherry,
+        cherry_errors_nonpct,
+        cherry_times,
+    ) = fig_single_site_cherry()
     cherry_times = [int(x) for x in cherry_times]
     cherry_errors = [float("%.1f" % (100 * x)) for x in cherry_errors_nonpct]
     num_families_em, em_errors_nonpct, em_times = fig_single_site_em()
     em_times = [int(x) for x in em_times]
     em_errors = [float("%.1f" % (100 * x)) for x in em_errors_nonpct]
-    assert(num_families_cherry == num_families_em)
+    assert num_families_cherry == num_families_em
 
     print(f"cherry_errors = {cherry_errors}")
     print(f"cherry_times = {cherry_times}")
@@ -554,43 +549,42 @@ def fig_computational_and_stat_eff_cherry_vs_em():
 
     num_families = num_families_cherry
     indices = [i for i in range(len(num_families))]
-    plt.figure(dpi = 300)
-    plt.plot(indices, cherry_errors, 'o-', label = 'CherryML')
-    plt.plot(indices, em_errors, 'o-', label = 'EM')
+    plt.figure(dpi=300)
+    plt.plot(indices, cherry_errors, "o-", label="CherryML")
+    plt.plot(indices, em_errors, "o-", label="EM")
     plt.ylim((0.5, 200))
     plt.xticks(indices, num_families, fontsize=fontsize)
-    plt.yscale('log', base=10)
+    plt.yscale("log", base=10)
     plt.yticks(fontsize=fontsize)
     plt.grid()
-    plt.legend(loc = 'upper left', fontsize=fontsize)
-    plt.xlabel('Number of families', fontsize=fontsize)
-    plt.ylabel('Median relative error (%)', fontsize=fontsize)
-    for a, b in zip(indices, em_errors): 
-        plt.text(a - 0.35, b/1.5, str(b) + '%', fontsize=fontsize)
-    for a, b in zip(indices, cherry_errors): 
-        plt.text(a - 0.3, 1.2*b, str(b) + '%', fontsize=fontsize)
+    plt.legend(loc="upper left", fontsize=fontsize)
+    plt.xlabel("Number of families", fontsize=fontsize)
+    plt.ylabel("Median relative error (%)", fontsize=fontsize)
+    for a, b in zip(indices, em_errors):
+        plt.text(a - 0.35, b / 1.5, str(b) + "%", fontsize=fontsize)
+    for a, b in zip(indices, cherry_errors):
+        plt.text(a - 0.3, 1.2 * b, str(b) + "%", fontsize=fontsize)
     plt.tight_layout()
     plt.savefig(os.path.join(output_image_dir, "errors"))
     plt.close()
 
-
     num_families = num_families_cherry
     indices = [i for i in range(len(num_families))]
-    plt.figure(dpi = 300)
-    plt.plot(indices, cherry_times, 'o-', label = 'CherryML')
-    plt.plot(indices, em_times, 'o-', label = 'EM')
+    plt.figure(dpi=300)
+    plt.plot(indices, cherry_times, "o-", label="CherryML")
+    plt.plot(indices, em_times, "o-", label="EM")
     plt.ylim((5, 5e5))
     plt.xticks(indices, num_families, fontsize=fontsize)
-    plt.yscale('log', base = 10)
+    plt.yscale("log", base=10)
     plt.yticks(fontsize=fontsize)
     plt.grid()
-    plt.legend(loc='upper left', fontsize=fontsize)
-    plt.xlabel('Number of families', fontsize=fontsize)
-    plt.ylabel('Runtime (s)', fontsize=fontsize)
-    for a, b in zip(indices, em_times): 
-        plt.text(a - 0.35, b*1.5, str(b) + 's', fontsize=fontsize)
-    for a, b in zip(indices, cherry_times): 
-        plt.text(a - 0.3, b*1.5, str(b) + 's', fontsize=fontsize)
+    plt.legend(loc="upper left", fontsize=fontsize)
+    plt.xlabel("Number of families", fontsize=fontsize)
+    plt.ylabel("Runtime (s)", fontsize=fontsize)
+    for a, b in zip(indices, em_times):
+        plt.text(a - 0.35, b * 1.5, str(b) + "s", fontsize=fontsize)
+    for a, b in zip(indices, cherry_times):
+        plt.text(a - 0.3, b * 1.5, str(b) + "s", fontsize=fontsize)
     plt.tight_layout()
     plt.savefig(os.path.join(output_image_dir, "times"))
     plt.close()
@@ -1550,7 +1544,8 @@ def fig_pair_site_quantization_error(
             if TITLES:
                 plt.title(
                     "True vs predicted rate matrix entries\nmax quantization error "
-                    "= %.1f%% (%i quantization points)" % (q_errors[i], q_points[i])
+                    "= %.1f%% (%i quantization points)"
+                    % (q_errors[i], q_points[i])
                 )
             plt.tight_layout()
             plt.savefig(
@@ -1596,49 +1591,78 @@ def fig_pair_site_quantization_error(
 
 # Fig. 2c, 2d
 def fig_coevolution_vs_indep():
-    output_image_dir = (
-        f"images/fig_coevolution_vs_indep"
-    )
+    output_image_dir = f"images/fig_coevolution_vs_indep"
     if not os.path.exists(output_image_dir):
         os.makedirs(output_image_dir)
 
-
+    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
-    import matplotlib.pyplot as plt
-    from scipy import stats
-    from scipy.linalg import expm 
     from numpy import linalg as la
+    from scipy import stats
+    from scipy.linalg import expm
 
-    def plotHeatmap(inputMat,xlabel,xticklabels,ylabel,yticklabels,title="",plot_file="",font_color = 'w', figsize=(8,8),round=2, **kwargs):
+    def plotHeatmap(
+        inputMat,
+        xlabel,
+        xticklabels,
+        ylabel,
+        yticklabels,
+        title="",
+        plot_file="",
+        font_color="w",
+        figsize=(8, 8),
+        round=2,
+        **kwargs,
+    ):
 
         fig, ax = plt.subplots(figsize=figsize)
-        im = ax.imshow(inputMat,  **kwargs)
+        im = ax.imshow(inputMat, **kwargs)
         # show ticks and label them
         ax.set_xticks(np.arange(len(xticklabels)))
         ax.set_yticks(np.arange(len(yticklabels)))
         ax.set_xticklabels(xticklabels, fontsize=14)
         ax.set_yticklabels(yticklabels, fontsize=14)
-        ax.set_xlabel(xlabel,fontsize=18)
-        ax.set_ylabel(ylabel,fontsize=18)
+        ax.set_xlabel(xlabel, fontsize=18)
+        ax.set_ylabel(ylabel, fontsize=18)
         # rotate tick labels
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-                rotation_mode="anchor")
+        plt.setp(
+            ax.get_xticklabels(),
+            rotation=45,
+            ha="right",
+            rotation_mode="anchor",
+        )
         # add text annotation to each cell
         for i in range(len(xticklabels)):
             for j in range(len(yticklabels)):
-                text = ax.text(i, j, np.round(inputMat[j, i],round), ha="center", va="center", color=font_color)
+                text = ax.text(
+                    i,
+                    j,
+                    np.round(inputMat[j, i], round),
+                    ha="center",
+                    va="center",
+                    color=font_color,
+                )
                 # text = ax.text(i, j, inputMat[j, i], ha="center", va="center", color="w")
-                
+
         # title
         if TITLES:
             ax.set_title(title, fontsize=14)
         fig.tight_layout()
-        if(len(plot_file)>0): plt.savefig(plot_file, dpi=300)
+        if len(plot_file) > 0:
+            plt.savefig(plot_file, dpi=300)
         plt.show()
 
-    def heatmap(data, row_labels, col_labels, title="", ax=None,
-                cbar_kw={}, cbarlabel="", **kwargs):
+    def heatmap(
+        data,
+        row_labels,
+        col_labels,
+        title="",
+        ax=None,
+        cbar_kw={},
+        cbarlabel="",
+        **kwargs,
+    ):
         """
         Create a heatmap from a numpy array and two lists of labels.
 
@@ -1661,20 +1685,17 @@ def fig_coevolution_vs_indep():
             All other arguments are forwarded to `imshow`.
         """
 
-        mask =  np.triu(np.ones_like(data, dtype=np.bool),k=1)
+        mask = np.triu(np.ones_like(data, dtype=np.bool), k=1)
         data = np.ma.array(data, mask=mask)
         if not ax:
             ax = plt.gca()
 
-
         # Plot the heatmap
-        im = ax.imshow(data, **kwargs)     #vmin, vmax
+        im = ax.imshow(data, **kwargs)  # vmin, vmax
         ax.set_title(title, fontsize=18)
         # Create colorbar
         cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
         cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom", fontsize=18)
-
-
 
         # We want to show all ticks...
         ax.set_xticks(np.arange(data.shape[1]))
@@ -1684,139 +1705,309 @@ def fig_coevolution_vs_indep():
         ax.set_yticklabels(row_labels, fontsize=14)
 
         # Let the horizontal axes labeling appear on top.
-        ax.tick_params(top=False, bottom=True,
-                    labeltop=False, labelbottom=True)
+        ax.tick_params(top=False, bottom=True, labeltop=False, labelbottom=True)
 
         # Rotate the tick labels and set their alignment.
-        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
-                rotation_mode="anchor")
+        plt.setp(
+            ax.get_xticklabels(),
+            rotation=45,
+            ha="right",
+            rotation_mode="anchor",
+        )
 
         # Turn spines off and create white grid.
         for edge, spine in ax.spines.items():
             spine.set_visible(False)
 
-        ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-        ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-        ax.grid(which="minor", color="w", linestyle='-', linewidth=2)
+        ax.set_xticks(np.arange(data.shape[1] + 1) - 0.5, minor=True)
+        ax.set_yticks(np.arange(data.shape[0] + 1) - 0.5, minor=True)
+        ax.grid(which="minor", color="w", linestyle="-", linewidth=2)
         ax.tick_params(which="minor", bottom=False, left=False)
 
         # boxes = []
         for i in range(10):
-            ax.add_patch(patches.Rectangle((i-0.46,i-0.46),0.92,0.92,linewidth=2,edgecolor='red',facecolor='none'))
+            ax.add_patch(
+                patches.Rectangle(
+                    (i - 0.46, i - 0.46),
+                    0.92,
+                    0.92,
+                    linewidth=2,
+                    edgecolor="red",
+                    facecolor="none",
+                )
+            )
         # Add the patch to the Axes
 
         return im, cbar
 
-    def dict2mat(dict,alphabet):
-        mat = np.zeros((20,20))
+    def dict2mat(dict, alphabet):
+        mat = np.zeros((20, 20))
         for iI in range(20):
             for iJ in range(20):
-                mat[iI,iJ] = dict[alphabet[iI]+alphabet[iJ]]
-        return(mat)        
-        
-    def exp_m_t(t,rate_mat,alphabet):
+                mat[iI, iJ] = dict[alphabet[iI] + alphabet[iJ]]
+        return mat
+
+    def exp_m_t(t, rate_mat, alphabet):
         probs = {}
-        exp_mat = expm(t*rate_mat.to_numpy())
+        exp_mat = expm(t * rate_mat.to_numpy())
         for first_aa in alphabet:
-            entries = [list(rate_mat.columns).index(first_aa + second_aa) for second_aa in alphabet]
-            probs[first_aa] = exp_mat[entries, :][:,entries]
-        return(probs)
+            entries = [
+                list(rate_mat.columns).index(first_aa + second_aa)
+                for second_aa in alphabet
+            ]
+            probs[first_aa] = exp_mat[entries, :][:, entries]
+        return probs
 
     def transition_prob(rate_mat):
         new_mat = rate_mat.copy()
         for state in rate_mat.columns:
-            new_mat.loc[state] = new_mat.loc[state]/(-new_mat.loc[state,state])
-        return(new_mat)
-        
-    def off_diagonal(rate_mat,alphabet):
+            new_mat.loc[state] = new_mat.loc[state] / (
+                -new_mat.loc[state, state]
+            )
+        return new_mat
+
+    def off_diagonal(rate_mat, alphabet):
         probs = {}
         new_mat = rate_mat.copy()
         for state in rate_mat.columns:
-            new_mat.loc[state] = new_mat.loc[state]/(-new_mat.loc[state,state])
+            new_mat.loc[state] = new_mat.loc[state] / (
+                -new_mat.loc[state, state]
+            )
         for first_aa in alphabet:
-            entries = [list(rate_mat.columns).index(first_aa + second_aa) for second_aa in alphabet]
-            probs[first_aa] = new_mat.to_numpy()[entries, :][:,entries]
-        return(probs)    
+            entries = [
+                list(rate_mat.columns).index(first_aa + second_aa)
+                for second_aa in alphabet
+            ]
+            probs[first_aa] = new_mat.to_numpy()[entries, :][:, entries]
+        return probs
 
-    def sort_by_val(dictionary,reverse=True):
-        return({k: v for k, v in sorted(dictionary.items(), key=lambda item: item[1],reverse=reverse)})
+    def sort_by_val(dictionary, reverse=True):
+        return {
+            k: v
+            for k, v in sorted(
+                dictionary.items(), key=lambda item: item[1], reverse=reverse
+            )
+        }
 
-    def sort_by_val_p(dictionary,reverse=True):
+    def sort_by_val_p(dictionary, reverse=True):
         total = np.sum(list(dictionary.values()))
-        return({k: v/total for k, v in sorted(dictionary.items(), key=lambda item: item[1],reverse=reverse)})  
+        return {
+            k: v / total
+            for k, v in sorted(
+                dictionary.items(), key=lambda item: item[1], reverse=reverse
+            )
+        }
 
-    def select_by_val(dict,parent,threshold):
-        return([[np.round(dict[child],3),parent,child] for child in dict.keys() if np.abs(dict[child])>= threshold])        
+    def select_by_val(dict, parent, threshold):
+        return [
+            [np.round(dict[child], 3), parent, child]
+            for child in dict.keys()
+            if np.abs(dict[child]) >= threshold
+        ]
 
-    by_hydropathy = ['I','V','L','F','C','M','A','G','T','S','W','Y','P','H','N','Q','D','E','K','R']
-    by_polarity = ['I','V','L','F','M','A','W','P','C','G','T','S','Y','N','Q','H','D','E','K','R']
+    by_hydropathy = [
+        "I",
+        "V",
+        "L",
+        "F",
+        "C",
+        "M",
+        "A",
+        "G",
+        "T",
+        "S",
+        "W",
+        "Y",
+        "P",
+        "H",
+        "N",
+        "Q",
+        "D",
+        "E",
+        "K",
+        "R",
+    ]
+    by_polarity = [
+        "I",
+        "V",
+        "L",
+        "F",
+        "M",
+        "A",
+        "W",
+        "P",
+        "C",
+        "G",
+        "T",
+        "S",
+        "Y",
+        "N",
+        "Q",
+        "H",
+        "D",
+        "E",
+        "K",
+        "R",
+    ]
 
     rate_matrices_dict = learn_coevolution_model_on_pfam15k()
 
-    Q1_contact_x_Q1_contact__1_rates_path = rate_matrices_dict["cherry_contact_squared_path"]
+    Q1_contact_x_Q1_contact__1_rates_path = rate_matrices_dict[
+        "cherry_contact_squared_path"
+    ]
     Q2_mask__1_rates_path = rate_matrices_dict["cherry_2_path"]
     nomaskQ_path = rate_matrices_dict["cherry_2_no_mask_path"]
 
-    productQ = pd.read_csv(Q1_contact_x_Q1_contact__1_rates_path,sep='\t',keep_default_na=False)
-    maskQ =  pd.read_csv(Q2_mask__1_rates_path,sep='\t',keep_default_na=False)
-    nomaskQ = pd.read_csv(nomaskQ_path,sep='\t',keep_default_na=False)
+    productQ = pd.read_csv(
+        Q1_contact_x_Q1_contact__1_rates_path, sep="\t", keep_default_na=False
+    )
+    maskQ = pd.read_csv(Q2_mask__1_rates_path, sep="\t", keep_default_na=False)
+    nomaskQ = pd.read_csv(nomaskQ_path, sep="\t", keep_default_na=False)
 
-    productQ = productQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
-    maskQ = maskQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
-    nomaskQ = nomaskQ.rename(columns={"Unnamed: 0":"state"}).set_index('state')
+    productQ = productQ.rename(columns={"Unnamed: 0": "state"}).set_index(
+        "state"
+    )
+    maskQ = maskQ.rename(columns={"Unnamed: 0": "state"}).set_index("state")
+    nomaskQ = nomaskQ.rename(columns={"Unnamed: 0": "state"}).set_index("state")
 
     val, vec = la.eig(np.transpose(productQ.to_numpy()))
-    stationary_product_dict = dict(zip(productQ.columns.to_numpy(),np.round(vec.real[:,np.argmax(val.real)]/np.sum(vec.real[:,np.argmax(val.real)]),4)))
+    stationary_product_dict = dict(
+        zip(
+            productQ.columns.to_numpy(),
+            np.round(
+                vec.real[:, np.argmax(val.real)]
+                / np.sum(vec.real[:, np.argmax(val.real)]),
+                4,
+            ),
+        )
+    )
 
     val, vec = la.eig(np.transpose(nomaskQ.to_numpy()))
-    stationary_nomask_dict = dict(zip(nomaskQ.columns.to_numpy(),np.round(vec[:,np.argmax(val)]/np.sum(vec[:,np.argmax(val)]),4)))
+    stationary_nomask_dict = dict(
+        zip(
+            nomaskQ.columns.to_numpy(),
+            np.round(
+                vec[:, np.argmax(val)] / np.sum(vec[:, np.argmax(val)]), 4
+            ),
+        )
+    )
 
     val, vec = la.eig(np.transpose(maskQ.to_numpy()))
-    stationary_mask_dict = dict(zip(maskQ.columns.to_numpy(),np.round(vec[:,np.argmax(val)]/np.sum(vec[:,np.argmax(val)]),4)))
+    stationary_mask_dict = dict(
+        zip(
+            maskQ.columns.to_numpy(),
+            np.round(
+                vec[:, np.argmax(val)] / np.sum(vec[:, np.argmax(val)]), 4
+            ),
+        )
+    )
 
-    vmin_val = np.min((np.min(100*dict2mat(stationary_product_dict, by_hydropathy)),np.min(100*dict2mat(stationary_nomask_dict, by_hydropathy))))
-    vmax_val =np.max((np.max(100*dict2mat(stationary_product_dict, by_hydropathy)),np.max(100*dict2mat(stationary_nomask_dict, by_hydropathy))))
+    vmin_val = np.min(
+        (
+            np.min(100 * dict2mat(stationary_product_dict, by_hydropathy)),
+            np.min(100 * dict2mat(stationary_nomask_dict, by_hydropathy)),
+        )
+    )
+    vmax_val = np.max(
+        (
+            np.max(100 * dict2mat(stationary_product_dict, by_hydropathy)),
+            np.max(100 * dict2mat(stationary_nomask_dict, by_hydropathy)),
+        )
+    )
 
     # plt.rcParams.update({'font.size': 11})
     plotHeatmap(
-        100*dict2mat(stationary_product_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site Stationary Distribution under the Prouduct Model",figsize=(10,10),vmin=vmin_val,vmax=vmax_val,
-        plot_file=os.path.join(output_image_dir, "stationary_product")
+        100 * dict2mat(stationary_product_dict, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="2-site Stationary Distribution under the Prouduct Model",
+        figsize=(10, 10),
+        vmin=vmin_val,
+        vmax=vmax_val,
+        plot_file=os.path.join(output_image_dir, "stationary_product"),
     )
     plotHeatmap(
-        100*dict2mat(stationary_nomask_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site Stationary Distribution under the noMask Model",figsize=(10,10),vmin=vmin_val,vmax=vmax_val,
-        plot_file=os.path.join(output_image_dir, "stationary_nomask")
+        100 * dict2mat(stationary_nomask_dict, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="2-site Stationary Distribution under the noMask Model",
+        figsize=(10, 10),
+        vmin=vmin_val,
+        vmax=vmax_val,
+        plot_file=os.path.join(output_image_dir, "stationary_nomask"),
     )
     plotHeatmap(
-        dict2mat(stationary_nomask_dict, by_hydropathy)/dict2mat(stationary_product_dict, by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="noMask model stationary distribution / product model stationary distribution ",figsize=(10,10),vmin=-0.5,vmax=2.5,font_color='black', cmap=plt.get_cmap('bwr'),
-        plot_file=os.path.join(output_image_dir, "stationary_ratio")
+        dict2mat(stationary_nomask_dict, by_hydropathy)
+        / dict2mat(stationary_product_dict, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="noMask model stationary distribution / product model stationary distribution ",
+        figsize=(10, 10),
+        vmin=-0.5,
+        vmax=2.5,
+        font_color="black",
+        cmap=plt.get_cmap("bwr"),
+        plot_file=os.path.join(output_image_dir, "stationary_ratio"),
     )
-
 
     # Diagonal entries
     diagonal_product = {}
     for state in productQ.columns:
-        diagonal_product[state] = np.round(-productQ[state][state],2)
-        
+        diagonal_product[state] = np.round(-productQ[state][state], 2)
+
     diagonal_nomask = {}
     for state in nomaskQ.columns:
-        diagonal_nomask[state] = np.round(-nomaskQ[state][state],2)
+        diagonal_nomask[state] = np.round(-nomaskQ[state][state], 2)
 
-    diagonal_mask = {}    
+    diagonal_mask = {}
     for state in maskQ.columns:
-        diagonal_mask[state] = np.round(-maskQ[state][state],2)
+        diagonal_mask[state] = np.round(-maskQ[state][state], 2)
 
     # plt.rcParams.update({'font.size': 11})
     plotHeatmap(
-        dict2mat(diagonal_product,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site mutation rates in the Product Model",figsize=(10,10), vmin=0.27, vmax=2.56,
-        plot_file=os.path.join(output_image_dir, "diagonal_product")
+        dict2mat(diagonal_product, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="2-site mutation rates in the Product Model",
+        figsize=(10, 10),
+        vmin=0.27,
+        vmax=2.56,
+        plot_file=os.path.join(output_image_dir, "diagonal_product"),
     )
     plotHeatmap(
-        dict2mat(diagonal_nomask,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="2-site mutation rates in the noMask Model",figsize=(10,10), vmin=0.27, vmax=2.56,
-        plot_file=os.path.join(output_image_dir, "diagonal_nomask")
+        dict2mat(diagonal_nomask, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="2-site mutation rates in the noMask Model",
+        figsize=(10, 10),
+        vmin=0.27,
+        vmax=2.56,
+        plot_file=os.path.join(output_image_dir, "diagonal_nomask"),
     )
     plotHeatmap(
-        dict2mat(diagonal_nomask,by_hydropathy)/dict2mat(diagonal_product,by_hydropathy),"Second amino acid",by_hydropathy,"First amino acid",by_hydropathy,title="noMask model diagonal / product model diagonal",figsize=(10,10),vmin=0.23,vmax=1.77,font_color='black', cmap=plt.get_cmap('bwr'),
-        plot_file=os.path.join(output_image_dir, "diagonal_ratio")
+        dict2mat(diagonal_nomask, by_hydropathy)
+        / dict2mat(diagonal_product, by_hydropathy),
+        "Second amino acid",
+        by_hydropathy,
+        "First amino acid",
+        by_hydropathy,
+        title="noMask model diagonal / product model diagonal",
+        figsize=(10, 10),
+        vmin=0.23,
+        vmax=1.77,
+        font_color="black",
+        cmap=plt.get_cmap("bwr"),
+        plot_file=os.path.join(output_image_dir, "diagonal_ratio"),
     )
 
 
@@ -1922,7 +2113,7 @@ def fig_site_rates_vs_number_of_contacts(
     # num_contacts_list = list(range(1, 21, 1))
     # num_contacts_flattened = sum([len(site_rates_by_num_nontrivial_contacts[x]) * [x] for x in num_contacts_list], [])
     # site_rates_flattened = sum([site_rates_by_num_nontrivial_contacts[x] for x in num_contacts_list], [])
-    
+
     # df = pd.DataFrame(
     #     {
     #         "Number of non-trivial contacts": num_contacts_flattened,
@@ -1950,18 +2141,31 @@ def fig_site_rates_vs_number_of_contacts(
     for x in xs:
         means.append(np.mean(site_rates_by_num_nontrivial_contacts[x]))
         medians.append(np.median(site_rates_by_num_nontrivial_contacts[x]))
-        upper_qt.append(np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.75))
-        lower_qt.append(np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.25))
+        upper_qt.append(
+            np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.75)
+        )
+        lower_qt.append(
+            np.quantile(site_rates_by_num_nontrivial_contacts[x], 0.25)
+        )
         number_of_sites.append(len(site_rates_by_num_nontrivial_contacts[x]))
     if TITLES:
-        plt.title("Site rate as a function of the number of non-trivial contacts")
+        plt.title(
+            "Site rate as a function of the number of non-trivial contacts"
+        )
     plt.xlabel("Number of non-trivial contacts", fontsize=fontsize)
     plt.ylabel("Site rate", fontsize=fontsize)
     plt.xticks(x_ticks, fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
-    ax.plot(xs, means, label="Mean site rate", color='r')
+    ax.plot(xs, means, label="Mean site rate", color="r")
     # plt.plot(xs, medians, label="median site rate")
-    ax.fill_between(xs, lower_qt, upper_qt, color='b', alpha=.2, label='Interquartile range')
+    ax.fill_between(
+        xs,
+        lower_qt,
+        upper_qt,
+        color="b",
+        alpha=0.2,
+        label="Interquartile range",
+    )
     plt.grid()
     plt.legend(fontsize=fontsize)
 
@@ -2071,7 +2275,7 @@ def fig_MSA_VI_cotransition(
                     if pct_IV > 0.2 and pct_VI > 0.2:
                         print(
                             f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, "
-                            f"{aa_1}{aa_1}, {aa_2}{aa_2}) ="
+                            f"{aa_1}{aa_1}, {aa_2}{aa_2}) = "
                             "(%.2f, %.2f, %.2f, %.2f)"
                             % (
                                 pct_IV,
