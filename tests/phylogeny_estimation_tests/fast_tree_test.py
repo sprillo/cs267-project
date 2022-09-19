@@ -5,7 +5,7 @@ import unittest
 from ete3 import Tree as TreeETE
 from parameterized import parameterized
 
-from src.phylogeny_estimation import fast_tree
+from cherryml.phylogeny_estimation import fast_tree
 
 
 def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:

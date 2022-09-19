@@ -27,34 +27,34 @@ import pandas as pd
 import seaborn as sns
 import tqdm
 
-import src.utils as utils
-from src import (
+import cherryml.utils as utils
+from cherryml import (
     caching,
     coevolution_end_to_end_with_cherryml_optimizer,
     lg_end_to_end_with_cherryml_optimizer,
     lg_end_to_end_with_em_optimizer,
 )
-from src.benchmarking.lg_paper import (
+from cherryml.benchmarking.lg_paper import (
     get_lg_PfamTestingAlignments_data,
     get_lg_PfamTrainingAlignments_data,
     reproduce_lg_paper_fig_4,
 )
-from src.benchmarking.pfam_15k import compute_contact_maps
-from src.benchmarking.pfam_15k import get_families as get_families_pfam_15k
-from src.benchmarking.pfam_15k import (
+from cherryml.benchmarking.pfam_15k import compute_contact_maps
+from cherryml.benchmarking.pfam_15k import get_families as get_families_pfam_15k
+from cherryml.benchmarking.pfam_15k import (
     get_families_within_cutoff,
     simulate_ground_truth_data_coevolution,
     simulate_ground_truth_data_single_site,
     subsample_pfam_15k_msas,
 )
-from src.evaluation import (
+from cherryml.evaluation import (
     compute_log_likelihoods,
     create_maximal_matching_contact_map,
     plot_rate_matrix_predictions,
     relative_errors,
 )
-from src.global_vars import TITLES
-from src.io import (
+from cherryml.global_vars import TITLES
+from cherryml.io import (
     read_contact_map,
     read_log_likelihood,
     read_mask_matrix,
@@ -66,7 +66,7 @@ from src.io import (
     write_rate_matrix,
     write_sites_subset,
 )
-from src.markov_chain import (
+from cherryml.markov_chain import (
     chain_product,
     compute_mutation_rate,
     compute_stationary_distribution,
@@ -78,9 +78,9 @@ from src.markov_chain import (
     matrix_exponential,
     normalized,
 )
-from src.phylogeny_estimation import fast_tree, gt_tree_estimator, phyml
-from src.types import PhylogenyEstimatorType
-from src.utils import get_families, get_process_args
+from cherryml.phylogeny_estimation import fast_tree, gt_tree_estimator, phyml
+from cherryml.types import PhylogenyEstimatorType
+from cherryml.utils import get_families, get_process_args
 
 
 def _init_logger():

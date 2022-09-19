@@ -7,14 +7,14 @@ import numpy as np
 import pandas as pd
 from parameterized import parameterized
 
-from src.io import (
+from cherryml.io import (
     read_msa,
     read_probability_distribution,
     read_tree,
     write_contact_map,
     write_site_rates,
 )
-from src.simulation import simulate_msas
+from cherryml.simulation import simulate_msas
 from tests.utils import create_synthetic_contact_map
 
 DATA_DIR = "./tests/simulation_tests/test_input_data"

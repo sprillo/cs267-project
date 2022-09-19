@@ -6,16 +6,16 @@ import unittest
 
 import numpy as np
 
-from src.estimation import em_lg
-from src.estimation._em_lg import (
+from cherryml.estimation import em_lg
+from cherryml.estimation._em_lg import (
     _install_historian,
     _translate_rate_matrix_from_historian_format,
     _translate_rate_matrix_to_historian_format,
     _translate_tree_and_msa_to_stock_format,
 )
-from src.io import read_rate_matrix
-from src.markov_chain import get_lg_path
-from src.utils import get_amino_acids
+from cherryml.io import read_rate_matrix
+from cherryml.markov_chain import get_lg_path
+from cherryml.utils import get_amino_acids
 
 DATA_DIR = "./tests/estimation_tests/test_input_data"
 
@@ -111,7 +111,7 @@ class TestEMLG(unittest.TestCase):
                 historian_learned_rate_matrix_file.name
             )
             command = (
-                "src/estimation/historian/bin/historian fit"
+                "cherryml/estimation/historian/bin/historian fit"
                 + "".join(
                     [f" {DATA_DIR}/stock_dir/fam1_{i}.txt" for i in range(3)]
                 )

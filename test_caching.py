@@ -1,6 +1,6 @@
 import os
 from typing import List, Optional
-from src.caching import cached_parallel_computation, cached_computation, set_use_hash, set_cache_dir, set_log_level
+from cherryml.caching import cached_parallel_computation, cached_computation, set_use_hash, set_cache_dir, set_log_level
 
 
 def test_cached_parallel_computation():

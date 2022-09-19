@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from src.evaluation import l_infty_norm, mre, rmse
+from cherryml.evaluation import l_infty_norm, mre, rmse
 
 
 class TestLInftyNorm(unittest.TestCase):

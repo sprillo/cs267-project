@@ -4,8 +4,8 @@ import unittest
 
 import numpy as np
 
-from src.estimation import jtt_ipw
-from src.io import read_rate_matrix
+from cherryml.estimation import jtt_ipw
+from cherryml.io import read_rate_matrix
 
 
 class TestJTT(unittest.TestCase):

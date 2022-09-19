@@ -4,7 +4,7 @@ import unittest
 import pytest
 from parameterized import parameterized
 
-from src.phylogeny_estimation import phyml
+from cherryml.phylogeny_estimation import phyml
 
 # def branch_length_l1_error(tree_true_path, tree_inferred_path) -> float:
 #     tree1 = Tree(tree_true_path)
