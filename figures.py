@@ -204,7 +204,7 @@ def create_synthetic_count_matrices(
 
 def fig_single_site_cherry(
     num_rate_categories: int = 1,
-    num_processes_tree_estimation: int = 32,
+    num_processes_tree_estimation: int = 4,
     num_sequences: int = 128,
     random_seed: int = 0,
 ):
@@ -377,7 +377,7 @@ def fig_single_site_cherry(
 
 def fig_single_site_em(
     extra_em_command_line_args: str = "-band 0 -fixgaprates -mininc 0.000001 -maxiter 100000000 -nolaplace",  # noqa
-    num_processes: int = 32,
+    num_processes: int = 4,
     num_rate_categories: int = 1,
     num_sequences: int = 128,
     random_seed: int = 0,
@@ -542,16 +542,18 @@ def fig_computational_and_stat_eff_cherry_vs_em():
     em_errors = [float("%.1f" % (100 * x)) for x in em_errors_nonpct]
     assert num_families_cherry == num_families_em
 
-    print(f"cherry_errors = {cherry_errors}")
+    print(f"cherry_errors_nonpct = {cherry_errors_nonpct}")
     print(f"cherry_times = {cherry_times}")
-    print(f"em_errors = {em_errors}")
+    print(f"em_errors_nonpct = {em_errors_nonpct}")
     print(f"em_times = {em_times}")
 
     num_families = num_families_cherry
     indices = [i for i in range(len(num_families))]
     plt.figure(dpi=300)
-    plt.plot(indices, cherry_errors, "o-", label="CherryML")
-    plt.plot(indices, em_errors, "o-", label="EM")
+    plt.plot(
+        indices, 100 * np.array(cherry_errors_nonpct), "o-", label="CherryML"
+    )
+    plt.plot(indices, 100 * np.array(em_errors_nonpct), "o-", label="EM")
     plt.ylim((0.5, 200))
     plt.xticks(indices, num_families, fontsize=fontsize)
     plt.yscale("log", base=10)
@@ -2276,7 +2278,7 @@ def fig_MSA_VI_cotransition(
                         print(
                             f"sites ({i}, {j}): ({aa_1}{aa_2}, {aa_2}{aa_1}, "
                             f"{aa_1}{aa_1}, {aa_2}{aa_2}) = "
-                            "(%.2f, %.2f, %.2f, %.2f)"
+                            "(%.3f, %.3f, %.3f, %.3f)"
                             % (
                                 pct_IV,
                                 pct_VI,

@@ -168,7 +168,7 @@ def _subsample_pfam_15k_msa(
     if num_sequences is not None:
         max_seqs = min(nseqs, num_sequences)
         seqs_to_keep = [0] + list(
-            rng.choice(range(1, nseqs, 1), size=nseqs - 1)[: (max_seqs - 1)]
+            rng.choice(range(1, nseqs, 1), size=max_seqs - 1, replace=False)
         )
         seqs_to_keep = sorted(seqs_to_keep)
         msa = [msa[i] for i in seqs_to_keep]
