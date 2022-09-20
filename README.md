@@ -38,6 +38,8 @@ https://files.ipd.uw.edu/pub/trRosetta/training_set.tar.gz
 
 After downloading and untarring the data into this repository, rename the `training_set` directory to `input_data`.
 
+You do not need to worry about downloading the data from the LG paper - we will download this automatically for you.
+
 ## Reproduce figures
 
 You are now ready to reproduce all figures in our paper. Just run `main.py` to reproduce all figures in our paper. The approximate runtime needed to reproduce each figure this way is commented in `main.py`. To reproduce a specific figure, comment out the figures you do not want in `main.py`. The code is written in a functional style, so the functions can be run in any order at any time and will reproduce the results. All the intermediate computations are cached, so re-running the code will be very fast the second time around. The output figures will be found in the `images` folder.
