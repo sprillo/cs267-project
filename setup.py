@@ -14,7 +14,7 @@ setup(
         'biotite',
         'ete3',
         'flake8',
-        'json',
+        'jsonlib',
         'matplotlib',
         'networkx',
         'numpy',
