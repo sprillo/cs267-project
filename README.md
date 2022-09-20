@@ -1,6 +1,6 @@
 # CherryML: Scalable Maximum Likelihood Estimation of Phylogenetic Models
 
-To reproduce all figures in our paper, proceed as follows.
+To reproduce all figures in our paper, proceed as follows:
 
 ## Install requirements
 
@@ -40,4 +40,6 @@ After downloading and untarring the data into this repository, rename the `train
 
 ## Reproduce figures
 
-YOu are ready to reproduce all figures in our paper. Just run `main.py` to reproduce all figures in our paper. The approximate runtime needed to reproduce each figure this way is commented in `main.py`. To reproduce a specific figure, comment out the figures you don't want in `main.py`. The code is written in a functional style, so the functions can be run in any order at any time and will reproduce the results. The output figures will be found in the `images` folder. Tree estimation is parallelized, so by default you will need a machine with at least 32 cores. If you would like to use more (or less) cores, modify the default values of `num_processes_tree_estimation` in the signatures of `figures.py`. (However, note that the bottleneck is not tree estimation but performing EM with Historian (Fig. 1b), which will take around 60 hours regardless.)
+You are now ready to reproduce all figures in our paper. Just run `main.py` to reproduce all figures in our paper. The approximate runtime needed to reproduce each figure this way is commented in `main.py`. To reproduce a specific figure, comment out the figures you do not want in `main.py`. The code is written in a functional style, so the functions can be run in any order at any time and will reproduce the results. All the intermediate computations are cached, so re-running the code will be very fast the second time around. The output figures will be found in the `images` folder.
+
+Tree estimation is parallelized, so by default you will need a machine with at least 32 cores. If you would like to use more (or less) cores, modify the default values of `num_processes_tree_estimation` in the signatures of `figures.py`. (However, note that the bottleneck is not tree estimation but performing EM with Historian (Fig. 1b), which will take around 60 hours regardless.)
