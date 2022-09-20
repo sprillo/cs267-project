@@ -267,8 +267,6 @@ def _map_func(args: Dict):
         )
 
 
-# TODO: I am not excluding use_cpp_implementation, since the way that Python and
-# C++ generate their randomness is different.
 @cached_parallel_computation(
     parallel_arg="families",
     exclude_args=[

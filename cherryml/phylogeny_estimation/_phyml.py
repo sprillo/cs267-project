@@ -41,14 +41,10 @@ def _install_phyml():
     Install PhyML
 
     See https://github.com/stephaneguindon/phyml
-
-    TODO: Enable MPI to accelerate? (Probably not worth it since we will
-    multiprocess anyway)
     """
     logger = logging.getLogger("phylo_correction.phyml")
     logger.info("Checking for PhyML ...")
     if not os.path.exists(phyml_bin_path):
-        # TODO: Make this part of installation?
         logger.info(
             f"git clone https://github.com/stephaneguindon/phyml {phyml_path}"
         )

@@ -50,12 +50,6 @@ def _get_func_caching_dir_aux(
     args = deepcopy(args)
     kwargs = deepcopy(kwargs)
 
-    # To bind the func call, we need to have all arguments specified. Since the
-    # output dirs can be omitted, we just hackily assign them None. TODO: If
-    # the output dirs are passed as args, this fails due to a `TypeError:
-    # multiple values for argument`. The good news is that it fails noisily,
-    # instead of causing a silent bug. So really not critical to address right
-    # now.
     for output_dir in output_dirs:
         kwargs[output_dir] = None
 
@@ -194,9 +188,7 @@ def cached_computation(
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            # Only allow calling the function with kwargs for simplicity. TODO:
-            # If I find a way to put all the args into kwargs, I can remove
-            # this restriction from the user.
+            # Only allow calling the function with kwargs for simplicity.
             if len(args) > 0:
                 raise CacheUsageError(
                     f"Please call {func.__name__} with keyword arguments only. "

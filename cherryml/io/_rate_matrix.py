@@ -62,7 +62,6 @@ def read_rate_matrix(rate_matrix_path: str) -> pd.DataFrame:
         keep_default_na=False,
         na_values=["_"],
     ).astype(float)
-    # TODO: Assert that it is a rate matrix
     return res
 
 

@@ -97,8 +97,6 @@ def _get_func_caching_dir(
 
     # Compute the cache key
     if not use_hash:
-        # TODO: use the function name _and_ the module name? (To avoid function
-        # name collision with other modules that use the caching decorator)
         path = (
             [cache_dir]
             + [f"{func.__name__}"]
@@ -109,8 +107,6 @@ def _get_func_caching_dir(
             ]
         )
     else:
-        # TODO: use the function name _and_ the module name? (To avoid function
-        # name collision with other modules that use the caching decorator)
         path = (
             [cache_dir]
             + [f"{func.__name__}"]

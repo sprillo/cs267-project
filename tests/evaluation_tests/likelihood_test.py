@@ -127,10 +127,6 @@ def likelihood_computation_wrapper(
 
     If device_2 is None, then all the coevolution parameters will be replaced
     by None in the call to compute_log_likelihoods.
-
-    TODO: Generalize to many families! And add a test to make sure that when
-    multiprocessing, there is no contention for resources (e.g. GPU); and env
-    vars are set correctly.
     """
     if method == "python" or method == "C++":
         families = [f"fam-{i}" for i in range(num_families)]
