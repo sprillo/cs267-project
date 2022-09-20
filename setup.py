@@ -7,7 +7,7 @@ from cherryml import __version__ as version
 
 
 setup(
-    name='cs267_project',
+    name='cherryml',
     version=version,
     packages=find_packages(),
     install_requires=[
