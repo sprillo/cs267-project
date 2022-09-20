@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 # Import version
-__builtins__.__CS267_PROJECT_SETUP__ = True
+__builtins__.__CHERRYML_SETUP__ = True
 from cherryml import __version__ as version
 
 
